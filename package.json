@@ -1,0 +1,13 @@
+{
+  "name": "frame-editor",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @frame-editor/web dev",
+    "dev:api": "pnpm --filter @frame-editor/api dev",
+    "dev:worker": "pnpm --filter @frame-editor/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

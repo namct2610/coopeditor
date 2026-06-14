@@ -1,0 +1,11 @@
+{
+  "name": "@frame-editor/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "build": "echo \"build api\"",
+    "typecheck": "echo \"add TypeScript setup for api\""
+  }
+}

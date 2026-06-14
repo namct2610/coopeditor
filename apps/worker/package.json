@@ -1,0 +1,11 @@
+{
+  "name": "@frame-editor/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/worker.js",
+    "build": "echo \"build worker\"",
+    "typecheck": "echo \"add TypeScript setup for worker\""
+  }
+}
