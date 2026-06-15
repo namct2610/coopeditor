@@ -118,7 +118,10 @@ export function parseCookies(header) {
   return out;
 }
 
-const SECURE = process.env.COOKIE_SECURE === "1" || process.env.NODE_ENV === "production";
+// Secure cookies only work over HTTPS. In NAS-first deployments we may expose
+// the app over plain HTTP on a private/Tailscale network, so this must stay
+// opt-in via runtime config instead of being forced by NODE_ENV=production.
+const SECURE = process.env.COOKIE_SECURE === "1";
 
 export function cookieSetHeader(token, maxAgeSec = TTL_SEC) {
   const parts = [
