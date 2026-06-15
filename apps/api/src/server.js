@@ -156,7 +156,17 @@ async function handle(req, res, url) {
   setSecurityHeaders(res);
 
   if (p === "/health" && m === "GET") return send(res, 200, { ok: true, dsmConfigured: !dsm.isDevMode(), backend: store.backend });
-  if (p === "/setup/status" && m === "GET") return send(res, 200, publicRuntimeSummary());
+  if (p === "/setup/status" && m === "GET") {
+    // When server.js is running, runtime IS configured (via env or config file).
+    // Force `configured: true` so the FE doesn't render the setup wizard.
+    return send(res, 200, { ...publicRuntimeSummary(), configured: true });
+  }
+  if (p === "/version" && m === "GET") {
+    return send(res, 200, {
+      sha: process.env.BUILD_SHA || "unknown",
+      builtAt: process.env.BUILT_AT || "unknown",
+    });
+  }
   if (p === "/metrics" && m === "GET") return sendMetrics(res);
   if (p === "/auth/dsm/login" && m === "POST") return handleLogin(req, res);
   if (p === "/auth/logout" && m === "POST") return handleLogout(req, res);
@@ -510,6 +520,14 @@ async function handle(req, res, url) {
 
   if (p === "/users" && m === "GET") return send(res, 200, await store.listUsers());
 
+  if (p === "/admin/update-status" && m === "GET") {
+    // Any logged-in owner of any project can check. (Cheaper than building a real "admin" role.)
+    const members = await store.listProjectMembersForUser(sess.userId).catch(() => []);
+    const isAdmin = members && members.some((mm) => mm.role === "owner");
+    if (!isAdmin) return bad(res, "Forbidden", 403);
+    return send(res, 200, await checkUpdateStatus());
+  }
+
   if ((mat = p.match(/^\/projects\/([^/]+)\/shares$/))) {
     const projectId = mat[1];
     if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
@@ -567,7 +585,7 @@ async function handleLogin(req, res) {
   let r;
   try { r = await dsm.dsmLogin(body); }
   catch (err) { return bad(res, "DSM error: " + (err && err.message), 502); }
-  if (r && r.needsOtp) return send(res, 200, { needsOtp: true });
+  if (r && r.needsOtp) return send(res, 200, { needsOtp: true, otpInvalid: !!r.otpInvalid, error: r.error || null });
   if (!r || !r.ok) return bad(res, (r && r.error) || "Login failed", 401);
   const user = await store.upsertUserFromDsm({ uid: r.uid, name: r.name, email: r.email });
   const token = await createSession({ userId: user.id, dsmSid: r.sid });
@@ -605,6 +623,37 @@ async function handleOidcCallback(req, res, url) {
   } catch (err) {
     req.log.error({ err: err.message }, "OIDC callback failed");
     bad(res, "OIDC callback failed: " + err.message, 502);
+  }
+}
+
+// Update check: compare BUILD_SHA with the latest commit on the remote.
+// UPDATE_FEED_URL = a URL that returns { sha, builtAt? } as JSON.
+//   - GitHub: https://api.github.com/repos/<owner>/<repo>/commits/main → use .sha
+//   - GitLab: https://gitlab.com/api/v4/projects/<id>/repository/commits/main → .id
+//   - Self-hosted: any endpoint returning { sha } JSON
+//
+// If UPDATE_FEED_URL is unset, we can't check remote — return "unknown".
+let _updateCache = null;
+async function checkUpdateStatus() {
+  const localSha = process.env.BUILD_SHA || "unknown";
+  const localBuiltAt = process.env.BUILT_AT || "unknown";
+  const feed = process.env.UPDATE_FEED_URL || "";
+  if (!feed) return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false };
+
+  // Cache 5 phút để không spam GitHub API
+  if (_updateCache && Date.now() - _updateCache.at < 300_000) return { localSha, localBuiltAt, ..._updateCache.data };
+
+  try {
+    const r = await fetch(feed, { headers: { "user-agent": "frame-editor-updater", accept: "application/json" }, signal: AbortSignal.timeout?.(8000) });
+    if (!r.ok) return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false, error: "remote HTTP " + r.status };
+    const body = await r.json();
+    const remoteSha = body.sha || body.id || (body.commit && body.commit.sha) || null;
+    const updateAvailable = !!(remoteSha && localSha !== "unknown" && remoteSha.slice(0, 7) !== localSha.slice(0, 7));
+    const data = { remoteSha, updateAvailable, checkAvailable: true };
+    _updateCache = { at: Date.now(), data };
+    return { localSha, localBuiltAt, ...data };
+  } catch (err) {
+    return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false, error: err.message };
   }
 }
 

@@ -19,4 +19,11 @@ ENV NODE_ENV=production
 ENV PORT=4000
 EXPOSE 4000
 
+# BUILD_SHA + BUILT_AT injected by docker compose at build time so the running
+# container knows its own version. `docker compose build` reads these from .env.
+ARG BUILD_SHA=unknown
+ARG BUILT_AT=unknown
+ENV BUILD_SHA=${BUILD_SHA}
+ENV BUILT_AT=${BUILT_AT}
+
 CMD ["node", "apps/api/src/bootstrap.js"]

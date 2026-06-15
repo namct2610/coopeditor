@@ -21,6 +21,7 @@ export const listProjectsForUser = USE_PG ? impl.listProjectsForUser : A(impl.li
 export const getProject          = USE_PG ? impl.getProject          : A(impl.getProject);
 export const getProjectMember    = USE_PG ? impl.getProjectMember    : A(impl.getProjectMember);
 export const listProjectMembers  = USE_PG ? impl.listProjectMembers  : A(impl.listProjectMembers);
+export const listProjectMembersForUser = USE_PG ? impl.listProjectMembersForUser : A(impl.listProjectMembersForUser);
 export const upsertProjectMember = USE_PG ? impl.upsertProjectMember : A(impl.upsertProjectMember);
 export const setProjectMemberRole = USE_PG ? impl.setProjectMemberRole : A(impl.setProjectMemberRole);
 export const listProjectMemberUserIds = USE_PG ? impl.listProjectMemberUserIds : A(impl.listProjectMemberUserIds);

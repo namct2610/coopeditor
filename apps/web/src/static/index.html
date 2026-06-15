@@ -881,6 +881,96 @@ function sourceGridView(vals) {
   `).join("")}</div>`;
 }
 
+// ---- Annotation: SVG overlay + toolbar -----------------------------------
+// Coordinates stored 0..1 (normalized) so annotations survive any scaling.
+// On comment submit, state.annotationStrokes is shipped với body.annotation.
+function annotationToolbar() {
+  if (state.view !== "review") return "";
+  const active = !!state.annotationMode;
+  const tool = state.annotationTool || "pen";
+  const color = state.annotationColor || "#ef4d57";
+  const colors = ["#ef4d57", "#f5a623", "#35c389", "#2da8e2", "#a07bff", "#ffffff"];
+  const tools = [{ id: "pen", label: "✎ Vẽ" }, { id: "arrow", label: "→ Mũi tên" }, { id: "rect", label: "▭ Khung" }];
+  const strokeCount = (state.annotationStrokes || []).length;
+  return `
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;flex-wrap:wrap;">
+      <button data-act="toggleAnnotationMode" class="co-border-hover" title="Bật/tắt chế độ vẽ chú thích trên khung hình" style="display:inline-flex;align-items:center;gap:6px;background:${active ? "#ef4d57" : "transparent"};color:${active ? "#fff" : "var(--co-text-2)"};border:1px solid ${active ? "#ef4d57" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer;">
+        ${active ? "● Đang vẽ" : "✎ Vẽ chú thích"}
+      </button>
+      ${active ? `
+        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="background:${tool === t.id ? "#2da8e2" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#2da8e2" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.label}</button>`).join("")}
+        <span style="display:inline-flex;gap:4px;align-items:center;padding:0 4px;">
+          ${colors.map((c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === color ? "#fff" : "transparent"};cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,0.3);"></button>`).join("")}
+        </span>
+        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${strokeCount} nét — sẽ gửi cùng comment tiếp theo</span>
+        <button data-act="clearAnnotation" style="background:transparent;color:#ef4d57;border:1px solid rgba(239,77,87,0.3);font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">Xóa</button>
+      ` : ""}
+    </div>`;
+}
+
+function annotationOverlay() {
+  const strokes = state.annotationStrokes || [];
+  const drawing = state.annotationDrawing;
+  const all = drawing ? [...strokes, drawing] : strokes;
+  return `
+    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:crosshair;touch-action:none;"
+         onpointerdown="window.__annPtr&&window.__annPtr('down',event)"
+         onpointermove="window.__annPtr&&window.__annPtr('move',event)"
+         onpointerup="window.__annPtr&&window.__annPtr('up',event)"
+         onpointercancel="window.__annPtr&&window.__annPtr('up',event)"
+         onpointerleave="window.__annPtr&&window.__annPtr('up',event)">
+      ${all.map((s) => renderStrokeSvg(s)).join("")}
+    </svg>`;
+}
+
+function renderStrokeSvg(s) {
+  if (!s || !s.points || s.points.length < 1) return "";
+  const c = s.color || "#ef4d57";
+  const sw = 0.004; // stroke width in normalized units (~ 4px on 1080p frame)
+  if (s.tool === "rect" && s.points.length >= 2) {
+    const a = s.points[0], b = s.points[s.points.length - 1];
+    const x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]);
+    const w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]);
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${c}" stroke-width="${sw}" vector-effect="non-scaling-stroke" />`;
+  }
+  if (s.tool === "arrow" && s.points.length >= 2) {
+    const a = s.points[0], b = s.points[s.points.length - 1];
+    const id = "arrh-" + Math.round(Math.random() * 100000);
+    return `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${c}"/></marker></defs>
+      <line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${sw}" marker-end="url(#${id})" vector-effect="non-scaling-stroke" />`;
+  }
+  // pen — free draw polyline
+  const pts = s.points.map((p) => p[0] + "," + p[1]).join(" ");
+  return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />`;
+}
+
+// Pointer event handler — module-scope so the SVG inline attributes can hit it.
+window.__annPtr = function (phase, ev) {
+  if (!state.annotationMode) return;
+  const svg = ev.currentTarget;
+  const rect = svg.getBoundingClientRect();
+  const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+  const y = Math.max(0, Math.min(1, (ev.clientY - rect.top) / rect.height));
+  if (phase === "down") {
+    state.annotationDrawing = { tool: state.annotationTool, color: state.annotationColor, points: [[x, y]] };
+    try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+    render();
+  } else if (phase === "move" && state.annotationDrawing) {
+    const pts = state.annotationDrawing.points;
+    // throttle: only push if moved enough
+    const last = pts[pts.length - 1];
+    if (Math.hypot(x - last[0], y - last[1]) < 0.002) return;
+    pts.push([x, y]);
+    if (pts.length > 256) pts.splice(0, pts.length - 256);
+    render();
+  } else if (phase === "up" && state.annotationDrawing) {
+    state.annotationStrokes = [...(state.annotationStrokes || []), state.annotationDrawing];
+    state.annotationDrawing = null;
+    if (state.annotationStrokes.length > 50) state.annotationStrokes = state.annotationStrokes.slice(-50);
+    render();
+  }
+};
+
 function membersModal(vals) {
   return `
   <div data-act="closeMembers" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:90;display:grid;place-items:center;padding:24px;">
@@ -1596,6 +1686,10 @@ function handleAct(act, arg, e, node) {
     case "toggleMembers": return setState({ showMembers: !state.showMembers });
     case "closeMembers": return setState({ showMembers: false });
     case "toggleAudit": return openAudit();
+    case "toggleAnnotationMode": return setState({ annotationMode: !state.annotationMode });
+    case "setAnnotationTool": return setState({ annotationTool: arg });
+    case "setAnnotationColor": return setState({ annotationColor: decodeURIComponent(arg) });
+    case "clearAnnotation": return setState({ annotationStrokes: [], annotationDrawing: null });
     case "closeAudit": return setState({ showAudit: false });
     case "archiveProject": return archiveSelectedProject();
     case "restoreProject": return restoreSelectedProject();
@@ -1755,9 +1849,16 @@ const setup = {
 
 async function api(path, opts) {
   const res = await fetchWithTimeout(API_BASE + path, opts);
-  if (res.status === 401) { remote.me = null; throw Object.assign(new Error("unauthorized"), { status: 401 }); }
   const text = await res.text();
-  const json = text ? JSON.parse(text) : {};
+  let json = {};
+  if (text) { try { json = JSON.parse(text); } catch (_) { json = { error: text.slice(0, 200) }; } }
+  if (res.status === 401) {
+    // Probing /me as part of bootstrap is expected to return 401 when not logged in —
+    // surface a generic flag, not a noisy message. Login endpoints get the real DSM error.
+    const isLoginPath = path.indexOf("/auth/") === 0;
+    remote.me = null;
+    throw Object.assign(new Error(isLoginPath ? (json.error || "Sai tài khoản hoặc mật khẩu") : "unauthorized"), { status: 401, body: json });
+  }
   if (!res.ok) throw Object.assign(new Error(json.error || ("HTTP " + res.status)), { status: res.status, body: json });
   return json;
 }
@@ -2125,9 +2226,11 @@ async function toggleShowArchived() {
 
 // ---- mutations (write-through) ----
 
-async function remotePostComment(versionId, content, timestampMs, frameNumber) {
+async function remotePostComment(versionId, content, timestampMs, frameNumber, annotation) {
   if (!remote.me) return;
-  try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body: { content, timestampMs, frameNumber } }); await refreshComments(versionId); render(); } catch (_) {}
+  const body = { content, timestampMs, frameNumber };
+  if (annotation && annotation.strokes && annotation.strokes.length) body.annotation = annotation;
+  try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body }); await refreshComments(versionId); render(); } catch (_) {}
 }
 async function remoteToggleResolve(commentId, resolved) {
   if (!remote.me) return;
@@ -2256,12 +2359,26 @@ async function doLogin() {
     const body = { account: auth.account, passwd: auth.passwd };
     if (auth.needsOtp) body.otp_code = auth.otp;
     const r = await api("/auth/dsm/login", { method: "POST", body });
-    if (r.needsOtp) { auth.needsOtp = true; auth.busy = false; auth.error = ""; return render(); }
-    // logged in
+    if (r.needsOtp) {
+      auth.needsOtp = true;
+      auth.busy = false;
+      auth.error = r.error || (r.otpInvalid ? "Mã OTP sai hoặc đã hết hạn — thử mã mới" : "");
+      if (r.otpInvalid) auth.otp = ""; // wipe so the input is ready for retype
+      return render();
+    }
+    // Logged in. Dismiss the overlay BEFORE awaiting loadRemote — otherwise the
+    // user stares at "Đang xác thực…" for a few seconds while projects/users load,
+    // which feels like a hang.
     remote.me = r.user; auth.busy = false; auth.needsOtp = false; auth.passwd = ""; auth.otp = "";
-    await loadRemote(); render();
+    render();
+    loadRemote()
+      .then(() => render())
+      .catch((err2) => { remote.error = err2 && err2.message; render(); });
   } catch (err) {
-    auth.busy = false; auth.error = err.message || "Đăng nhập thất bại"; render();
+    auth.busy = false;
+    auth.error = (err && err.message) || "Đăng nhập thất bại";
+    auth.otp = ""; // wipe wrong OTP so user can retype cleanly
+    render();
   }
 }
 
@@ -2451,9 +2568,20 @@ goProjects = function () {
 const _origPostComment = postComment;
 postComment = function () {
   const text = (state.newComment || "").trim();
+  // Snapshot annotation BEFORE the local stub clears state.newComment
+  const annotation = (state.annotationStrokes && state.annotationStrokes.length)
+    ? { strokes: state.annotationStrokes.slice() }
+    : null;
   _origPostComment();
   if (remote.me && state._currentVersionId && text) {
-    remotePostComment(state._currentVersionId, text, Math.round(state.currentMs), Math.round(state.currentMs / 1000 * state.fps));
+    remotePostComment(state._currentVersionId, text, Math.round(state.currentMs), Math.round(state.currentMs / 1000 * state.fps), annotation);
+  }
+  // After post: clear annotation + exit drawing mode for a clean next comment
+  if (annotation) {
+    state.annotationStrokes = [];
+    state.annotationDrawing = null;
+    state.annotationMode = false;
+    render();
   }
 };
 const _origToggleResolve = toggleResolve;

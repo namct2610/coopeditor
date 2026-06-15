@@ -59,8 +59,9 @@ services:
 
   api:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/your-github-owner/frame-editor-api:latest
+    image: ghcr.io/namct2610/frame-editor-api:latest
     container_name: frame-editor-api
+    pull_policy: always
     restart: unless-stopped
     init: true
     labels:
@@ -92,8 +93,9 @@ services:
 
   worker:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/your-github-owner/frame-editor-worker:latest
+    image: ghcr.io/namct2610/frame-editor-worker:latest
     container_name: frame-editor-worker
+    pull_policy: always
     restart: unless-stopped
     init: true
     labels:
@@ -121,8 +123,9 @@ services:
 
   web:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/your-github-owner/frame-editor-web:latest
+    image: ghcr.io/namct2610/frame-editor-web:latest
     container_name: frame-editor-web
+    pull_policy: always
     restart: unless-stopped
     init: true
     labels:

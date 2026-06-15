@@ -64,6 +64,9 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-unknown}
+        BUILT_AT: ${BUILT_AT:-unknown}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -80,6 +83,9 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-frame-proxy}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio12345}
+      UPDATE_FEED_URL: ${UPDATE_FEED_URL:-}
+      BUILD_SHA: ${BUILD_SHA:-unknown}
+      BUILT_AT: ${BUILT_AT:-unknown}
     command: >
       sh -c "
         node apps/api/src/migrate.js &&

@@ -72,8 +72,16 @@ export async function dsmLogin({ account, passwd, otp_code }) {
     return { ok: true, sid: body.data.sid, uid, name, email };
   }
   const code = body && body.error && body.error.code;
-  // DSM 2FA codes: 403 = OTP code required, 404 = OTP code invalid
-  if (code === 403 || code === 404) return { needsOtp: true };
+  // DSM 2FA codes:
+  //   403 = OTP code required (first attempt without otp_code)
+  //   404 = OTP code invalid (second attempt với otp_code sai)
+  //   400 = account/password invalid
+  //   401 = "guest account disabled" / no permission
+  //   407 = IP banned by auto-block
+  if (code === 403) return { needsOtp: true };
+  if (code === 404) return { needsOtp: true, otpInvalid: true, error: "Mã OTP sai hoặc đã hết hạn — thử mã mới" };
+  if (code === 400) return { error: "Tài khoản hoặc mật khẩu DSM không đúng" };
+  if (code === 407) return { error: "IP đã bị DSM chặn tự động — đăng nhập vào DSM gỡ chặn trước" };
   return { error: "DSM login failed (code " + (code || "?") + ")" };
 }
 
