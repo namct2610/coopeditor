@@ -5,7 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "migrate": "node src/migrate.js",
+    "seed": "node src/seed.js",
+    "test": "node --test test/",
+    "test:pg": "node --test test/pg-mode.test.js",
     "build": "echo \"build api\"",
     "typecheck": "echo \"add TypeScript setup for api\""
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.15",
+    "pg": "^8.13.0",
+    "pino": "^9.4.0",
+    "redis": "^6.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "testcontainers": "^10.13.0"
   }
 }

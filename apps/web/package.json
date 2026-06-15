@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "node src/dev-server.js",
+    "test:e2e": "playwright test tests/review.e2e.spec.js",
     "build": "echo \"build web\"",
     "typecheck": "echo \"add TypeScript setup for web\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   }
 }

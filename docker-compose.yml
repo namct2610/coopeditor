@@ -1,34 +1,143 @@
-version: "3.9"
+# Full stack for Frame Editor / Coopeditor.
+# Single command bring-up:  docker compose up -d
+# All knobs live in a single .env file (see .env.example).
 
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: frame
-      POSTGRES_PASSWORD: frame
-      POSTGRES_DB: frame_editor
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-frame}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-frame}
+      POSTGRES_DB: ${POSTGRES_DB:-frame_editor}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-frame}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   minio:
     image: minio/minio:latest
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minio12345}
     volumes:
       - minio_data:/data
+    ports:
+      - "9001:9001" # console UI (admin only — don't expose publicly)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # one-shot: creates the proxy bucket so worker doesn't crash on first upload
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minio} ${MINIO_SECRET_KEY:-minio12345};
+      mc mb --ignore-existing local/${MINIO_BUCKET:-frame-proxy};
+      "
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-frame_editor}
+      EVENT_BUS_DRIVER: ${EVENT_BUS_DRIVER:-pg}
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-frame_editor_events}
+      APP_DATA_DIR: /data
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: ${MINIO_BUCKET:-frame-proxy}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio12345}
+    command: >
+      sh -c "
+        node apps/api/src/migrate.js &&
+        if [ ! -f /data/.seeded ]; then node apps/api/src/seed.js && touch /data/.seeded; fi;
+        node apps/api/src/bootstrap.js
+      "
+    volumes:
+      - app_data:/data
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-frame_editor}
+      EVENT_BUS_DRIVER: ${EVENT_BUS_DRIVER:-pg}
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-frame_editor_events}
+      APP_DATA_DIR: /data
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: ${MINIO_BUCKET:-frame-proxy}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio12345}
+    volumes:
+      - app_data:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
 
 volumes:
   postgres_data:
+  redis_data:
   minio_data:
+  app_data:
+  caddy_data:
+  caddy_config:

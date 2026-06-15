@@ -1,0 +1,163 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: frame-editor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: frame
+      POSTGRES_PASSWORD: frame
+      POSTGRES_DB: frame_editor
+    volumes:
+      - frame_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frame"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: frame-editor-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - frame_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: frame-editor-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: frame-minio
+      MINIO_ROOT_PASSWORD: frame-minio-secret
+    volumes:
+      - frame_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: frame-editor-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 frame-minio frame-minio-secret;
+      mc mb --ignore-existing local/frame-proxy;
+      "
+    restart: "no"
+
+  api:
+    # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
+    image: ghcr.io/your-github-owner/frame-editor-api:latest
+    container_name: frame-editor-api
+    restart: unless-stopped
+    init: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://frame:frame@postgres:5432/frame_editor
+      EVENT_BUS_DRIVER: pg
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: frame_editor_events
+      APP_DATA_DIR: /data
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: frame-proxy
+      MINIO_ACCESS_KEY: frame-minio
+      MINIO_SECRET_KEY: frame-minio-secret
+      HOST: 0.0.0.0
+    command: >
+      sh -c "
+        node apps/api/src/migrate.js &&
+        if [ ! -f /data/.seeded ]; then node apps/api/src/seed.js && touch /data/.seeded; fi;
+        node apps/api/src/bootstrap.js
+      "
+    volumes:
+      - frame_app_data:/data
+
+  worker:
+    # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
+    image: ghcr.io/your-github-owner/frame-editor-worker:latest
+    container_name: frame-editor-worker
+    restart: unless-stopped
+    init: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://frame:frame@postgres:5432/frame_editor
+      EVENT_BUS_DRIVER: pg
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: frame_editor_events
+      APP_DATA_DIR: /data
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: frame-proxy
+      MINIO_ACCESS_KEY: frame-minio
+      MINIO_SECRET_KEY: frame-minio-secret
+    volumes:
+      - frame_app_data:/data
+
+  web:
+    # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
+    image: ghcr.io/your-github-owner/frame-editor-web:latest
+    container_name: frame-editor-web
+    restart: unless-stopped
+    init: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    environment:
+      HOST: 0.0.0.0
+
+  gateway:
+    image: caddy:2-alpine
+    container_name: frame-editor-gateway
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    ports:
+      - "8080:80"
+    volumes:
+      - ./Caddyfile.nas:/etc/caddy/Caddyfile:ro
+
+  watchtower:
+    image: docker.io/containrrr/watchtower:latest
+    container_name: frame-editor-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_POLL_INTERVAL: "900"
+
+volumes:
+  frame_postgres_data:
+  frame_redis_data:
+  frame_minio_data:
+  frame_app_data:

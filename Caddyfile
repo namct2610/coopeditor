@@ -1,0 +1,42 @@
+# Caddy reverse-proxy: TLS tự động qua Let's Encrypt (cần DOMAIN trỏ về VPS).
+# Frontend lấy domain gốc, API ở /api/*, SSE ở /api/events.
+
+{$DOMAIN:localhost} {
+	# Web (static HTML)
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy api:4000 {
+			# Forward client IP for rate-limit
+			header_up X-Forwarded-For {remote_host}
+			# Disable Caddy buffering for SSE
+			flush_interval -1
+		}
+	}
+
+	handle /hls/* {
+		reverse_proxy api:4000 {
+			header_up X-Forwarded-For {remote_host}
+			flush_interval -1
+		}
+	}
+
+	handle /shared/* {
+		reverse_proxy api:4000 {
+			header_up X-Forwarded-For {remote_host}
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# Strict security headers
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}
