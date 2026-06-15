@@ -8,6 +8,13 @@ const html = readFileSync(join(__dirname, "static", "index.html"), "utf8");
 
 const server = createServer((_, res) => {
   res.setHeader("content-type", "text/html; charset=utf-8");
+  // Never let browsers cache the single-page shell. On NAS deployments users
+  // often recreate the stack/project, and a stale cached HTML/JS bundle can
+  // trap them in an invalid setup/login flow until they manually clear cache.
+  res.setHeader("cache-control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("pragma", "no-cache");
+  res.setHeader("expires", "0");
+  res.setHeader("surrogate-control", "no-store");
   res.setHeader(
     "content-security-policy",
     "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; " +

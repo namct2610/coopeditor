@@ -29,6 +29,9 @@ import { publicRuntimeSummary } from "./runtime-config.js";
 function send(res, status, body, extraHeaders) {
   res.statusCode = status;
   res.setHeader("content-type", "application/json; charset=utf-8");
+  res.setHeader("cache-control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("pragma", "no-cache");
+  res.setHeader("expires", "0");
   if (extraHeaders) for (const [k, v] of Object.entries(extraHeaders)) res.setHeader(k, v);
   res.end(typeof body === "string" ? body : JSON.stringify(body));
 }

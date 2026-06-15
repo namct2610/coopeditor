@@ -1,4 +1,10 @@
 :80 {
+	header {
+		Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate"
+		Pragma "no-cache"
+		Expires "0"
+	}
+
 	handle /api/* {
 		uri strip_prefix /api
 		reverse_proxy api:4000 {
