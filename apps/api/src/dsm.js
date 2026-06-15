@@ -16,6 +16,7 @@ const execFileAsync = promisify(execFile);
 const DSM_HOST = process.env.DSM_HOST || "";
 const DSM_DEV_LOGIN = process.env.DSM_DEV_LOGIN === "1";
 const DSM_MOUNT_ROOT = process.env.DSM_MOUNT_ROOT || "";
+const DSM_FETCH_TIMEOUT_MS = Math.max(3000, Number.parseInt(process.env.DSM_FETCH_TIMEOUT_MS || "15000", 10) || 15000);
 if (process.env.DSM_INSECURE === "1") {
   // dev-only escape hatch for self-signed DSM certs
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -27,7 +28,16 @@ async function dsmGet(path, params) {
   if (!DSM_HOST) throw new Error("DSM_HOST not configured");
   const u = new URL(DSM_HOST.replace(/\/+$/, "") + path);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-  const res = await fetch(u);
+  const signal = AbortSignal.timeout ? AbortSignal.timeout(DSM_FETCH_TIMEOUT_MS) : undefined;
+  let res;
+  try {
+    res = await fetch(u, { signal });
+  } catch (err) {
+    if (err && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("DSM request timed out after " + DSM_FETCH_TIMEOUT_MS + "ms");
+    }
+    throw err;
+  }
   if (!res.ok) throw new Error("DSM HTTP " + res.status);
   return res.json();
 }

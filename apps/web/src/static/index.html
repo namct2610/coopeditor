@@ -1732,6 +1732,7 @@ const API_BASE = (function () {
 const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true } };
 let presenceTimer = null;
 const auth = { needsOtp: false, busy: false, error: "", account: "", passwd: "", otp: "" };
+const API_FETCH_TIMEOUT_MS = 20000;
 const setup = {
   busy: false,
   error: "",
@@ -1753,12 +1754,7 @@ const setup = {
 };
 
 async function api(path, opts) {
-  const res = await fetch(API_BASE + path, {
-    credentials: "include",
-    headers: { "content-type": "application/json", ...(opts && opts.headers) },
-    method: (opts && opts.method) || "GET",
-    body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
-  });
+  const res = await fetchWithTimeout(API_BASE + path, opts);
   if (res.status === 401) { remote.me = null; throw Object.assign(new Error("unauthorized"), { status: 401 }); }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
@@ -1767,16 +1763,30 @@ async function api(path, opts) {
 }
 
 async function apiPublic(path, opts) {
-  const res = await fetch(API_BASE + path, {
-    credentials: "include",
-    headers: { "content-type": "application/json", ...(opts && opts.headers) },
-    method: (opts && opts.method) || "GET",
-    body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
-  });
+  const res = await fetchWithTimeout(API_BASE + path, opts);
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) throw Object.assign(new Error(json.error || ("HTTP " + res.status)), { status: res.status, body: json });
   return json;
+}
+
+async function fetchWithTimeout(url, opts) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      credentials: "include",
+      headers: { "content-type": "application/json", ...(opts && opts.headers) },
+      method: (opts && opts.method) || "GET",
+      body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err && err.name === "AbortError") throw new Error("Yeu cau qua lau, vui long thu lai");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function bootstrap() {
