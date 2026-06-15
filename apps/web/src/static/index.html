@@ -1916,32 +1916,48 @@ function setupToggle(id, label, checked) {
 
 async function applySetup() {
   if (setup.busy || setup.restarting) return;
+  const payload = {
+    publicUrl: readValue("setupPublicUrl"),
+    dsmHost: readValue("setupDsmHost"),
+    dsmDevLogin: readChecked("setupDsmDevLogin"),
+    dsmInsecure: readChecked("setupDsmInsecure"),
+    smtp: {
+      url: readValue("setupSmtpUrl"),
+      from: readValue("setupSmtpFrom"),
+    },
+    webhooks: {
+      slackWebhookUrl: readValue("setupSlackWebhookUrl"),
+      discordWebhookUrl: readValue("setupDiscordWebhookUrl"),
+    },
+    transcode: {
+      workerConcurrency: readNumber("setupWorkerConcurrency", 2),
+      codecLadder: readValue("setupCodecLadder") || "h264",
+      hwaccel: readValue("setupHwaccel"),
+      autoscaleThreshold: readNumber("setupAutoscaleThreshold", 5),
+      autoscaleStep: readNumber("setupAutoscaleStep", 1),
+      maxConcurrency: readNumber("setupMaxConcurrency", 3),
+    },
+  };
+  Object.assign(setup, {
+    publicUrl: payload.publicUrl,
+    dsmHost: payload.dsmHost,
+    dsmDevLogin: payload.dsmDevLogin,
+    dsmInsecure: payload.dsmInsecure,
+    workerConcurrency: payload.transcode.workerConcurrency,
+    codecLadder: payload.transcode.codecLadder,
+    hwaccel: payload.transcode.hwaccel,
+    autoscaleThreshold: payload.transcode.autoscaleThreshold,
+    autoscaleStep: payload.transcode.autoscaleStep,
+    maxConcurrency: payload.transcode.maxConcurrency,
+    smtpUrl: payload.smtp.url,
+    smtpFrom: payload.smtp.from,
+    slackWebhookUrl: payload.webhooks.slackWebhookUrl,
+    discordWebhookUrl: payload.webhooks.discordWebhookUrl,
+  });
   setup.error = "";
   setup.busy = true;
   render();
   try {
-    const payload = {
-      publicUrl: readValue("setupPublicUrl"),
-      dsmHost: readValue("setupDsmHost"),
-      dsmDevLogin: readChecked("setupDsmDevLogin"),
-      dsmInsecure: readChecked("setupDsmInsecure"),
-      smtp: {
-        url: readValue("setupSmtpUrl"),
-        from: readValue("setupSmtpFrom"),
-      },
-      webhooks: {
-        slackWebhookUrl: readValue("setupSlackWebhookUrl"),
-        discordWebhookUrl: readValue("setupDiscordWebhookUrl"),
-      },
-      transcode: {
-        workerConcurrency: readNumber("setupWorkerConcurrency", 2),
-        codecLadder: readValue("setupCodecLadder") || "h264",
-        hwaccel: readValue("setupHwaccel"),
-        autoscaleThreshold: readNumber("setupAutoscaleThreshold", 5),
-        autoscaleStep: readNumber("setupAutoscaleStep", 1),
-        maxConcurrency: readNumber("setupMaxConcurrency", 3),
-      },
-    };
     await apiPublic("/setup/apply", { method: "POST", body: payload });
     setup.busy = false;
     setup.restarting = true;
