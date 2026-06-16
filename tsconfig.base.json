@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@frame-editor/contracts": [
+      "@coopeditor/contracts": [
         "packages/contracts/src"
       ]
     }

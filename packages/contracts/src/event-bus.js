@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-export const PG_EVENT_CHANNEL = "frame_editor_events";
-export const REDIS_STREAM_KEY_DEFAULT = "frame_editor_events";
+export const PG_EVENT_CHANNEL = "coopeditor_events";
+export const REDIS_STREAM_KEY_DEFAULT = "coopeditor_events";
 
 export function resolveEventBusDriver(env = process.env) {
   const configured = (env.EVENT_BUS_DRIVER || "").trim().toLowerCase();

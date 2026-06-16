@@ -1,12 +1,12 @@
 {
-  "name": "frame-editor",
+  "name": "coopeditor",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev:web": "pnpm --filter @frame-editor/web dev",
-    "dev:api": "pnpm --filter @frame-editor/api dev",
-    "dev:worker": "pnpm --filter @frame-editor/worker dev",
+    "dev:web": "pnpm --filter @coopeditor/web dev",
+    "dev:api": "pnpm --filter @coopeditor/api dev",
+    "dev:worker": "pnpm --filter @coopeditor/worker dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
   }

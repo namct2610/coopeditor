@@ -9,7 +9,7 @@
 import { logger } from "./logger.js";
 
 const SMTP_URL = process.env.SMTP_URL || "";
-const FROM_ADDR = process.env.SMTP_FROM || "Frame Editor <no-reply@example.com>";
+const FROM_ADDR = process.env.SMTP_FROM || "Coopeditor <no-reply@example.com>";
 const PUBLIC_URL = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
 
 // DIGEST_MINUTES = 0 (default) → send 1 email per comment immediately.
@@ -85,7 +85,7 @@ export function notifyComment({ recipients, projectName, sourceTitle, authorName
     `${authorName} vừa thêm comment tại ${tc} trong ${sourceTitle}:\n\n` +
     `  ${content.slice(0, 400)}\n\n` +
     `Mở project: ${link}\n` +
-    `— Frame Editor`;
+    `— Coopeditor`;
   for (const to of recipients) enqueue({ to, subject, text });
 }
 
@@ -107,7 +107,7 @@ async function flushBucket(recipient) {
   const entries = b.entries;
   const subject = entries.length === 1
     ? `[${entries[0].projectName}] ${entries[0].authorName} đã comment trên ${entries[0].sourceTitle}`
-    : `[Frame Editor] ${entries.length} comment mới trong ${new Set(entries.map((e) => e.projectName)).size} project`;
+    : `[Coopeditor] ${entries.length} comment mới trong ${new Set(entries.map((e) => e.projectName)).size} project`;
   const lines = [];
   if (entries.length > 1) lines.push(`Bạn có ${entries.length} comment mới trong ${DIGEST_MINUTES} phút qua:\n`);
   for (const e of entries) {
@@ -116,7 +116,7 @@ async function flushBucket(recipient) {
     lines.push(`  ${e.content.slice(0, 280)}`);
     lines.push(`  Mở: ${e.link}\n`);
   }
-  lines.push("— Frame Editor");
+  lines.push("— Coopeditor");
   enqueue({ to: recipient, subject, text: lines.join("\n") });
 }
 

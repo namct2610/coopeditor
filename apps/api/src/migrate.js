@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const dir = join(__dirname, "..", "migrations");
 
 async function main() {
-  if (!process.env.DATABASE_URL) { console.error("DATABASE_URL must be set (e.g. postgres://frame:frame@localhost:5432/frame_editor)"); process.exit(1); }
+  if (!process.env.DATABASE_URL) { console.error("DATABASE_URL must be set (e.g. postgres://frame:frame@localhost:5432/coopeditor)"); process.exit(1); }
   await initPg();
   const pool = db();
   // bootstrap migrations table itself

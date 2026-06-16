@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Chẩn đoán vì sao Watchtower không tự update Frame Editor images.
+# Chẩn đoán vì sao Watchtower không tự update Coopeditor images.
 # Chạy trên host (Synology / VPS) — không cần argument.
 #
 #   bash scripts/diagnose-watchtower.sh
@@ -7,18 +7,18 @@
 set -u
 
 OWNER="${OWNER:-namct2610}"   # đổi nếu GitHub owner khác
-IMAGES=("frame-editor-api" "frame-editor-web" "frame-editor-worker")
+IMAGES=("coopeditor-api" "coopeditor-web" "coopeditor-worker")
 
 ok()   { printf "✓ %s\n" "$*"; }
 warn() { printf "⚠ %s\n" "$*"; }
 fail() { printf "✗ %s\n" "$*"; }
 hr()   { printf -- "─%.0s" {1..60}; echo; }
 
-echo "Frame Editor — Watchtower diagnostic"
+echo "Coopeditor — Watchtower diagnostic"
 hr
 
 # 1. Watchtower container running?
-if docker ps --format '{{.Names}}' | grep -q '^frame-editor-watchtower$'; then
+if docker ps --format '{{.Names}}' | grep -q '^coopeditor-watchtower$'; then
   ok "Watchtower container đang chạy"
 else
   fail "Watchtower container KHÔNG chạy"
@@ -27,7 +27,7 @@ fi
 
 # 2. Watchtower log → có poll thật không?
 echo; echo "Watchtower log (10 dòng cuối):"
-docker logs --tail=10 frame-editor-watchtower 2>&1 | sed 's/^/   /'
+docker logs --tail=10 coopeditor-watchtower 2>&1 | sed 's/^/   /'
 
 # 3. App containers có label enable không?
 echo; echo "App containers + Watchtower label:"
@@ -77,7 +77,7 @@ done
 
 # 6. Latest GHCR commit vs local BUILD_SHA
 echo; echo "Phiên bản API đang chạy:"
-APIVER="$(docker exec frame-editor-api sh -c 'echo $BUILD_SHA' 2>/dev/null || echo "<container không chạy>")"
+APIVER="$(docker exec coopeditor-api sh -c 'echo $BUILD_SHA' 2>/dev/null || echo "<container không chạy>")"
 echo "   BUILD_SHA = ${APIVER}"
 if [ "$APIVER" = "unknown" ] || [ -z "$APIVER" ]; then
   warn "BUILD_SHA không được set — image build cũ trước khi workflow thêm build-args."
@@ -87,8 +87,8 @@ fi
 # 7. Watchtower force run ngay (skip 15 phút poll)
 echo; hr
 echo "Force update ngay:"
-echo "   docker exec frame-editor-watchtower /watchtower --run-once --label-enable"
+echo "   docker exec coopeditor-watchtower /watchtower --run-once --label-enable"
 echo
 echo "Xem log Watchtower realtime:"
-echo "   docker logs -f frame-editor-watchtower"
+echo "   docker logs -f coopeditor-watchtower"
 hr

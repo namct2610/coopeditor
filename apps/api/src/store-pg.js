@@ -388,7 +388,7 @@ function aliasUserId(raw) {
 export async function enqueueTranscode(renditionId) {
   await q(`INSERT INTO transcode_jobs (rendition_id) VALUES ($1)`, [renditionId]);
   // notify the worker(s) so they can wake up immediately
-  await q(`SELECT pg_notify('frame_editor_jobs', $1)`, [renditionId]).catch(() => {});
+  await q(`SELECT pg_notify('coopeditor_jobs', $1)`, [renditionId]).catch(() => {});
 }
 
 export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath }) {

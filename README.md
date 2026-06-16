@@ -1,4 +1,4 @@
-# Frame Editor
+# Coopeditor
 
 Nen tang review video noi bo theo huong Frame.io, toi uu cho workflow dung source 4K tren NAS nhung review/comment tren proxy bitrate thap.
 

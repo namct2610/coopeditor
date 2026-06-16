@@ -14,7 +14,7 @@ import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
-const MINIO_BUCKET = process.env.MINIO_BUCKET || "frame-proxy";
+const MINIO_BUCKET = process.env.MINIO_BUCKET || "coopeditor-proxy";
 const HLS_CDN_PUBLIC_URL = (process.env.HLS_CDN_PUBLIC_URL || "").replace(/\/+$/, "");
 const HLS_CDN_SIGNING_SECRET = process.env.HLS_CDN_SIGNING_SECRET || "";
 const HLS_CDN_TOKEN_TTL_SECONDS = Math.max(30, Number.parseInt(process.env.HLS_CDN_TOKEN_TTL_SECONDS || "300", 10) || 300);

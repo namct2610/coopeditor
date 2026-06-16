@@ -1,5 +1,5 @@
 // End-to-end smoke tests against the API in memory + dev-DSM mode.
-// Run with: pnpm --filter @frame-editor/api test
+// Run with: pnpm --filter @coopeditor/api test
 // (requires Node 22+ for built-in node:test)
 
 import { test, before, after } from "node:test";
@@ -78,9 +78,9 @@ test("/metrics exposes Prometheus counters and gauges", async () => {
   const r = await fetch(BASE + "/metrics");
   assert.equal(r.status, 200);
   const text = await r.text();
-  assert.match(text, /frame_editor_transcode_queue_depth \d+/);
-  assert.match(text, /frame_editor_login_attempts_total \d+/);
-  assert.match(text, /frame_editor_sse_subscribers \d+/);
+  assert.match(text, /coopeditor_transcode_queue_depth \d+/);
+  assert.match(text, /coopeditor_login_attempts_total \d+/);
+  assert.match(text, /coopeditor_sse_subscribers \d+/);
 });
 
 test("unauth endpoints return 401", async () => {

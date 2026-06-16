@@ -1,4 +1,4 @@
-// Frame Editor transcode worker.
+// Coopeditor transcode worker.
 //
 // Requires DATABASE_URL. Consumes rows from `transcode_jobs`, runs one of three modes
 // per rendition, and reports progress by:
@@ -14,9 +14,9 @@
 // Env:
 //   DATABASE_URL=postgres://...
 //   FFMPEG_PATH=/usr/bin/ffmpeg              # optional
-//   OUTPUT_DIR=/var/lib/frame-editor/hls     # for ffmpeg-only mode
+//   OUTPUT_DIR=/var/lib/coopeditor/hls     # for ffmpeg-only mode
 //   MINIO_ENDPOINT=http://localhost:9000     # optional (enables full mode)
-//   MINIO_BUCKET=frame-proxy
+//   MINIO_BUCKET=coopeditor-proxy
 //   MINIO_ACCESS_KEY=minio
 //   MINIO_SECRET_KEY=minio123
 //   MINIO_PUBLIC_URL=http://localhost:9000   # what the browser uses to fetch HLS
@@ -54,7 +54,7 @@ const mode = FFMPEG_PATH && MINIO_ENDPOINT ? "full" : (FFMPEG_PATH ? "ffmpeg-onl
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: scalingPolicy.maxConcurrency + 2 });
 const listenClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await listenClient.connect();
-await listenClient.query("LISTEN frame_editor_jobs");
+await listenClient.query("LISTEN coopeditor_jobs");
 listenClient.on("notification", () => wakeUp());
 
 let wakeWaiters = [];
@@ -270,7 +270,7 @@ async function runFfmpeg(rendition) {
       if (code !== 0) return reject(new Error("ffmpeg exit " + code));
       try {
         if (mode === "full") {
-          const bucket = process.env.MINIO_BUCKET || "frame-proxy";
+          const bucket = process.env.MINIO_BUCKET || "coopeditor-proxy";
           const keyPrefix = rendition.id + "/";
           for (const f of await fs.readdir(outDir)) {
             const body = await fs.readFile(join(outDir, f));

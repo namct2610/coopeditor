@@ -76,5 +76,5 @@ const server = createServer(async (req, res) => {
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT ?? 4000);
 server.listen(port, host, () => {
-  logger.info({ host, port }, "Frame Editor API setup mode listening");
+  logger.info({ host, port }, "Coopeditor API setup mode listening");
 });

@@ -1,4 +1,4 @@
-# Hướng dẫn deploy Frame Editor / Coopeditor
+# Hướng dẫn deploy Coopeditor / Coopeditor
 
 > Dành cho người dùng low-code: anh chỉ cần copy-paste các lệnh dưới đây. Không cần biết Node, Postgres, FFmpeg hay Docker chi tiết — Docker sẽ lo tất cả.
 
@@ -62,12 +62,12 @@ Kiểm tra: `docker --version` phải in ra phiên bản (vd. `Docker version 27
 # chọn thư mục mẹ
 cd ~ 
 # nếu repo trên GitHub
-git clone https://github.com/<your-org>/frame-editor.git
-cd frame-editor
+git clone https://github.com/<your-org>/coopeditor.git
+cd coopeditor
 
 # hoặc nếu anh chỉ có file zip
-unzip frame-editor.zip
-cd frame-editor
+unzip coopeditor.zip
+cd coopeditor
 ```
 
 ---
@@ -88,7 +88,7 @@ nano .env       # hoặc vi / dùng File Station nếu trên NAS
 | `PUBLIC_URL` | `http://localhost` | **Phải khớp DOMAIN**: vd `https://coopeditor.acme.vn` (có `s` nếu dùng HTTPS) |
 | `POSTGRES_PASSWORD` | `frame` | Password ngẫu nhiên ≥ 16 ký tự. Cách sinh: `openssl rand -base64 24` |
 | `EVENT_BUS_DRIVER` | `pg` | Giữ `pg` cho 1 API node. Đổi thành **`redis-streams`** khi scale nhiều API node để event SSE/comment/rendition đi qua Redis Streams. |
-| `EVENT_BUS_STREAM_KEY` | `frame_editor_events` | Chỉ đổi khi muốn tách stream theo môi trường (vd staging/prod). |
+| `EVENT_BUS_STREAM_KEY` | `coopeditor_events` | Chỉ đổi khi muốn tách stream theo môi trường (vd staging/prod). |
 | `MINIO_ACCESS_KEY` | `minio` | Tên random (vd `coop_minio_admin`) |
 | `MINIO_SECRET_KEY` | `minio12345` | Password ≥ 12 ký tự |
 | `HLS_CDN_PUBLIC_URL` | (trống) | URL public của CDN/front door đứng trước route HLS, ví dụ **`https://cdn.acme.vn/api/hls`**. Chỉ cần khi editor remote nhiều. |
@@ -145,7 +145,7 @@ Phải in ra đúng IP của máy.
 
 ## 6. Khởi động stack
 
-Trong thư mục `frame-editor`:
+Trong thư mục `coopeditor`:
 
 ```bash
 docker compose up -d
@@ -231,14 +231,14 @@ docker compose up -d
 ### Backup Postgres (script chạy hằng đêm)
 Thêm vào crontab (`crontab -e`):
 ```cron
-0 2 * * *  cd ~/frame-editor && docker compose exec -T postgres pg_dump -U frame frame_editor | gzip > ~/backups/db-$(date +\%F).sql.gz
+0 2 * * *  cd ~/coopeditor && docker compose exec -T postgres pg_dump -U frame coopeditor | gzip > ~/backups/db-$(date +\%F).sql.gz
 ```
 
 ### Backup MinIO
 ```cron
-30 2 * * *  rsync -a --delete /var/lib/docker/volumes/frame-editor_minio_data/_data/ /mnt/backup-disk/minio/
+30 2 * * *  rsync -a --delete /var/lib/docker/volumes/coopeditor_minio_data/_data/ /mnt/backup-disk/minio/
 ```
-(Đường dẫn volume khác nhau theo Docker version; check bằng `docker volume inspect frame-editor_minio_data`)
+(Đường dẫn volume khác nhau theo Docker version; check bằng `docker volume inspect coopeditor_minio_data`)
 
 ### Xem dung lượng MinIO
 Mở `https://<DOMAIN>:9001` (MinIO console), đăng nhập bằng `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` trong `.env`.

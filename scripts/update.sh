@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Frame Editor auto-updater.
+# Coopeditor auto-updater.
 #
 # Usage:
 #   bash scripts/update.sh                       # update now
 #   bash scripts/update.sh --check               # report status, do not update
 #   bash scripts/update.sh --branch main         # pull a specific branch
 #
-# Crontab line (chạy 3h sáng mỗi ngày, log vào /var/log/frame-editor-update.log):
-#   0 3 * * *  cd /home/me/frame-editor && /bin/bash scripts/update.sh >> /var/log/frame-editor-update.log 2>&1
+# Crontab line (chạy 3h sáng mỗi ngày, log vào /var/log/coopeditor-update.log):
+#   0 3 * * *  cd /home/me/coopeditor && /bin/bash scripts/update.sh >> /var/log/coopeditor-update.log 2>&1
 #
 # Safe to re-run: if no new commits, exits early. Data volumes never touched.
 

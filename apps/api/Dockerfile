@@ -9,7 +9,7 @@ COPY apps/api/package.json ./apps/api/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
 COPY package.json pnpm-workspace.yaml ./
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate \
-  && pnpm install --filter @frame-editor/api... --prod --frozen-lockfile=false
+  && pnpm install --filter @coopeditor/api... --prod --frozen-lockfile=false
 
 # Now copy sources
 COPY apps/api ./apps/api

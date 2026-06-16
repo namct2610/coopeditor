@@ -11,9 +11,9 @@ Mục tiêu của mode này là giống trải nghiệm Plex:
 Repo đã có workflow publish image tại [.github/workflows/publish-ghcr.yml](/Users/etecman/Documents/Frame%20Editor/.github/workflows/publish-ghcr.yml).
 
 Khi repo được đẩy lên GitHub, mỗi lần push vào `main` workflow sẽ build và push 3 image:
-- `ghcr.io/<github-owner>/frame-editor-api:latest`
-- `ghcr.io/<github-owner>/frame-editor-web:latest`
-- `ghcr.io/<github-owner>/frame-editor-worker:latest`
+- `ghcr.io/<github-owner>/coopeditor-api:latest`
+- `ghcr.io/<github-owner>/coopeditor-web:latest`
+- `ghcr.io/<github-owner>/coopeditor-worker:latest`
 
 Trước khi deploy lên NAS, sửa 3 dòng `image:` trong [docker-compose.nas-auto.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas-auto.yml) từ:
 
@@ -69,7 +69,7 @@ Luồng chuẩn:
 Pin lại image tag trong file compose, ví dụ:
 
 ```yaml
-image: ghcr.io/<github-owner>/frame-editor-api:sha-abc123
+image: ghcr.io/<github-owner>/coopeditor-api:sha-abc123
 ```
 
 Rồi chạy lại:

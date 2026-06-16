@@ -7,15 +7,30 @@ const ALLOWED = (process.env.ALLOWED_ORIGINS || DEFAULT_ORIGINS.join(","))
 // "*" disables CORS check (dangerous; only for offline demos)
 const WILDCARD = ALLOWED.includes("*");
 
-export function isOriginAllowed(origin) {
+export function isOriginAllowed(origin, sameHost) {
   if (!origin) return true; // same-origin (no Origin header) — fine
   if (WILDCARD) return true;
-  return ALLOWED.includes(origin);
+  if (ALLOWED.includes(origin)) return true;
+  // Same-host fallback: when the request comes through a reverse proxy
+  // (Caddy/Nginx/Tailscale Funnel), the Origin header matches the Host header
+  // the proxy forwarded. Treating that as same-origin avoids the "I set up
+  // publicUrl=A but access through URL B → CORS blocks everything" footgun.
+  return !!sameHost;
+}
+
+function originHostMatchesRequest(req, origin) {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    const reqHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").toLowerCase();
+    return reqHost && u.host.toLowerCase() === reqHost;
+  } catch (_) { return false; }
 }
 
 export function applyCors(req, res) {
   const origin = req.headers.origin || "";
-  if (!isOriginAllowed(origin)) {
+  const sameHost = originHostMatchesRequest(req, origin);
+  if (!isOriginAllowed(origin, sameHost)) {
     // Don't set credentials/origin headers → browser blocks the request.
     return false;
   }

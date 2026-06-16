@@ -8,3 +8,7 @@ coverage
 *.log
 tmp
 storage
+# Per-host compose overrides — chứa secret (PAT GHCR, SMTP, OIDC...).
+# Compose tự merge với docker-compose.yml khi `docker compose up`.
+docker-compose.override.yml
+docker-compose.*.local.yml

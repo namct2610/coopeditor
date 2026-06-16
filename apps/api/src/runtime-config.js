@@ -79,7 +79,7 @@ export function normalizeRuntimeConfig(input) {
     },
     smtp: {
       url: String(smtp.url || "").trim(),
-      from: String(smtp.from || "Frame Editor <no-reply@example.com>").trim(),
+      from: String(smtp.from || "Coopeditor <no-reply@example.com>").trim(),
       digestMinutes: clampInt(smtp.digestMinutes, 0, 0, 1440),
     },
     webhooks: {
@@ -143,7 +143,7 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.OIDC_SCOPES = config.oidc && config.oidc.scopes || "openid email profile";
 
   process.env.SMTP_URL = config.smtp && config.smtp.url || "";
-  process.env.SMTP_FROM = config.smtp && config.smtp.from || "Frame Editor <no-reply@example.com>";
+  process.env.SMTP_FROM = config.smtp && config.smtp.from || "Coopeditor <no-reply@example.com>";
   process.env.EMAIL_DIGEST_MINUTES = String(config.smtp && config.smtp.digestMinutes || 0);
 
   process.env.SLACK_WEBHOOK_URL = config.webhooks && config.webhooks.slackWebhookUrl || "";

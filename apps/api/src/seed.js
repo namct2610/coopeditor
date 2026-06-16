@@ -7,6 +7,14 @@ import * as mem from "./store.js"; // re-use the seeded in-memory data as the so
 
 async function run() {
   if (!process.env.DATABASE_URL) { console.error("DATABASE_URL must be set"); process.exit(1); }
+  // Demo fixtures (sample projects, users "minh"/"an"/"khach") only run when
+  // explicitly opted in via SEED_DEMO_DATA=1. Production deploys should leave
+  // it off — fresh DB starts empty and the first DSM/OIDC login provisions the
+  // real user automatically.
+  if (process.env.SEED_DEMO_DATA !== "1") {
+    console.log("[seed] SEED_DEMO_DATA not set — skipping demo fixtures (production mode)");
+    process.exit(0);
+  }
   await initPg();
   const pool = db();
 

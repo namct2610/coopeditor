@@ -23,7 +23,7 @@ test("cluster envelopes round-trip safely", () => {
 
 test("parseRedisStreamRows extracts ids and payload fields", () => {
   const rows = parseRedisStreamRows([
-    ["frame_editor_events", [
+    ["coopeditor_events", [
       ["1710000000000-0", ["payload", "{\"type\":\"presence\"}"]],
     ]],
   ]);

@@ -644,7 +644,7 @@ async function checkUpdateStatus() {
   if (_updateCache && Date.now() - _updateCache.at < 300_000) return { localSha, localBuiltAt, ..._updateCache.data };
 
   try {
-    const r = await fetch(feed, { headers: { "user-agent": "frame-editor-updater", accept: "application/json" }, signal: AbortSignal.timeout?.(8000) });
+    const r = await fetch(feed, { headers: { "user-agent": "coopeditor-updater", accept: "application/json" }, signal: AbortSignal.timeout?.(8000) });
     if (!r.ok) return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false, error: "remote HTTP " + r.status };
     const body = await r.json();
     const remoteSha = body.sha || body.id || (body.commit && body.commit.sha) || null;
@@ -728,24 +728,24 @@ async function sendMetrics(res) {
   const queue = await transcodeMetrics();
   const login = loginMetrics();
   const lines = [
-    "# HELP frame_editor_transcode_queue_depth Number of queued transcode jobs.",
-    "# TYPE frame_editor_transcode_queue_depth gauge",
-    `frame_editor_transcode_queue_depth ${queue.queued}`,
-    "# HELP frame_editor_transcode_running_jobs Number of running transcode jobs.",
-    "# TYPE frame_editor_transcode_running_jobs gauge",
-    `frame_editor_transcode_running_jobs ${queue.running}`,
-    "# HELP frame_editor_login_attempts_total Total login attempts observed by the API.",
-    "# TYPE frame_editor_login_attempts_total counter",
-    `frame_editor_login_attempts_total ${login.totalAttempts}`,
-    "# HELP frame_editor_login_blocked_attempts_total Total login attempts blocked by rate limiting.",
-    "# TYPE frame_editor_login_blocked_attempts_total counter",
-    `frame_editor_login_blocked_attempts_total ${login.blockedAttempts}`,
-    "# HELP frame_editor_login_rate_limit_buckets Number of active rate-limit buckets.",
-    "# TYPE frame_editor_login_rate_limit_buckets gauge",
-    `frame_editor_login_rate_limit_buckets ${login.activeBuckets}`,
-    "# HELP frame_editor_sse_subscribers Number of active SSE subscribers.",
-    "# TYPE frame_editor_sse_subscribers gauge",
-    `frame_editor_sse_subscribers ${subscriberCount()}`,
+    "# HELP coopeditor_transcode_queue_depth Number of queued transcode jobs.",
+    "# TYPE coopeditor_transcode_queue_depth gauge",
+    `coopeditor_transcode_queue_depth ${queue.queued}`,
+    "# HELP coopeditor_transcode_running_jobs Number of running transcode jobs.",
+    "# TYPE coopeditor_transcode_running_jobs gauge",
+    `coopeditor_transcode_running_jobs ${queue.running}`,
+    "# HELP coopeditor_login_attempts_total Total login attempts observed by the API.",
+    "# TYPE coopeditor_login_attempts_total counter",
+    `coopeditor_login_attempts_total ${login.totalAttempts}`,
+    "# HELP coopeditor_login_blocked_attempts_total Total login attempts blocked by rate limiting.",
+    "# TYPE coopeditor_login_blocked_attempts_total counter",
+    `coopeditor_login_blocked_attempts_total ${login.blockedAttempts}`,
+    "# HELP coopeditor_login_rate_limit_buckets Number of active rate-limit buckets.",
+    "# TYPE coopeditor_login_rate_limit_buckets gauge",
+    `coopeditor_login_rate_limit_buckets ${login.activeBuckets}`,
+    "# HELP coopeditor_sse_subscribers Number of active SSE subscribers.",
+    "# TYPE coopeditor_sse_subscribers gauge",
+    `coopeditor_sse_subscribers ${subscriberCount()}`,
   ];
   res.statusCode = 200;
   res.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8");
@@ -802,7 +802,7 @@ const port = Number(process.env.PORT ?? 4000);
       backend: store.backend,
       dsm_dev_mode: dsm.isDevMode(),
       event_bus: eventBusMode(),
-    }, `Frame Editor API listening on http://${host}:${port}`);
+    }, `Coopeditor API listening on http://${host}:${port}`);
   });
   startWorker();
   startRetention();

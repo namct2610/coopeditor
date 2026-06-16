@@ -21,7 +21,7 @@ test("pg mode persists sessions across API restart", { skip: OPT_OUT }, async (t
   try {
     container = await new GenericContainer("postgres:16")
       .withEnvironment({
-        POSTGRES_DB: "frame_editor_test",
+        POSTGRES_DB: "coopeditor_test",
         POSTGRES_USER: "frame",
         POSTGRES_PASSWORD: "frame",
       })
@@ -40,7 +40,7 @@ test("pg mode persists sessions across API restart", { skip: OPT_OUT }, async (t
 
   const env = {
     ...process.env,
-    DATABASE_URL: `postgres://frame:frame@${container.getHost()}:${container.getMappedPort(5432)}/frame_editor_test`,
+    DATABASE_URL: `postgres://frame:frame@${container.getHost()}:${container.getMappedPort(5432)}/coopeditor_test`,
     DSM_DEV_LOGIN: "1",
     ALLOWED_ORIGINS: "http://localhost:3000",
     PORT: "4499",

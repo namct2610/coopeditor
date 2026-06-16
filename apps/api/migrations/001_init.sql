@@ -1,5 +1,5 @@
--- Frame Editor schema v1
--- Run via: pnpm --filter @frame-editor/api migrate
+-- Coopeditor schema v1
+-- Run via: pnpm --filter @coopeditor/api migrate
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version    TEXT PRIMARY KEY,

@@ -19,11 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image_name: frame-editor-api
+          - image_name: coopeditor-api
             dockerfile: apps/api/Dockerfile
-          - image_name: frame-editor-web
+          - image_name: coopeditor-web
             dockerfile: apps/web/Dockerfile
-          - image_name: frame-editor-worker
+          - image_name: coopeditor-worker
             dockerfile: apps/worker/Dockerfile
 
     steps:

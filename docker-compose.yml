@@ -1,4 +1,4 @@
-# Full stack for Frame Editor / Coopeditor.
+# Full stack for Coopeditor / Coopeditor.
 # Single command bring-up:  docker compose up -d
 # All knobs live in a single .env file (see .env.example).
 
@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-frame}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-frame}
-      POSTGRES_DB: ${POSTGRES_DB:-frame_editor}
+      POSTGRES_DB: ${POSTGRES_DB:-coopeditor}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -56,7 +56,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minio} ${MINIO_SECRET_KEY:-minio12345};
-      mc mb --ignore-existing local/${MINIO_BUCKET:-frame-proxy};
+      mc mb --ignore-existing local/${MINIO_BUCKET:-coopeditor-proxy};
       "
     restart: "no"
 
@@ -74,13 +74,13 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-frame_editor}
+      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-coopeditor}
       EVENT_BUS_DRIVER: ${EVENT_BUS_DRIVER:-pg}
       REDIS_URL: redis://redis:6379
-      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-frame_editor_events}
+      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-coopeditor_events}
       APP_DATA_DIR: /data
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_BUCKET: ${MINIO_BUCKET:-frame-proxy}
+      MINIO_BUCKET: ${MINIO_BUCKET:-coopeditor-proxy}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio12345}
       UPDATE_FEED_URL: ${UPDATE_FEED_URL:-}
@@ -108,14 +108,14 @@ services:
       minio:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-frame_editor}
+      DATABASE_URL: postgres://${POSTGRES_USER:-frame}:${POSTGRES_PASSWORD:-frame}@postgres:5432/${POSTGRES_DB:-coopeditor}
       EVENT_BUS_DRIVER: ${EVENT_BUS_DRIVER:-pg}
       REDIS_URL: redis://redis:6379
-      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-frame_editor_events}
+      EVENT_BUS_STREAM_KEY: ${EVENT_BUS_STREAM_KEY:-coopeditor_events}
       APP_DATA_DIR: /data
       FFMPEG_PATH: /usr/bin/ffmpeg
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_BUCKET: ${MINIO_BUCKET:-frame-proxy}
+      MINIO_BUCKET: ${MINIO_BUCKET:-coopeditor-proxy}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio12345}
     volumes:

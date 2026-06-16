@@ -22,15 +22,15 @@ function createFallbackLogger(bindings = {}) {
   };
 }
 
-let rootLogger = createFallbackLogger({ service: "frame-editor-api", logger: "fallback-json" });
+let rootLogger = createFallbackLogger({ service: "coopeditor-api", logger: "fallback-json" });
 
 try {
   const mod = await import("pino");
   const pino = mod.default || mod;
   rootLogger = pino({
-    name: "frame-editor-api",
+    name: "coopeditor-api",
     level: process.env.LOG_LEVEL || "info",
-    base: { service: "frame-editor-api" },
+    base: { service: "coopeditor-api" },
   });
 } catch (_) {}
 

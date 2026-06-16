@@ -64,7 +64,7 @@ test("redis-streams propagates comment SSE across API instances", { skip: OPT_OU
     ALLOWED_ORIGINS: "http://localhost:3000",
     EVENT_BUS_DRIVER: "redis-streams",
     EVENT_BUS_NODE_ID: nodeId,
-    EVENT_BUS_STREAM_KEY: "frame_editor_test_events",
+    EVENT_BUS_STREAM_KEY: "coopeditor_test_events",
     REDIS_URL: redisUrl,
   });
   const startApi = (port, nodeId) => spawn(process.execPath, [serverPath], {

@@ -1,14 +1,14 @@
 services:
   postgres:
     image: postgres:16
-    container_name: frame-editor-postgres
+    container_name: coopeditor-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: frame
       POSTGRES_PASSWORD: frame
-      POSTGRES_DB: frame_editor
+      POSTGRES_DB: coopeditor
     volumes:
-      - frame_postgres_data:/var/lib/postgresql/data
+      - coopeditor_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U frame"]
       interval: 5s
@@ -17,11 +17,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: frame-editor-redis
+    container_name: coopeditor-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - frame_redis_data:/data
+      - coopeditor_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -30,14 +30,14 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: frame-editor-minio
+    container_name: coopeditor-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: frame-minio
-      MINIO_ROOT_PASSWORD: frame-minio-secret
+      MINIO_ROOT_USER: coopeditor-minio
+      MINIO_ROOT_PASSWORD: coopeditor-minio-secret
     volumes:
-      - frame_minio_data:/data
+      - coopeditor_minio_data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
@@ -46,21 +46,21 @@ services:
 
   minio-setup:
     image: minio/mc:latest
-    container_name: frame-editor-minio-setup
+    container_name: coopeditor-minio-setup
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 frame-minio frame-minio-secret;
-      mc mb --ignore-existing local/frame-proxy;
+      mc alias set local http://minio:9000 coopeditor-minio coopeditor-minio-secret;
+      mc mb --ignore-existing local/coopeditor-proxy;
       "
     restart: "no"
 
   api:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/namct2610/frame-editor-api:latest
-    container_name: frame-editor-api
+    image: ghcr.io/namct2610/coopeditor-api:latest
+    container_name: coopeditor-api
     pull_policy: always
     restart: unless-stopped
     init: true
@@ -72,16 +72,24 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://frame:frame@postgres:5432/frame_editor
+      DATABASE_URL: postgres://frame:frame@postgres:5432/coopeditor
       EVENT_BUS_DRIVER: pg
       REDIS_URL: redis://redis:6379
-      EVENT_BUS_STREAM_KEY: frame_editor_events
+      EVENT_BUS_STREAM_KEY: coopeditor_events
       APP_DATA_DIR: /data
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_BUCKET: frame-proxy
-      MINIO_ACCESS_KEY: frame-minio
-      MINIO_SECRET_KEY: frame-minio-secret
+      MINIO_BUCKET: coopeditor-proxy
+      MINIO_ACCESS_KEY: coopeditor-minio
+      MINIO_SECRET_KEY: coopeditor-minio-secret
       HOST: 0.0.0.0
+      # Để trống → applyCors() chấp nhận same-host (Origin trùng Host header
+      # do reverse proxy forward). Anh chỉ cần override khi dùng FE và API ở
+      # 2 domain khác nhau (ví dụ: app.example.com gọi tới api.example.com).
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      # Đặt SEED_DEMO_DATA=1 trong .env nếu muốn nạp dữ liệu mẫu (4 user, 6 project,
+      # 8 source giả). Mặc định KHÔNG seed — production khởi đầu rỗng, login DSM
+      # đầu tiên sẽ tự tạo user thật.
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-0}
     command: >
       sh -c "
         node apps/api/src/migrate.js &&
@@ -89,12 +97,12 @@ services:
         node apps/api/src/bootstrap.js
       "
     volumes:
-      - frame_app_data:/data
+      - coopeditor_app_data:/data
 
   worker:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/namct2610/frame-editor-worker:latest
-    container_name: frame-editor-worker
+    image: ghcr.io/namct2610/coopeditor-worker:latest
+    container_name: coopeditor-worker
     pull_policy: always
     restart: unless-stopped
     init: true
@@ -108,23 +116,23 @@ services:
       minio:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://frame:frame@postgres:5432/frame_editor
+      DATABASE_URL: postgres://frame:frame@postgres:5432/coopeditor
       EVENT_BUS_DRIVER: pg
       REDIS_URL: redis://redis:6379
-      EVENT_BUS_STREAM_KEY: frame_editor_events
+      EVENT_BUS_STREAM_KEY: coopeditor_events
       APP_DATA_DIR: /data
       FFMPEG_PATH: /usr/bin/ffmpeg
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_BUCKET: frame-proxy
-      MINIO_ACCESS_KEY: frame-minio
-      MINIO_SECRET_KEY: frame-minio-secret
+      MINIO_BUCKET: coopeditor-proxy
+      MINIO_ACCESS_KEY: coopeditor-minio
+      MINIO_SECRET_KEY: coopeditor-minio-secret
     volumes:
-      - frame_app_data:/data
+      - coopeditor_app_data:/data
 
   web:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
-    image: ghcr.io/namct2610/frame-editor-web:latest
-    container_name: frame-editor-web
+    image: ghcr.io/namct2610/coopeditor-web:latest
+    container_name: coopeditor-web
     pull_policy: always
     restart: unless-stopped
     init: true
@@ -135,7 +143,7 @@ services:
 
   gateway:
     image: caddy:2-alpine
-    container_name: frame-editor-gateway
+    container_name: coopeditor-gateway
     restart: unless-stopped
     depends_on:
       - api
@@ -149,7 +157,7 @@ services:
 
   watchtower:
     image: docker.io/containrrr/watchtower:latest
-    container_name: frame-editor-watchtower
+    container_name: coopeditor-watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -158,9 +166,20 @@ services:
       WATCHTOWER_INCLUDE_RESTARTING: "true"
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_POLL_INTERVAL: "900"
+      # GHCR mặc định publish image ở chế độ private. Watchtower cần PAT
+      # (scope read:packages) để check version mới — không có thì poll bị 401
+      # và Watchtower im lặng "không có update" mãi mãi.
+      # Set 2 biến này trong file .env của Container Manager:
+      #   GHCR_USER=<github-username>
+      #   GHCR_TOKEN=<ghp_xxx... PAT với scope read:packages>
+      # Hoặc đơn giản: vào https://github.com/users/<user>/packages, mở từng
+      # package coopeditor-api/web/worker, Settings → Change visibility → Public.
+      # Public thì không cần PAT.
+      REPO_USER: ${GHCR_USER:-}
+      REPO_PASS: ${GHCR_TOKEN:-}
 
 volumes:
-  frame_postgres_data:
-  frame_redis_data:
-  frame_minio_data:
-  frame_app_data:
+  coopeditor_postgres_data:
+  coopeditor_redis_data:
+  coopeditor_minio_data:
+  coopeditor_app_data:
