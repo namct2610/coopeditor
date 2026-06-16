@@ -40,13 +40,49 @@ const BASE_CONCURRENCY = scalingPolicy.baseConcurrency;
 const RUNG_BITRATE = { 540: "1800k", 720: "3500k", 1080: "8000k" };
 
 // "nvenc" → use NVIDIA GPU. "qsv" → Intel QuickSync. Anything else → CPU.
-const HW = (process.env.FFMPEG_HWACCEL || "").toLowerCase();
+// We probe the encoder at startup with a 0.1s lavfi color clip. If the probe
+// fails (no /dev/dri mounted, no Intel iGPU, NVENC libs missing, etc.) we
+// silently fall back to CPU encoding instead of retrying every job 5x and
+// burning the queue with `ffmpeg exit 187` errors.
+let HW = (process.env.FFMPEG_HWACCEL || "").toLowerCase();
 // "h264" (default) — all rungs use h264. "h265" — all rungs h265. "mixed" — 540p/720p h264, 1080p h265.
 const CODEC_LADDER = (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase();
 function codecForHeight(h) {
   if (CODEC_LADDER === "h265") return "h265";
   if (CODEC_LADDER === "mixed") return h >= 1080 ? "h265" : "h264";
   return "h264";
+}
+
+async function probeHwEncoder(hw) {
+  if (!FFMPEG_PATH || !hw) return false;
+  const enc = hw === "nvenc" ? "h264_nvenc" : hw === "qsv" ? "h264_qsv" : null;
+  if (!enc) return false;
+  const pre = hw === "nvenc" ? ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"] : hw === "qsv" ? ["-hwaccel", "qsv"] : [];
+  const scaleFilter = hw === "nvenc" ? "scale_cuda=-2:240" : hw === "qsv" ? "scale_qsv=-2:240" : "scale=-2:240";
+  const args = [
+    "-hide_banner", "-loglevel", "error", "-y",
+    ...pre,
+    "-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.1",
+    "-vf", scaleFilter, "-c:v", enc, "-frames:v", 1,
+    "-f", "null", "-",
+  ].map(String);
+  return new Promise((resolve) => {
+    const proc = spawn(FFMPEG_PATH, args);
+    let killed = false;
+    const t = setTimeout(() => { killed = true; try { proc.kill("SIGKILL"); } catch (_) {} resolve(false); }, 5000);
+    proc.on("error", () => { clearTimeout(t); resolve(false); });
+    proc.on("close", (code) => { clearTimeout(t); if (killed) return; resolve(code === 0); });
+  });
+}
+
+if (HW && FFMPEG_PATH) {
+  const ok = await probeHwEncoder(HW);
+  if (!ok) {
+    console.warn("[worker] hwaccel='" + HW + "' probe FAILED — encoder not usable (missing /dev/dri, wrong CPU, or codec libs absent). Falling back to CPU libx264. To silence this warning, unset FFMPEG_HWACCEL.");
+    HW = "";
+  } else {
+    console.log("[worker] hwaccel='" + HW + "' probe ok");
+  }
 }
 
 const mode = FFMPEG_PATH && MINIO_ENDPOINT ? "full" : (FFMPEG_PATH ? "ffmpeg-only" : "sim");
