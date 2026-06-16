@@ -12,6 +12,11 @@ function parseJson(raw) {
   try { return JSON.parse(raw); } catch (_) { return null; }
 }
 
+function envOr(value, fallback = "") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
 export function appDataDir() {
   return APP_DATA_DIR;
 }
@@ -64,11 +69,11 @@ export function publicRuntimeSummary() {
       workerConcurrency: (cfg.transcode && cfg.transcode.workerConcurrency) || 2,
     },
     updater: {
-      feedUrl: (cfg.updater && cfg.updater.feedUrl) || "",
-      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || "",
+      feedUrl: (cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || "",
+      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || "",
       pollIntervalSeconds: (cfg.updater && cfg.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
-      feedConfigured: !!(cfg.updater && cfg.updater.feedUrl),
-      triggerConfigured: !!(cfg.updater && cfg.updater.triggerUrl),
+      feedConfigured: !!((cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL),
+      triggerConfigured: !!((cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL),
     },
   };
 }
@@ -195,9 +200,9 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.COMMENT_PURGE_DAYS = String(config.retention && config.retention.commentPurgeDays || 30);
   process.env.RETENTION_SWEEP_MINUTES = String(config.retention && config.retention.sweepMinutes || 60);
 
-  process.env.UPDATE_FEED_URL = config.updater && config.updater.feedUrl || "";
-  process.env.UPDATE_TRIGGER_URL = config.updater && config.updater.triggerUrl || "";
-  process.env.UPDATE_TRIGGER_TOKEN = config.updater && config.updater.triggerToken || "";
+  process.env.UPDATE_FEED_URL = envOr(config.updater && config.updater.feedUrl, process.env.UPDATE_FEED_URL || "");
+  process.env.UPDATE_TRIGGER_URL = envOr(config.updater && config.updater.triggerUrl, process.env.UPDATE_TRIGGER_URL || "");
+  process.env.UPDATE_TRIGGER_TOKEN = envOr(config.updater && config.updater.triggerToken, process.env.UPDATE_TRIGGER_TOKEN || "");
   process.env.UPDATE_POLL_INTERVAL_SECONDS = String(config.updater && config.updater.pollIntervalSeconds || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400));
   return true;
 }

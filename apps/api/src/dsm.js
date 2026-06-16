@@ -238,7 +238,18 @@ async function listMountedFolder(path) {
   const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
   const rel = path === "/" ? "" : path.replace(/^\/+/, "");
   const diskPath = rel ? join(mountRoot, rel) : mountRoot;
-  const rows = await readdir(diskPath, { withFileTypes: true });
+  let rows;
+  try {
+    rows = await readdir(diskPath, { withFileTypes: true });
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      throw new Error("Khong tim thay thu muc NAS da mount tai " + diskPath + " — kiem tra lai DSM mount root");
+    }
+    if (err && err.code === "EACCES") {
+      throw new Error("Khong du quyen doc thu muc NAS da mount tai " + diskPath);
+    }
+    throw err;
+  }
   const entries = await Promise.all(rows
     .filter((row) => !row.name.startsWith("."))
     .map(async (row) => {
@@ -265,7 +276,13 @@ async function listMountedFolder(path) {
 async function getMountedFileEntry(path) {
   const probePath = resolveProbePath(path, "");
   if (!probePath) return null;
-  const info = await stat(probePath);
+  let info;
+  try {
+    info = await stat(probePath);
+  } catch (err) {
+    if (err && err.code === "ENOENT") return null;
+    throw err;
+  }
   if (!info.isFile()) return null;
   return {
     name: path.split("/").pop() || path,

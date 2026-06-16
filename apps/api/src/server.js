@@ -573,7 +573,7 @@ async function handle(req, res, url) {
   if (p === "/nas/ls" && m === "GET") {
     const path = url.searchParams.get("path") || "/";
     try { return send(res, 200, await dsm.dsmListFolder(sess.dsmSid, path)); }
-    catch (err) { return bad(res, "NAS list failed: " + (err && err.message), 502); }
+    catch (err) { return bad(res, "Khong doc duoc danh sach thu muc NAS: " + (err && err.message), 502); }
   }
 
   if (p === "/users" && m === "GET") return send(res, 200, await store.listUsers());

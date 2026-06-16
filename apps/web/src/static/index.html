@@ -328,7 +328,7 @@ async function refreshNasListing(path) {
     REMOTE_NAS = await api("/nas/ls?path=" + encodeURIComponent(path || "/"));
     state.nasCurrentPath = REMOTE_NAS && REMOTE_NAS.path || path || "/";
   } catch (err) {
-    state.nasError = (err && err.message) || "Không đọc được NAS";
+    state.nasError = normalizeNasErrorMessage((err && err.message) || "Không đọc được NAS");
   } finally {
     state.nasLoading = false;
     render();
@@ -998,45 +998,45 @@ function updateModal(vals) {
   const status = vals.updateStatus || null;
   const local = status && status.local ? status.local : null;
   const remoteMeta = status && status.remote ? status.remote : null;
-  const localVersion = local && local.version ? local.version : "unknown";
-  const localSummary = local && local.summary ? local.summary : "Chua doc duoc metadata ban dang chay.";
-  const remoteVersion = remoteMeta && remoteMeta.version ? remoteMeta.version : "chua co";
-  const remoteSummary = remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chua tim thay ban moi hon." : "Update feed chua san sang.");
+  const localVersion = local && local.version ? local.version : "không rõ";
+  const localSummary = local && local.summary ? local.summary : "Chưa đọc được metadata bản đang chạy.";
+  const remoteVersion = remoteMeta && remoteMeta.version ? remoteMeta.version : "chưa có";
+  const remoteSummary = remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chưa tìm thấy bản mới hơn." : "Update feed chưa sẵn sàng.");
   const changeItems = remoteMeta && remoteMeta.changes && remoteMeta.changes.length ? remoteMeta.changes : (local && local.changes) || [];
   const statusTone = state.updateError ? "#ef4d57" : (status && status.updateAvailable ? "#f5a623" : "#35c389");
-  const pollLabel = status && status.pollIntervalSeconds ? ("Auto poll moi " + Math.max(1, Math.round(status.pollIntervalSeconds / 60)) + " phut") : "Auto poll dang bat";
+  const pollLabel = status && status.pollIntervalSeconds ? ("Auto poll mỗi " + Math.max(1, Math.round(status.pollIntervalSeconds / 60)) + " phút") : "Auto poll đang bật";
   return `
   <div data-act="closeUpdateModal" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:92;display:grid;place-items:center;padding:24px;">
     <div data-stop="1" style="width:min(760px,100%);max-height:min(84vh,920px);overflow:auto;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:22px;">
       <div style="display:flex;align-items:flex-start;gap:16px;">
         <div>
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Update Center</div>
-          <div style="margin-top:4px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);">Quan ly phien ban Coopeditor</div>
-          <div style="margin-top:4px;color:var(--co-muted);font-size:12px;font-weight:600;">Xem version dang chay, changelog ban moi, va gui lenh update thu cong neu updater da san sang.</div>
+          <div style="margin-top:4px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);">Quản lý phiên bản Coopeditor</div>
+          <div style="margin-top:4px;color:var(--co-muted);font-size:12px;font-weight:600;">Xem version đang chạy, changelog bản mới, và gửi lệnh update thủ công nếu updater đã sẵn sàng.</div>
         </div>
         <button data-act="closeUpdateModal" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
       </div>
       <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
-          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Dang chay tren NAS</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Đang chạy trên NAS</div>
           <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(localVersion)}</div>
           <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(localSummary)}</div>
           <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
-            <div>SHA: ${esc(local && local.sha ? local.sha.slice(0, 12) : "unknown")}</div>
-            <div>Built: ${esc(local && local.builtAt ? local.builtAt : "unknown")}</div>
-            <div>Published: ${esc(local && local.publishedAt ? local.publishedAt : "unknown")}</div>
+            <div>SHA: ${esc(local && local.sha ? local.sha.slice(0, 12) : "không rõ")}</div>
+            <div>Built: ${esc(local && local.builtAt ? local.builtAt : "không rõ")}</div>
+            <div>Published: ${esc(local && local.publishedAt ? local.publishedAt : "không rõ")}</div>
           </div>
         </div>
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Ban moi nhat</div>
-            <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(245,166,35,0.14)" : "rgba(53,195,137,0.14)"};color:${status && status.updateAvailable ? "#f5a623" : "#35c389"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Can update" : "Dang current"}</span>
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Bản mới nhất</div>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(245,166,35,0.14)" : "rgba(53,195,137,0.14)"};color:${status && status.updateAvailable ? "#f5a623" : "#35c389"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Cần cập nhật" : "Đang mới nhất"}</span>
           </div>
           <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(remoteVersion)}</div>
           <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(remoteSummary)}</div>
           <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
-            <div>SHA: ${esc(remoteMeta && remoteMeta.sha ? remoteMeta.sha.slice(0, 12) : "unknown")}</div>
-            <div>Published: ${esc(remoteMeta && remoteMeta.publishedAt ? remoteMeta.publishedAt : "unknown")}</div>
+            <div>SHA: ${esc(remoteMeta && remoteMeta.sha ? remoteMeta.sha.slice(0, 12) : "không rõ")}</div>
+            <div>Published: ${esc(remoteMeta && remoteMeta.publishedAt ? remoteMeta.publishedAt : "không rõ")}</div>
             <div>${esc(pollLabel)}</div>
           </div>
         </div>
@@ -1044,15 +1044,15 @@ function updateModal(vals) {
       <div style="margin-top:16px;padding:14px 16px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Thay doi gan day</div>
-            <div style="margin-top:4px;font-size:13px;font-weight:700;color:${statusTone};">${esc(state.updateMessage || (status && status.error) || "San sang kiem tra update.")}</div>
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Thay đổi gần đây</div>
+            <div style="margin-top:4px;font-size:13px;font-weight:700;color:${statusTone};">${esc(state.updateMessage || (status && status.error) || "Sẵn sàng kiểm tra update.")}</div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button data-act="checkUpdateNow" ${state.updateBusy ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${state.updateBusy ? "wait" : "pointer"};">${state.updateBusy ? "Dang kiem tra..." : "Check now"}</button>
-            <button data-act="triggerUpdateNow" ${!vals.canManageUpdates || state.updateTriggerBusy ? "disabled" : ""} class="co-btn-blue" style="background:${vals.canManageUpdates ? "#2da8e2" : "var(--co-panel-2)"};border:none;color:${vals.canManageUpdates ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${!vals.canManageUpdates || state.updateTriggerBusy ? "not-allowed" : "pointer"};opacity:${!vals.canManageUpdates ? ".7" : "1"};">${state.updateTriggerBusy ? "Dang gui lenh..." : "Update now"}</button>
+            <button data-act="checkUpdateNow" ${state.updateBusy ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${state.updateBusy ? "wait" : "pointer"};">${state.updateBusy ? "Đang kiểm tra..." : "Kiểm tra ngay"}</button>
+            <button data-act="triggerUpdateNow" ${!vals.canManageUpdates || state.updateTriggerBusy ? "disabled" : ""} class="co-btn-blue" style="background:${vals.canManageUpdates ? "#2da8e2" : "var(--co-panel-2)"};border:none;color:${vals.canManageUpdates ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${!vals.canManageUpdates || state.updateTriggerBusy ? "not-allowed" : "pointer"};opacity:${!vals.canManageUpdates ? ".7" : "1"};">${state.updateTriggerBusy ? "Đang gửi lệnh..." : "Cập nhật ngay"}</button>
           </div>
         </div>
-        <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner co the trigger update thu cong. Neu updater khong ho tro trigger, he thong van tiep tuc auto-poll image moi theo lich." : "Chi owner moi co quyen trigger update thu cong."}</div>
+        <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner có thể trigger update thủ công. Nếu updater không hỗ trợ trigger, hệ thống vẫn tiếp tục auto-poll image mới theo lịch." : "Chỉ owner mới có quyền trigger update thủ công."}</div>
       </div>
       <div style="margin-top:16px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
         <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Release notes</div>
@@ -1062,7 +1062,7 @@ function updateModal(vals) {
               <span style="width:8px;height:8px;border-radius:50%;background:#2da8e2;flex:0 0 8px;margin-top:7px;"></span>
               <span>${esc(item)}</span>
             </div>
-          `).join("") : `<div style="color:var(--co-muted);font-size:13px;font-weight:600;">Chua co release note chi tiet.</div>`}
+          `).join("") : `<div style="color:var(--co-muted);font-size:13px;font-weight:600;">Chưa có release note chi tiết.</div>`}
         </div>
       </div>
     </div>
@@ -2090,14 +2090,14 @@ async function fetchUpdateStatus(force) {
   state.updateError = "";
   render();
   try {
-    const status = await api("/admin/update-status" + (force ? "?refresh=1" : ""));
+    const status = normalizeUpdateStatusPayload(await api("/admin/update-status" + (force ? "?refresh=1" : "")));
     remote.updateStatus = status;
     state.updateStatus = status;
     state.updateMessage = status.updateAvailable
-      ? ("Da tim thay ban moi: " + ((status.remote && status.remote.version) || "unknown"))
-      : "Dang chay ban moi nhat theo update feed hien tai.";
+      ? ("Đã tìm thấy bản mới: " + ((status.remote && status.remote.version) || "không rõ"))
+      : "Đang chạy bản mới nhất theo update feed hiện tại.";
   } catch (err) {
-    state.updateError = err.message || "Khong doc duoc trang thai update";
+    state.updateError = err.message || "Không đọc được trạng thái update";
     state.updateMessage = "";
   } finally {
     state.updateBusy = false;
@@ -2114,10 +2114,10 @@ async function triggerUpdateNow() {
   try {
     const result = await api("/admin/update-trigger", { method: "POST", body: {} });
     if (!result.ok) throw new Error(result.error || "Update trigger that bai");
-    state.updateMessage = result.message || "Da gui lenh update. Watchtower se tien hanh refresh image.";
+    state.updateMessage = result.message || "Đã gửi lệnh update. Watchtower sẽ tiến hành refresh image.";
     await fetchUpdateStatus(true);
   } catch (err) {
-    state.updateError = err.message || "Khong trigger duoc update";
+    state.updateError = err.message || "Không trigger được update";
   } finally {
     state.updateTriggerBusy = false;
     render();
@@ -2129,6 +2129,49 @@ async function triggerUpdateNow() {
 let eventSource = null;
 let eventWs = null;
 let wsHeartbeatTimer = null;
+
+function normalizeUpdateStatusPayload(payload) {
+  const body = payload && typeof payload === "object" ? payload : {};
+  const local = body.local || {
+    version: body.version || "không rõ",
+    summary: body.summary || (body.localSha || body.sha ? "Bản API này chưa xuất release metadata đầy đủ." : "Chưa đọc được metadata bản đang chạy."),
+    changes: Array.isArray(body.changes) ? body.changes : [],
+    sha: body.localSha || body.sha || "unknown",
+    builtAt: body.localBuiltAt || body.builtAt || "unknown",
+    publishedAt: body.publishedAt || null,
+  };
+  const remote = body.remote || ((body.remoteSha || body.remoteVersion || body.remoteSummary) ? {
+    version: body.remoteVersion || "không rõ",
+    summary: body.remoteSummary || "Đã phát hiện metadata bản mới từ update feed.",
+    changes: Array.isArray(body.remoteChanges) ? body.remoteChanges : [],
+    publishedAt: body.remotePublishedAt || null,
+    builtAt: body.remoteBuiltAt || null,
+    sha: body.remoteSha || "unknown",
+  } : null);
+  const updateAvailable = typeof body.updateAvailable === "boolean"
+    ? body.updateAvailable
+    : !!(remote && local && remote.sha && local.sha && remote.sha !== "unknown" && local.sha !== "unknown" && remote.sha.slice(0, 7) !== local.sha.slice(0, 7));
+  return {
+    ...body,
+    local,
+    remote,
+    updateAvailable,
+    checkAvailable: typeof body.checkAvailable === "boolean" ? body.checkAvailable : !!(body.remoteSha || remote),
+    triggerAvailable: typeof body.triggerAvailable === "boolean" ? body.triggerAvailable : false,
+    pollIntervalSeconds: body.pollIntervalSeconds || (remote && remote.pollIntervalSeconds) || setup.updatePollIntervalSeconds || 900,
+  };
+}
+
+function normalizeNasErrorMessage(message) {
+  const text = String(message || "").trim();
+  if (!text) return "Không đọc được NAS";
+  if (/FileStation list_share failed/i.test(text)) {
+    return "Không đọc được danh sách Shared Folder từ DSM. App sẽ thử fallback qua thư mục NAS đã mount; nếu vẫn lỗi, kiểm tra lại DSM mount root.";
+  }
+  if (/Khong tim thay thu muc NAS da mount/i.test(text) || /Không tìm thấy thư mục NAS đã mount/i.test(text)) return text;
+  if (/DSM request timed out/i.test(text)) return "DSM phản hồi quá chậm. Kiểm tra kết nối Tailscale/DNS tới NAS rồi thử lại.";
+  return text;
+}
 
 function openEventStream() {
   if (eventWs || eventSource) return;
