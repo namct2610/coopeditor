@@ -995,7 +995,6 @@ async function triggerUpdateRun() {
 
   try {
     const headers = {
-      "content-type": "application/json",
       accept: "application/json, text/plain;q=0.9, */*;q=0.8",
       "user-agent": "coopeditor-updater",
     };
@@ -1003,38 +1002,50 @@ async function triggerUpdateRun() {
       headers.authorization = "Bearer " + triggerToken;
       headers["x-update-token"] = triggerToken;
     }
-    const local = buildLocalReleaseMeta();
-    const r = await fetch(triggerUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
+    const attempts = [
+      { method: "GET" },
+      { method: "POST", body: JSON.stringify({
         source: "coopeditor-ui",
         requestedAt: new Date().toISOString(),
-        currentVersion: local.version,
-        currentSha: local.sha,
-      }),
-      signal: AbortSignal.timeout?.(12000),
-    });
-    const raw = await r.text();
-    let responseBody = raw;
-    try { responseBody = raw ? JSON.parse(raw) : null; } catch (_) {}
-    if (!r.ok) {
-      return {
+        currentVersion: buildLocalReleaseMeta().version,
+        currentSha: buildLocalReleaseMeta().sha,
+      }) },
+    ];
+    let lastFailure = null;
+    for (const attempt of attempts) {
+      const reqHeaders = { ...headers };
+      if (attempt.body) reqHeaders["content-type"] = "application/json";
+      const r = await fetch(triggerUrl, {
+        method: attempt.method,
+        headers: reqHeaders,
+        body: attempt.body,
+        signal: AbortSignal.timeout?.(12000),
+      });
+      const raw = await r.text();
+      let responseBody = raw;
+      try { responseBody = raw ? JSON.parse(raw) : null; } catch (_) {}
+      if (r.ok) {
+        _updateCache = null;
+        return {
+          ok: true,
+          triggerAvailable: true,
+          status: r.status,
+          accepted: true,
+          method: attempt.method,
+          message: "Da gui lenh cap nhat toi updater service",
+          response: responseBody,
+        };
+      }
+      lastFailure = {
         ok: false,
         triggerAvailable: true,
         status: r.status,
+        method: attempt.method,
         error: typeof responseBody === "string" ? responseBody.slice(0, 240) : ("trigger HTTP " + r.status),
       };
+      if (r.status !== 404 && r.status !== 405) break;
     }
-    _updateCache = null;
-    return {
-      ok: true,
-      triggerAvailable: true,
-      status: r.status,
-      accepted: true,
-      message: "Da gui lenh cap nhat toi updater service",
-      response: responseBody,
-    };
+    return lastFailure || { ok: false, triggerAvailable: true, error: "Update trigger failed" };
   } catch (err) {
     return { ok: false, triggerAvailable: true, error: err.message || "Update trigger failed" };
   }

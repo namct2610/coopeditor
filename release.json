@@ -1,10 +1,10 @@
 {
-  "version": "0.2.7",
-  "summary": "Cải thiện màn review: hover timeline để preview, click để chốt vị trí, và annotation/comment neo đúng theo timecode.",
+  "version": "0.2.8",
+  "summary": "Sửa nút Cập nhật ngay để trigger đúng Watchtower HTTP API và fallback tốt hơn với updater khác.",
   "changes": [
-    "Thanh review được bố trí lại để toolbar vẽ không còn bị phần timeline/controls che xuống dưới.",
-    "Timeline giờ hover sẽ preview khung hình, rời chuột sẽ trả về vị trí cũ, và chỉ click trái mới chốt điểm tua.",
-    "Annotation đã bám theo timestamp comment, có badge mốc thời gian trong panel comment và tự hiện lại khi tua về đúng mốc."
+    "Backend trigger update giờ gọi Watchtower bằng GET /v1/update đúng chuẩn thay vì POST nên nút update trên web gửi lệnh được thật.",
+    "Nếu updater khác chỉ nhận POST, backend sẽ fallback thử POST trước khi báo lỗi hoàn toàn.",
+    "Kết quả trigger trả về kèm method đã dùng để dễ debug khi đổi sang updater service khác ngoài Watchtower."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }
