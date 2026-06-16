@@ -130,6 +130,30 @@ await startWorkerEventBus().catch((err) => {
   process.exit(1);
 });
 
+// Auto-requeue at boot: any job that was orphaned mid-run (worker crashed,
+// pod restarted, host rebooted) sits in status='running' forever otherwise.
+// And jobs in status='failed' from a previous broken config (e.g. qsv on a
+// box without /dev/dri) should get one fresh try with the new hwaccel path
+// the moment the worker starts. The user shouldn't have to learn psql.
+try {
+  const r = await pool.query(`
+    UPDATE transcode_jobs
+       SET status='queued',
+           attempts=0,
+           error=NULL,
+           next_run_at=now(),
+           started_at=NULL
+     WHERE status IN ('running', 'failed')
+        OR (status='queued' AND attempts >= max_attempts)
+    RETURNING id
+  `);
+  if (r.rowCount > 0) {
+    console.log("[worker] auto-requeued", r.rowCount, "stale/failed jobs on startup");
+  }
+} catch (err) {
+  console.warn("[worker] auto-requeue at boot failed:", err.message);
+}
+
 console.log(
   "[worker] starting mode=" + mode +
   " hwaccel=" + (HW || "none") +
