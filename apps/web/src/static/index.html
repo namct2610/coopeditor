@@ -290,6 +290,9 @@ const state = {
   annotationDrawing: null,
   showTranscode: false,
   showImport: false,
+  nasCurrentPath: "/",
+  nasLoading: false,
+  nasError: "",
   workspaceSearch: "",
   clientFilter: "all",
   inviteUserId: "",
@@ -451,15 +454,55 @@ function requestTranscode(id) {
 }
 
 // ---- import ----
-function openImport() { setState({ showImport: true }); }
-function closeImport() { setState({ showImport: false }); }
-function navInto(idx) { setState({ nasPath: [...state.nasPath, idx] }); }
-function navTo(level) { setState({ nasPath: state.nasPath.slice(0, level) }); }
+let REMOTE_NAS = null;
+
+async function refreshNasListing(path) {
+  if (!remote.me) return;
+  state.nasLoading = true;
+  state.nasError = "";
+  render();
+  try {
+    REMOTE_NAS = await api("/nas/ls?path=" + encodeURIComponent(path || "/"));
+    state.nasCurrentPath = REMOTE_NAS && REMOTE_NAS.path || path || "/";
+  } catch (err) {
+    state.nasError = (err && err.message) || "Không đọc được NAS";
+  } finally {
+    state.nasLoading = false;
+    render();
+  }
+}
+
+async function openImport() {
+  setState({ showImport: true });
+  if (remote.me) await refreshNasListing(state.nasCurrentPath || "/");
+}
+function closeImport() { setState({ showImport: false, nasError: "", nasLoading: false }); }
+async function navInto(arg) {
+  if (!remote.me) return setState({ nasPath: [...state.nasPath, Number(arg)] });
+  await refreshNasListing(decodeURIComponent(arg));
+}
+async function navTo(arg) {
+  if (!remote.me) return setState({ nasPath: state.nasPath.slice(0, Number(arg)) });
+  await refreshNasListing(decodeURIComponent(arg));
+}
 function toggleSel(id, meta) { const sel = { ...state.importSel }; if (sel[id]) delete sel[id]; else sel[id] = meta; setState({ importSel: sel }); }
-function doImport() {
+async function doImport() {
   const files = Object.values(state.importSel);
   if (!files.length) return;
   const pid = state.selectedProjectId;
+  if (remote.me) {
+    try {
+      await remoteImport(pid, files.map((f) => f.path));
+      state.showImport = false;
+      state.importSel = {};
+      state.view = "project";
+      render();
+    } catch (err) {
+      state.nasError = (err && err.message) || "Import thất bại";
+      render();
+    }
+    return;
+  }
   const base = Date.now();
   const existing = (state.sourcesByProject[pid] || []).length;
   const newSources = files.map((f, i) => ({
@@ -1380,16 +1423,19 @@ function importModal(vals) {
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Import thủ công · ${esc(vals.projectName)}</div>
           <h3 style="margin:6px 0 0;font-size:19px;font-weight:800;">Chọn nguồn từ NAS để thêm vào project</h3>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-variant-numeric:tabular-nums;font-size:12px;">
-            <span style="color:var(--co-faint);">\\\\NAS-STUDIO\\</span>
-            ${vals.nasCrumbs.map((cr, i) => `<span data-act="navTo" data-arg="${cr.level}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
+            <span style="color:var(--co-faint);">${esc(vals.nasRootLabel)}</span>
+            ${vals.nasCrumbs.map((cr, i) => `<span data-act="navTo" data-arg="${remote.me ? encodeURIComponent(cr.path || "/") : i}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
           </div>
         </div>
         <button data-act="closeImport" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:12px 14px;">
+        ${vals.nasError ? `<div style="margin-bottom:10px;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(vals.nasError)}</div>` : ""}
+        ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
         <div style="display:flex;flex-direction:column;gap:4px;">
+          ${!vals.nasLoading && vals.nasList.length === 0 ? `<div style="text-align:center;color:var(--co-muted);font-size:12px;font-weight:600;padding:30px 12px;">Thư mục này chưa có file video hoặc tài khoản DSM hiện tại không có quyền xem.</div>` : ""}
           ${vals.nasList.map((it, i) => it.isFolder ? `
-            <div data-act="navInto" data-arg="${i}" class="co-hover" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;cursor:pointer;background:var(--co-hover);">
+            <div data-act="navInto" data-arg="${it.navArg || i}" class="co-hover" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;cursor:pointer;background:var(--co-hover);">
               ${ICON.folder}<div style="flex:1;font-weight:700;font-size:13px;color:var(--co-text);">${esc(it.name)}</div>
               <div style="color:var(--co-faint);font-size:11px;font-weight:600;">${esc(it.meta)}</div>${ICON.chevRightSmall}
             </div>
@@ -1630,18 +1676,51 @@ function computeVals() {
   });
 
   // NAS browser
-  let nasNode = NAS_TREE;
-  const crumbs = [{ label: "Footage", level: 0 }];
-  s.nasPath.forEach((pi, li) => { nasNode = (nasNode.children || [])[pi] || nasNode; crumbs.push({ label: nasNode.name, level: li + 1 }); });
-  const folderLabel = crumbs.slice(1).map((c) => c.label).join(" / ") || "Footage";
-  const nasList = (nasNode.children || []).map((ch, i) => {
-    if (ch.type === "folder") return { isFolder: true, isFile: false, name: ch.name, meta: (ch.children || []).length + " mục" };
-    const id = folderLabel + "/" + ch.name; const on = !!s.importSel[id];
-    return { isFolder: false, isFile: true, id, name: ch.name, meta: ch.size + " · " + ch.codec + " · " + fmtDur(ch.dur),
-      checked: on, checkBg: on ? "#2da8e2" : "transparent", checkBorder: on ? "#2da8e2" : "var(--co-border-2)", checkColor: on ? "#07090e" : "transparent",
-      rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
-      _meta: { name: ch.name, size: ch.size, codec: ch.codec, dur: ch.dur, folder: folderLabel } };
-  });
+  let crumbs, folderLabel, nasList;
+  if (remote.me) {
+    const listing = REMOTE_NAS || { path: "/", crumbs: [{ label: "/", path: "/" }], entries: [] };
+    crumbs = (listing.crumbs || [{ label: "/", path: "/" }]).map((cr) => ({ label: cr.label, path: cr.path }));
+    folderLabel = listing.path || "/";
+    nasList = (listing.entries || []).map((ch) => {
+      if (ch.type === "folder") {
+        return {
+          isFolder: true,
+          isFile: false,
+          name: ch.name,
+          navArg: encodeURIComponent(ch.path),
+          meta: typeof ch.childCount === "number" ? (ch.childCount + " mục") : "Folder",
+        };
+      }
+      const id = ch.path;
+      const on = !!s.importSel[id];
+      return {
+        isFolder: false,
+        isFile: true,
+        id,
+        name: ch.name,
+        meta: [ch.sizeLabel || "—", ch.codec || "unknown", fmtDur(ch.durationMs || 0)].join(" · "),
+        checked: on,
+        checkBg: on ? "#2da8e2" : "transparent",
+        checkBorder: on ? "#2da8e2" : "var(--co-border-2)",
+        checkColor: on ? "#07090e" : "transparent",
+        rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
+        _meta: { path: ch.path, name: ch.name, size: ch.sizeLabel || "—", codec: ch.codec || "unknown", dur: ch.durationMs || 0, folder: folderLabel },
+      };
+    });
+  } else {
+    let nasNode = NAS_TREE;
+    crumbs = [{ label: "Footage", path: "0" }];
+    s.nasPath.forEach((pi) => { nasNode = (nasNode.children || [])[pi] || nasNode; crumbs.push({ label: nasNode.name, path: String(pi) }); });
+    folderLabel = crumbs.slice(1).map((c) => c.label).join(" / ") || "Footage";
+    nasList = (nasNode.children || []).map((ch, i) => {
+      if (ch.type === "folder") return { isFolder: true, isFile: false, name: ch.name, navArg: String(i), meta: (ch.children || []).length + " mục" };
+      const id = folderLabel + "/" + ch.name; const on = !!s.importSel[id];
+      return { isFolder: false, isFile: true, id, name: ch.name, meta: ch.size + " · " + ch.codec + " · " + fmtDur(ch.dur),
+        checked: on, checkBg: on ? "#2da8e2" : "transparent", checkBorder: on ? "#2da8e2" : "var(--co-border-2)", checkColor: on ? "#07090e" : "transparent",
+        rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
+        _meta: { path: id, name: ch.name, size: ch.size, codec: ch.codec, dur: ch.dur, folder: folderLabel } };
+    });
+  }
   const importCount = Object.keys(s.importSel).length;
 
   const speedVal = s.speedTesting ? s.speedDisplay : s.speedMbps;
@@ -1681,6 +1760,9 @@ function computeVals() {
     attachBorder: s.attachTc ? "rgba(45,168,226,0.3)" : "var(--co-border-2)",
     attachIcon: s.attachTc ? "#2da8e2" : "#8896ab",
     nasCrumbs: crumbs, nasList, importCount,
+    nasLoading: s.nasLoading,
+    nasError: s.nasError,
+    nasRootLabel: remote.me ? "DSM / Shared Folder" : "\\\\NAS-STUDIO\\",
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
     importBtnBg: importCount > 0 ? "#2da8e2" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
     importCountLabel: importCount + " nguồn đã chọn · sẽ tự tạo proxy sau import",
@@ -1936,6 +2018,7 @@ const setup = {
   restarting: false,
   publicUrl: location.origin,
   dsmHost: "",
+  dsmMountRoot: "/nas",
   dsmDevLogin: false,
   dsmInsecure: false,
   workerConcurrency: 2,
@@ -2003,6 +2086,8 @@ async function bootstrap() {
     remote.connected = true; // setup/status succeeded → API reachable
     if (status && status.configured === false) {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
+      if (status.dsmHost) setup.dsmHost = status.dsmHost;
+      if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
       render();
       return;
     }
@@ -2033,7 +2118,13 @@ async function tryBootProbe() {
     const status = await apiPublic("/setup/status");
     remote.setup = status || { configured: true };
     remote.connected = true; remote.error = null;
-    if (status && status.configured === false) { render(); return; }
+    if (status && status.configured === false) {
+      if (status.publicUrl) setup.publicUrl = status.publicUrl;
+      if (status.dsmHost) setup.dsmHost = status.dsmHost;
+      if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
+      render();
+      return;
+    }
     try {
       const r = await api("/me");
       remote.me = r.user;
@@ -2130,6 +2221,7 @@ function setupOverlay() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         ${setupField("URL truy cập", "setupPublicUrl", setup.publicUrl, "https://review.example.com")}
         ${setupField("DSM Host", "setupDsmHost", setup.dsmHost, "https://nas.example.com:5001")}
+        ${setupField("DSM mount root", "setupDsmMountRoot", setup.dsmMountRoot, "/nas")}
         ${setupField("SMTP URL (tuỳ chọn)", "setupSmtpUrl", setup.smtpUrl, "smtps://user:pass@smtp.example.com:465")}
         ${setupField("SMTP From", "setupSmtpFrom", setup.smtpFrom, "Coopeditor <no-reply@example.com>")}
         ${setupField("Slack webhook", "setupSlackWebhookUrl", setup.slackWebhookUrl, "https://hooks.slack.com/...")}
@@ -2172,6 +2264,7 @@ async function applySetup() {
   const payload = {
     publicUrl: readValue("setupPublicUrl"),
     dsmHost: readValue("setupDsmHost"),
+    dsmMountRoot: readValue("setupDsmMountRoot"),
     dsmDevLogin: readChecked("setupDsmDevLogin"),
     dsmInsecure: readChecked("setupDsmInsecure"),
     smtp: {
@@ -2194,6 +2287,7 @@ async function applySetup() {
   Object.assign(setup, {
     publicUrl: payload.publicUrl,
     dsmHost: payload.dsmHost,
+    dsmMountRoot: payload.dsmMountRoot,
     dsmDevLogin: payload.dsmDevLogin,
     dsmInsecure: payload.dsmInsecure,
     workerConcurrency: payload.transcode.workerConcurrency,
@@ -2416,7 +2510,9 @@ async function remoteSetProjectMemberRole(pid, userId, role) {
 }
 async function remoteImport(pid, nasPaths) {
   if (!remote.me) return;
-  try { await api("/projects/" + pid + "/import", { method: "POST", body: { nasPaths } }); await refreshProjectSources(pid); render(); } catch (_) {}
+  await api("/projects/" + pid + "/import", { method: "POST", body: { nasPaths } });
+  await refreshProjectSources(pid);
+  render();
 }
 async function remoteRequestTranscode(versionId, height) {
   if (!remote.me) return;
@@ -2776,13 +2872,7 @@ moveBy = function (id, dir) {
 };
 const _origDoImport = doImport;
 doImport = function () {
-  const paths = Object.keys(state.importSel);
-  _origDoImport();
-  if (remote.me && paths.length) {
-    // map our internal ids ("folder/name") to NAS absolute paths; the dev tree's listing returns full paths
-    const nasPaths = paths.map((p) => "/" + p);
-    remoteImport(state.selectedProjectId, nasPaths);
-  }
+  return _origDoImport();
 };
 const _origRequestTranscode = requestTranscode;
 requestTranscode = function (id) {

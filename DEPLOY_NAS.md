@@ -52,6 +52,37 @@ Khi bấm lưu:
 - API tự restart
 - worker tự chờ config rồi nhận cấu hình mới
 
+## Shared Folder / Team Folder trên Synology Drive
+
+Để import file thật và cho FFmpeg đọc được source thật:
+
+1. `api` và `worker` phải mount NAS volume vào container.
+   File compose hiện đã mount sẵn:
+
+```yaml
+- /volume1:/nas:ro
+```
+
+2. Trong setup wizard, điền:
+
+```text
+DSM mount root = /nas
+```
+
+3. Nếu file nằm trong Team Folder ví dụ:
+
+```text
+/TeamFolder/ProjectA/shot01.mov
+```
+
+thì bên trong container FFmpeg sẽ đọc ở:
+
+```text
+/nas/TeamFolder/ProjectA/shot01.mov
+```
+
+Nếu bỏ trống `DSM mount root`, app vẫn có thể duyệt DSM qua API nhưng worker có thể không transcode được file thật.
+
 ## Update từ xa
 
 `docker-compose.nas-auto.yml` đã có sẵn Watchtower. Khi image mới được push lên registry:

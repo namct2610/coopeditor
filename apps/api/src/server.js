@@ -413,13 +413,20 @@ async function handle(req, res, url) {
       if (!file || file.type !== "file") continue;
       const a = await store.addAssetFromImport({
         projectId: pid, title: file.name.replace(/\.[^.]+$/, ""), codec: file.codec || "unknown",
-        sizeLabel: file.sizeLabel || "—", durationMs: file.durationMs || 0, nasPath: path,
+        sizeLabel: file.sizeLabel || "—", durationMs: file.durationMs || 0, nasPath: file.sourcePath || path,
       });
       created.push(a);
       const versions = await store.listVersionsForAsset(a.id);
       const rends = await store.listRenditionsForVersion(versions[0].id);
       for (const r of rends) requestTranscode(r.id);
-      await audit.record({ actorUserId: sess.userId, action: "asset.imported", resourceType: "asset", resourceId: a.id, projectId: pid, payload: { title: a.title, nasPath: a.nasPath } });
+      await audit.record({
+        actorUserId: sess.userId,
+        action: "asset.imported",
+        resourceType: "asset",
+        resourceId: a.id,
+        projectId: pid,
+        payload: { title: a.title, dsmPath: path, sourcePath: a.nasPath },
+      });
     }
     return send(res, 200, { imported: created });
   }

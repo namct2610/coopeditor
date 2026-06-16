@@ -136,6 +136,7 @@ export async function getFileMeta(sid, path) {
       sizeLabel: file.sizeLabel,
       codec: file.codec,
       durationMs: file.durationMs,
+      sourcePath: path,
     };
   }
 
@@ -162,9 +163,10 @@ export async function getFileMeta(sid, path) {
       ...meta,
       codec: probed.codec || meta.codec,
       durationMs: probed.durationMs || 0,
+      sourcePath: probePath,
     };
   } catch (_) {
-    return meta;
+    return { ...meta, sourcePath: probePath };
   }
 }
 
