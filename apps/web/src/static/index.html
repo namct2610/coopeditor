@@ -3588,6 +3588,12 @@ function applyRemoteToState() {
   const transformedProjects = REMOTE_PROJECTS.map((p) => ({
     id: p.id, name: p.name, status: p.status, client: p.client, updated: p.updatedAt,
     team: (p.team || []).map((u) => [u.initial, u.color]),
+    // Fields below the original shape didn't have but downstream code reads
+    // (computeVals → canManageAccess / canManageUpdates / canManageProject).
+    // Without these, owner-gated UI (proxy storage manager, DSM picker,
+    // Sửa/Xóa buttons, audit panel) silently hides for actual owners.
+    myRole: p.myRole,
+    archivedAt: p.archivedAt,
   }));
   PROJECTS_REF.length = 0; transformedProjects.forEach((x) => PROJECTS_REF.push(x));
   const byProj = {};
