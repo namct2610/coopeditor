@@ -443,7 +443,7 @@ function setQuality(id, opts) {
   else setState({ showQualityMenu: false, showTranscode: true });
 }
 function requestTranscode(id) {
-  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: Math.max(4, q.progress || 0) } : q);
+  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: q.progress || 0 } : q);
   render();
 }
 
@@ -1460,8 +1460,9 @@ function importModal(vals) {
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Import thủ công · ${esc(vals.projectName)}</div>
           <h3 style="margin:6px 0 0;font-size:19px;font-weight:800;">Chọn nguồn từ NAS để thêm vào project</h3>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-variant-numeric:tabular-nums;font-size:12px;">
-            <span style="color:var(--co-faint);">${esc(vals.nasRootLabel)}</span>
-            ${vals.nasCrumbs.map((cr, i) => `<span data-act="navTo" data-arg="${remote.me ? encodeURIComponent(cr.path || "/") : i}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
+            <span data-act="navTo" data-arg="${encodeURIComponent("/")}" class="co-blue-hover" style="cursor:pointer;color:var(--co-faint);font-weight:700;">${esc(vals.nasRootLabel)}</span>
+            <span style="color:var(--co-faint);">/</span>
+            ${vals.nasCrumbs.map((cr) => `<span data-act="navTo" data-arg="${encodeURIComponent(cr.path || "/")}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
           </div>
         </div>
         <button data-act="closeImport" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
@@ -1620,7 +1621,7 @@ function computeVals() {
       bg: "linear-gradient(150deg," + src.a + "," + src.b + ")",
       durLabel: fmtDur(src.dur),
       meta: metaParts.join(" · "),
-      statusLabel: src.status === "processing" ? "Transcode " + (src.progress || 0) + "%" : st.label,
+      statusLabel: src.status === "processing" ? ((src.progress || 0) > 0 ? ("Transcode " + (src.progress || 0) + "%") : "Đang chờ worker") : st.label,
       statusColor: st.color, statusBg: st.bg, comments: src.comments,
       dragOpacity: s.dragId === src.id ? 0.4 : 1,
       rowBorder: s.dragId === src.id ? "rgba(45,168,226,0.6)" : "var(--co-border)",
@@ -1646,7 +1647,7 @@ function computeVals() {
   const qualities = s.qualities.map((q) => {
     const isActive = q.id === s.quality;
     let tag = "Sẵn sàng", tagColor = "#35c389", tagBg = "rgba(53,195,137,0.14)";
-    if (q.status === "processing") { tag = (q.progress || 0) + "%"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; }
+    if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang chờ"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; }
     else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#2da8e2"; tagBg = "rgba(45,168,226,0.14)"; }
     return { ...q, isActive, labelColor: isActive ? "#2da8e2" : "var(--co-text)",
       rowBg: isActive ? "rgba(45,168,226,0.1)" : "transparent", tag, tagColor, tagBg };
@@ -1656,7 +1657,7 @@ function computeVals() {
     let tag, tagColor, tagBg, canRequest = false, isProcessing = false;
     if (l.status === "nas") { tag = "NAS only"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; }
     else if (l.status === "ready") { tag = "Sẵn sàng"; tagColor = "#35c389"; tagBg = "rgba(53,195,137,0.14)"; }
-    else if (l.status === "processing") { tag = (l.progress || 0) + "%"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; isProcessing = true; }
+    else if (l.status === "processing") { tag = (l.progress || 0) > 0 ? ((l.progress || 0) + "%") : "Đang chờ"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; isProcessing = true; }
     else { tag = "Chưa tạo"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; canRequest = true; }
     const isSrc = l.status === "nas";
     return { id: l.id, badge: l.badge || l.label.replace("p", ""), label: l.label, res: l.res,
@@ -1724,7 +1725,9 @@ function computeVals() {
   // NAS browser
   let crumbs, folderLabel, nasList;
   const listing = REMOTE_NAS || { path: "/", crumbs: [{ label: "/", path: "/" }], entries: [] };
-  crumbs = (listing.crumbs || [{ label: "/", path: "/" }]).map((cr) => ({ label: cr.label, path: cr.path }));
+  crumbs = (listing.crumbs || [{ label: "/", path: "/" }])
+    .filter((cr) => !(cr.path === "/" && cr.label === "/"))
+    .map((cr) => ({ label: cr.label, path: cr.path }));
   folderLabel = listing.path || "/";
   nasList = (listing.entries || []).map((ch) => {
     if (ch.type === "folder") {
@@ -2547,8 +2550,9 @@ async function handleRemoteEvent(ev) {
     if (state._currentVersionId && ev.assetVersionId === state._currentVersionId) {
       const id = ev.id.split("_").slice(-1)[0]; // "p1s1_v3_720p" -> "720p"
       state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: ev.status, progress: ev.progress } : q);
-      render();
     }
+    if (ev.projectId && REMOTE_SOURCES[ev.projectId]) await refreshProjectSources(ev.projectId);
+    render();
   } else if (ev.type === "asset") {
     // refresh the affected project's sources if we have it loaded
     if (REMOTE_SOURCES[ev.projectId]) { await refreshProjectSources(ev.projectId); render(); }

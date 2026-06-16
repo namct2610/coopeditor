@@ -367,7 +367,26 @@ function syncProjectTeam(projectId) {
   p.teamUserIds = listProjectMembers(projectId).map((m) => m.userId);
 }
 export function listAssetsByProject(pid) {
-  return [...assets.values()].filter((a) => a.projectId === pid).sort((a, b) => a.position - b.position);
+  return [...assets.values()]
+    .filter((a) => a.projectId === pid)
+    .sort((a, b) => a.position - b.position)
+    .map((asset) => {
+      const latestVersion = (versionsByAsset.get(asset.id) || []).slice(-1)[0];
+      const renditionList = latestVersion ? (renditionsByVersion.get(latestVersion.id) || []) : [];
+      if (!renditionList.length) return asset;
+      let status = "pending";
+      let progress = 0;
+      if (renditionList.every((r) => r.status === "ready")) {
+        status = "ready";
+        progress = 100;
+      } else if (renditionList.every((r) => r.status === "failed")) {
+        status = "failed";
+      } else if (renditionList.some((r) => r.status === "processing" || r.status === "ready")) {
+        status = "processing";
+        progress = Math.round(renditionList.reduce((sum, rendition) => sum + (rendition.status === "ready" ? 100 : (rendition.progress || 0)), 0) / renditionList.length);
+      }
+      return { ...asset, status, progress };
+    });
 }
 export function getAsset(id) { return assets.get(id) || null; }
 export function patchAsset(id, patch) {
@@ -517,7 +536,7 @@ export function addAssetFromImport({ projectId, title, codec, sizeLabel, duratio
   const a = {
     id, projectId, title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: Math.round(frameRate || 24),
     width: width || 0, height: height || 0, resolutionLabel: resolutionLabel || "", mimeType: mimeType || "application/octet-stream",
-    status: "processing", progress: 5 + Math.floor(Math.random() * 8),
+    status: "pending", progress: 0,
     commentsCount: 0, versionsCount: 1, paletteA, paletteB, createdAt: now(),
   };
   assets.set(id, a);

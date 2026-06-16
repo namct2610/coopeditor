@@ -27,7 +27,7 @@ const assetRow = (r) => r && ({
   codec: r.codec, sizeLabel: r.size_label, durationMs: r.duration_ms, frameRate: r.frame_rate,
   width: r.width_px || 0, height: r.height_px || 0, resolutionLabel: r.resolution_label || "",
   mimeType: r.mime_type || "application/octet-stream",
-  status: r.status, progress: r.progress, paletteA: r.palette_a, paletteB: r.palette_b,
+  status: r.derived_status || r.status, progress: r.derived_progress ?? r.progress, paletteA: r.palette_a, paletteB: r.palette_b,
   commentsCount: Number(r.comments_count || 0), versionsCount: Number(r.versions_count || 0),
   createdAt: r.created_at,
 });
@@ -212,9 +212,31 @@ export async function patchProject(id, patch) {
 export async function listAssetsByProject(pid) {
   const rows = await q(`
     SELECT a.*,
+      proxy.derived_status,
+      proxy.derived_progress,
       (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL) AS comments_count,
       (SELECT COUNT(*) FROM asset_versions v WHERE v.asset_id = a.id) AS versions_count
     FROM assets a
+    LEFT JOIN LATERAL (
+      SELECT
+        CASE
+          WHEN COUNT(r.id) = 0 THEN a.status
+          WHEN BOOL_AND(r.status = 'ready') THEN 'ready'
+          WHEN BOOL_AND(r.status = 'failed') THEN 'failed'
+          WHEN BOOL_OR(r.status = 'processing') OR BOOL_OR(r.status = 'ready') THEN 'processing'
+          ELSE 'pending'
+        END AS derived_status,
+        CASE
+          WHEN COUNT(r.id) = 0 THEN a.progress
+          WHEN BOOL_AND(r.status = 'ready') THEN 100
+          WHEN BOOL_AND(r.status = 'pending') THEN 0
+          ELSE ROUND(AVG(CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END))::int
+        END AS derived_progress
+      FROM asset_versions v
+      LEFT JOIN renditions r ON r.asset_version_id = v.id
+      WHERE v.asset_id = a.id
+        AND v.version_number = (SELECT MAX(version_number) FROM asset_versions WHERE asset_id = a.id)
+    ) proxy ON true
     WHERE a.project_id = $1 ORDER BY a.position`, [pid]);
   return rows.map(assetRow);
 }
@@ -425,8 +447,8 @@ export async function addAssetFromImport({ projectId, title, codec, sizeLabel, d
   const existing = (await one(`SELECT COUNT(*)::int AS n FROM assets WHERE project_id = $1`, [projectId])).n;
   const [a, b] = PAL[existing % PAL.length];
   const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, width_px, height_px, resolution_label, mime_type, status, progress, palette_a, palette_b)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'processing',$14,$15,$16) RETURNING *`,
-    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", 5 + Math.floor(Math.random() * 8), a, b]);
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',0,$14,$15) RETURNING *`,
+    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", a, b]);
 
   // seed V1 + 3 renditions (pending; worker will tick when requested or on import)
   const vid = id + "_v1";

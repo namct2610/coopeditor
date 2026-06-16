@@ -1,10 +1,10 @@
 {
-  "version": "0.2.3",
-  "summary": "Bổ sung quản lý project và video ngay trong UI: sửa, xoá, cập nhật trạng thái thật.",
+  "version": "0.2.4",
+  "summary": "Sửa breadcrumb import NAS và loại bỏ % transcode ảo khỏi UI project.",
   "changes": [
-    "Thêm thao tác sửa và xóa project trong UI, kèm API xóa project vĩnh viễn cho owner.",
-    "Thêm thao tác sửa tên và xóa video ngay trong màn hình project, đồng bộ backend và audit log.",
-    "Đổi trạng thái project trong UI giờ lưu thật xuống backend thay vì chỉ đổi cục bộ trên trình duyệt."
+    "Breadcrumb modal import NAS giờ luôn hiện rõ thư mục gốc và cho phép bấm quay lại root dễ dàng.",
+    "Card nguồn không còn dùng progress seed ảo; trạng thái project/video giờ bám theo rendition proxy thật.",
+    "Nếu worker chưa thực sự encode, UI sẽ hiện đang chờ worker thay vì giả vờ transcode 7% hay 11%."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }

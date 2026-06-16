@@ -12,7 +12,7 @@ export async function requestTranscode(rid) {
   const r = await store.getRendition(rid);
   if (!r) return;
   if (r.status === "ready") return;
-  await store.setRenditionStatus(rid, { status: "processing", progress: r.progress || 4 });
+  await store.setRenditionStatus(rid, { status: "processing", progress: r.progress || 0 });
 
   if (store.backend === "pg") {
     await store.enqueueTranscode(rid);
