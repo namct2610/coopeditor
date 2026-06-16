@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const CONFIG_PATH = process.env.APP_CONFIG_PATH || join(APP_DATA_DIR, "system", "config.json");
+const DEFAULT_UPDATE_FEED_URL = "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json";
+const DEFAULT_UPDATE_TRIGGER_URL = "http://watchtower:8080/v1/update";
 
 function ensureDir(path) {
   mkdirSync(dirname(path), { recursive: true });
@@ -43,10 +45,10 @@ export function publicRuntimeSummary() {
       appDataDir: APP_DATA_DIR,
       updater: {
         feedUrl: process.env.UPDATE_FEED_URL || "",
-        triggerUrl: process.env.UPDATE_TRIGGER_URL || "",
+        triggerUrl: process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL,
         pollIntervalSeconds: clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
-        feedConfigured: !!process.env.UPDATE_FEED_URL,
-        triggerConfigured: !!process.env.UPDATE_TRIGGER_URL,
+        feedConfigured: !!(process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
+        triggerConfigured: !!(process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
       },
     };
   }
@@ -69,11 +71,11 @@ export function publicRuntimeSummary() {
       workerConcurrency: (cfg.transcode && cfg.transcode.workerConcurrency) || 2,
     },
     updater: {
-      feedUrl: (cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || "",
-      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || "",
+      feedUrl: (cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL,
+      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL,
       pollIntervalSeconds: (cfg.updater && cfg.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
-      feedConfigured: !!((cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL),
-      triggerConfigured: !!((cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL),
+      feedConfigured: !!((cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
+      triggerConfigured: !!((cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
     },
   };
 }
@@ -134,8 +136,8 @@ export function normalizeRuntimeConfig(input) {
       sweepMinutes: clampInt(retention.sweepMinutes, 60, 5, 1440),
     },
     updater: {
-      feedUrl: String(updater.feedUrl || process.env.UPDATE_FEED_URL || "").trim(),
-      triggerUrl: String(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || "").trim(),
+      feedUrl: String(updater.feedUrl || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL).trim(),
+      triggerUrl: String(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL).trim(),
       triggerToken: String(updater.triggerToken || "").trim(),
       pollIntervalSeconds: clampInt(updater.pollIntervalSeconds, clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400), 30, 86400),
     },
@@ -200,8 +202,8 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.COMMENT_PURGE_DAYS = String(config.retention && config.retention.commentPurgeDays || 30);
   process.env.RETENTION_SWEEP_MINUTES = String(config.retention && config.retention.sweepMinutes || 60);
 
-  process.env.UPDATE_FEED_URL = envOr(config.updater && config.updater.feedUrl, process.env.UPDATE_FEED_URL || "");
-  process.env.UPDATE_TRIGGER_URL = envOr(config.updater && config.updater.triggerUrl, process.env.UPDATE_TRIGGER_URL || "");
+  process.env.UPDATE_FEED_URL = envOr(config.updater && config.updater.feedUrl, process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL);
+  process.env.UPDATE_TRIGGER_URL = envOr(config.updater && config.updater.triggerUrl, process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL);
   process.env.UPDATE_TRIGGER_TOKEN = envOr(config.updater && config.updater.triggerToken, process.env.UPDATE_TRIGGER_TOKEN || "");
   process.env.UPDATE_POLL_INTERVAL_SECONDS = String(config.updater && config.updater.pollIntervalSeconds || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400));
   return true;

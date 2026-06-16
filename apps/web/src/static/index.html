@@ -2093,9 +2093,11 @@ async function fetchUpdateStatus(force) {
     const status = normalizeUpdateStatusPayload(await api("/admin/update-status" + (force ? "?refresh=1" : "")));
     remote.updateStatus = status;
     state.updateStatus = status;
-    state.updateMessage = status.updateAvailable
-      ? ("Đã tìm thấy bản mới: " + ((status.remote && status.remote.version) || "không rõ"))
-      : "Đang chạy bản mới nhất theo update feed hiện tại.";
+    state.updateMessage = !status.checkAvailable
+      ? "Update feed chưa sẵn sàng."
+      : status.updateAvailable
+        ? ("Đã tìm thấy bản mới: " + ((status.remote && status.remote.version) || "không rõ"))
+        : "Đang chạy bản mới nhất theo update feed hiện tại.";
   } catch (err) {
     state.updateError = err.message || "Không đọc được trạng thái update";
     state.updateMessage = "";

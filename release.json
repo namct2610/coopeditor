@@ -1,10 +1,10 @@
 {
-  "version": "0.2.0",
-  "summary": "Them trung tam cap nhat trong UI va release metadata cho NAS deploy.",
+  "version": "0.2.1",
+  "summary": "Thêm trung tâm cập nhật trong UI và release metadata cho NAS deploy.",
   "changes": [
-    "Them release manifest version + mo ta ngan de UI hien thi ban dang chay va ban moi nhat.",
-    "Bo sung API kiem tra update, trigger update thu cong, va runtime config updater khong can .env.",
-    "Mo rong setup NAS/UI de cau hinh update feed, trigger URL, va xem tien trinh cap nhat."
+    "Thêm release manifest version và mô tả ngắn để UI hiển thị bản đang chạy và bản mới nhất.",
+    "Bổ sung API kiểm tra update, trigger update thủ công, và runtime config updater không cần .env.",
+    "Mở rộng setup NAS/UI để cấu hình update feed, trigger URL, và xem tiến trình cập nhật."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }

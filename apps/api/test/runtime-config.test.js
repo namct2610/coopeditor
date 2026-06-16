@@ -33,3 +33,27 @@ test("applyRuntimeEnvFromConfig preserves updater defaults from env for old conf
   assert.equal(process.env.UPDATE_TRIGGER_URL, "http://watchtower:8080/v1/update");
   assert.equal(process.env.UPDATE_TRIGGER_TOKEN, "token-demo");
 });
+
+test("publicRuntimeSummary exposes default updater feed for legacy config", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-config-summary-"));
+  const configPath = join(root, "system", "config.json");
+  await mkdir(join(root, "system"), { recursive: true });
+  await writeFile(configPath, JSON.stringify({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/nas",
+    dsmDevLogin: false,
+    dsmInsecure: false,
+    scheme: "https",
+  }), "utf8");
+
+  process.env.APP_DATA_DIR = root;
+  process.env.APP_CONFIG_PATH = configPath;
+  process.env.UPDATE_FEED_URL = "";
+  process.env.UPDATE_TRIGGER_URL = "";
+
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?summary=" + Date.now());
+  const summary = mod.publicRuntimeSummary();
+  assert.equal(summary.updater.feedUrl, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
+  assert.equal(summary.updater.triggerUrl, "http://watchtower:8080/v1/update");
+});
