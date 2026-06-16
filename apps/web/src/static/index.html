@@ -97,104 +97,11 @@
 
 const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],["#15171c","#3a4453"],["#291230","#6e2a55"],["#241a0e","#7a5524"],["#102b2b","#1f5a52"],["#1a1430","#3a2f6e"]];
 
-const mkSrc = (pid, rows) => rows.map((x, i) => ({
-  id: pid + "s" + (i + 1), title: x[0], dur: x[1], codec: x[2] || "ProRes 422",
-  size: x[3] || "—", status: x[4] || "ready", progress: x[5] || 0,
-  versions: x[6] || 1, comments: x[7] || 0,
-  a: PAL[i % PAL.length][0], b: PAL[i % PAL.length][1],
-}));
-
-const PROJECTS = [
-  { id: "p1", name: "TVC Q3 2026 — Karofi Hero", status: "progress", client: "Karofi PH · Brand", updated: "12 phút trước", team: [["M","#2da8e2"],["L","#e072a8"],["T","#f5a623"]] },
-  { id: "p2", name: "Product Launch — PureFlow U05", status: "progress", client: "Karofi PH · Product", updated: "1 giờ trước", team: [["L","#e072a8"],["P","#a07bff"]] },
-  { id: "p3", name: "Brand Refresh 2026", status: "progress", client: "Karofi PH · Brand", updated: "hôm qua", team: [["M","#2da8e2"],["T","#f5a623"]] },
-  { id: "p4", name: "Tết 2026 Campaign", status: "progress", client: "Karofi PH · Seasonal", updated: "2 ngày trước", team: [["M","#2da8e2"],["L","#e072a8"],["T","#f5a623"],["P","#a07bff"]] },
-  { id: "p5", name: "Hot & Cold D66 Demo", status: "done", client: "Karofi PH · Product", updated: "3 ngày trước", team: [["L","#e072a8"]] },
-  { id: "p6", name: "Warranty Explainer", status: "done", client: "Karofi PH · Support", updated: "5 ngày trước", team: [["M","#2da8e2"]] },
-  { id: "p7", name: "Store Opening — SM Megamall", status: "done", client: "Karofi PH · Retail", updated: "1 tuần trước", team: [["T","#f5a623"],["P","#a07bff"]] },
-  { id: "p8", name: "60-Day Free Trial Promo", status: "published", client: "Karofi PH · Growth", updated: "2 tuần trước", team: [["M","#2da8e2"],["L","#e072a8"]] },
-  { id: "p9", name: "AquaDuo Unboxing", status: "published", client: "Karofi PH · Product", updated: "3 tuần trước", team: [["P","#a07bff"]] },
-  { id: "p10", name: "Earth Day — Save Plastic", status: "published", client: "Karofi PH · Brand", updated: "1 tháng trước", team: [["M","#2da8e2"],["T","#f5a623"]] },
-  { id: "p11", name: "Customer Stories — Ep.1", status: "published", client: "Karofi PH · Social", updated: "1 tháng trước", team: [["L","#e072a8"]] },
-];
-
-const SEED_SOURCES = {
-  p1: mkSrc("p1", [
-    ["Opening_Wide_Kitchen", 142000, "ProRes 422 HQ", "48.2 GB", "ready", 0, 3, 6],
-    ["Glass_Filling_CU", 18000, "ProRes 422", "9.1 GB", "ready", 0, 1, 2],
-    ["Family_TwoShot", 24000, "ProRes 422 HQ", "12.0 GB", "processing", 62, 2, 1],
-    ["Filter_Unit_Insert", 42000, "ProRes 422", "18.3 GB", "ready", 0, 2, 2],
-    ["Balcony_Dusk_Wide", 67000, "ProRes 4444", "58.9 GB", "failed", 0, 1, 0],
-    ["Closing_Smile_CU", 15000, "ProRes 422", "6.1 GB", "ready", 0, 3, 3],
-    ["Brand_Logo_Sting", 8000, "ProRes 4444", "4.2 GB", "pending", 0, 1, 0],
-    ["BTS_Bonus_Broll", 214000, "H.265", "22.4 GB", "ready", 0, 1, 0],
-  ]),
-  p2: mkSrc("p2", [
-    ["Hero_Product_Spin", 96000, "ProRes 422", "31.0 GB", "ready", 0, 2, 4],
-    ["Install_StepByStep", 180000, "ProRes 422", "52.0 GB", "processing", 40, 1, 2],
-    ["Water_Quality_Test", 60000, "ProRes 422 HQ", "22.0 GB", "ready", 0, 1, 1],
-    ["Voiceover_Scratch", 150000, "H.264", "3.1 GB", "ready", 0, 1, 3],
-    ["Lower_Thirds_Pack", 12000, "ProRes 4444", "2.0 GB", "pending", 0, 1, 0],
-    ["Endcard_CTA", 10000, "ProRes 422", "1.8 GB", "ready", 0, 1, 0],
-  ]),
-  p3: mkSrc("p3", [
-    ["Logo_Animation_v2", 12000, "ProRes 4444", "3.2 GB", "ready", 0, 2, 1],
-    ["Color_Bumper", 6000, "ProRes 4444", "1.9 GB", "processing", 30, 1, 0],
-    ["Typography_Reveal", 9000, "ProRes 4444", "2.4 GB", "ready", 0, 1, 2],
-    ["Sonic_Logo_Mix", 5000, "H.264", "0.4 GB", "ready", 0, 1, 0],
-  ]),
-  p4: mkSrc("p4", [
-    ["Family_Reunion_Wide", 88000, "ProRes 422 HQ", "40.0 GB", "ready", 0, 1, 3],
-    ["Gift_Handover_CU", 20000, "ProRes 422", "9.0 GB", "ready", 0, 1, 1],
-    ["Kitchen_Prep_Montage", 55000, "ProRes 422", "24.0 GB", "processing", 18, 1, 0],
-    ["Cheers_Slowmo", 30000, "ProRes 4444", "28.0 GB", "pending", 0, 1, 0],
-    ["Tet_Endcard", 10000, "ProRes 422", "1.8 GB", "ready", 0, 1, 0],
-  ]),
-  p5: mkSrc("p5", [
-    ["Dispenser_Hero", 60000, "ProRes 422", "22.0 GB", "ready", 0, 2, 2],
-    ["Hot_Water_Demo", 40000, "ProRes 422", "15.0 GB", "ready", 0, 1, 1],
-    ["Cold_Water_Demo", 38000, "ProRes 422", "14.0 GB", "ready", 0, 1, 0],
-    ["Endcard_D66", 9000, "ProRes 422", "1.5 GB", "ready", 0, 1, 0],
-  ]),
-  p6: mkSrc("p6", [
-    ["Animated_Explainer", 120000, "ProRes 4444", "30.0 GB", "ready", 0, 3, 4],
-    ["VO_Final", 120000, "H.264", "2.6 GB", "ready", 0, 1, 0],
-    ["Captions_Burn", 12000, "ProRes 422", "2.0 GB", "ready", 0, 1, 0],
-  ]),
-  p7: mkSrc("p7", [
-    ["Ribbon_Cut_Wide", 45000, "ProRes 422", "20.0 GB", "ready", 0, 1, 1],
-    ["Crowd_Broll", 90000, "ProRes 422", "38.0 GB", "ready", 0, 1, 0],
-    ["Interview_Manager", 150000, "ProRes 422 HQ", "55.0 GB", "ready", 0, 2, 2],
-    ["Product_Wall_Pan", 25000, "ProRes 422", "11.0 GB", "ready", 0, 1, 0],
-    ["Endcard_Store", 8000, "ProRes 422", "1.4 GB", "ready", 0, 1, 0],
-  ]),
-  p8: mkSrc("p8", [
-    ["Promo_Hero_Cut", 30000, "ProRes 422", "12.0 GB", "ready", 0, 4, 5],
-    ["Testimonial_Mashup", 45000, "ProRes 422", "18.0 GB", "ready", 0, 2, 1],
-    ["CTA_Endcard", 8000, "ProRes 422", "1.4 GB", "ready", 0, 1, 0],
-  ]),
-  p9: mkSrc("p9", [
-    ["Unbox_Top", 40000, "ProRes 422", "16.0 GB", "ready", 0, 1, 2],
-    ["Parts_Layout", 30000, "ProRes 422", "12.0 GB", "ready", 0, 1, 0],
-    ["Install_Timelapse", 60000, "ProRes 422", "24.0 GB", "ready", 0, 2, 1],
-    ["First_Pour", 15000, "ProRes 422", "6.0 GB", "ready", 0, 1, 0],
-  ]),
-  p10: mkSrc("p10", [
-    ["Plastic_Waste_Montage", 50000, "ProRes 422", "20.0 GB", "ready", 0, 1, 1],
-    ["Refill_Lifestyle", 35000, "ProRes 422", "14.0 GB", "ready", 0, 1, 0],
-    ["Pledge_Endcard", 10000, "ProRes 422", "1.8 GB", "ready", 0, 1, 0],
-  ]),
-  p11: mkSrc("p11", [
-    ["Customer_Interview", 200000, "ProRes 422 HQ", "70.0 GB", "ready", 0, 2, 3],
-    ["Broll_Home_Use", 60000, "ProRes 422", "24.0 GB", "ready", 0, 1, 0],
-  ]),
-};
-
+const PROJECTS = [];
+const EMPTY_SOURCES = {};
 const AUTHORS = {
-  minh: { name: "Minh", initial: "M", color: "#2da8e2", role: "" },
-  lan: { name: "Lan", initial: "L", color: "#e072a8", role: "" },
-  tu: { name: "Tú", initial: "T", color: "#f5a623", role: "" },
-  khach: { name: "Khách hàng", initial: "K", color: "#35c389", role: "CLIENT" },
+  me: { name: "Bạn", initial: "B", color: "#2da8e2", role: "" },
+  guest: { name: "Khách", initial: "K", color: "#35c389", role: "CLIENT" },
 };
 
 const SM = {
@@ -219,39 +126,7 @@ const SCENES = [
   { at: 114000, label: "CU · SMILE", sub: "06 · Close", a: "#241a0e", b: "#7a5524", hi: "rgba(245,200,120,.4)" },
 ];
 
-const VERSIONS_DATA = [
-  { id: "v3", label: "V3", note: "current", meta: "Minh · 12 phút trước", tag: "Ready", bg: "linear-gradient(135deg,#1c5876,#2da8e2)" },
-  { id: "v2", label: "V2", note: "", meta: "Lan · hôm qua", tag: "Ready", bg: "linear-gradient(135deg,#234a78,#4f86c4)" },
-  { id: "v1", label: "V1", note: "", meta: "Minh · 3 ngày trước", tag: "Ready", bg: "linear-gradient(135deg,#3a4453,#6b7689)" },
-];
-
-const NAS_TREE = {
-  name: "Footage",
-  children: [
-    { type: "folder", name: "TVC Q3 2026", children: [
-      { type: "folder", name: "Hero", children: [
-        { type: "file", name: "Hero_take7.mov", size: "52.1 GB", codec: "ProRes 422 HQ", dur: 148000 },
-        { type: "file", name: "Hero_take8.mov", size: "49.3 GB", codec: "ProRes 422 HQ", dur: 151000 },
-        { type: "file", name: "Balcony_dusk_take5.mov", size: "60.2 GB", codec: "ProRes 4444", dur: 69000 },
-      ] },
-      { type: "folder", name: "Product", children: [
-        { type: "file", name: "Product_U05_demo_v3.mov", size: "33.0 GB", codec: "ProRes 422", dur: 96000 },
-        { type: "file", name: "Product_S038_demo.mov", size: "28.4 GB", codec: "ProRes 422", dur: 88000 },
-      ] },
-      { type: "folder", name: "Interview", children: [
-        { type: "file", name: "CEO_master_reel.mov", size: "110 GB", codec: "ProRes 422 HQ", dur: 312000 },
-      ] },
-      { type: "file", name: "Slate_reference.mov", size: "2.1 GB", codec: "ProRes 422", dur: 12000 },
-    ] },
-    { type: "folder", name: "Product Launch U05", children: [
-      { type: "file", name: "Launch_film_master.mov", size: "74.5 GB", codec: "ProRes 4444", dur: 205000 },
-      { type: "file", name: "Teaser_15s.mov", size: "5.8 GB", codec: "ProRes 422", dur: 15000 },
-    ] },
-    { type: "folder", name: "Archive 2025", children: [
-      { type: "file", name: "Brand_sizzle_2025.mov", size: "41.2 GB", codec: "H.265", dur: 124000 },
-    ] },
-  ],
-};
+const EMPTY_VERSIONS = [];
 
 let savedTheme = "dark";
 try { const t = localStorage.getItem("co-theme"); if (t === "light" || t === "dark") savedTheme = t; } catch (_) {}
@@ -261,13 +136,13 @@ const state = {
   view: "projects",
   theme: savedTheme,
   statusFilter: "all",
-  selectedProjectId: "p1",
+  selectedProjectId: "",
   sourceView: "grid",
   dragId: null,
   showStatusMenu: false,
   projectStatus: {},
-  sourcesByProject: SEED_SOURCES,
-  selectedId: "p1s1",
+  sourcesByProject: EMPTY_SOURCES,
+  selectedId: "",
   playing: false,
   currentMs: 12330,
   duration: 142000,
@@ -309,26 +184,18 @@ const state = {
   showSpeedPanel: false,
   autoQualityEnabled: true,
   lastAutoQuality: "720p",
-  version: "v3",
+  version: "v1",
   qualities: [
     { id: "540p", label: "540p", res: "960×540", bitrate: "1.8 Mbps", sub: "Mạng yếu · nhiều người xem", status: "ready" },
     { id: "720p", label: "720p", res: "1280×720", bitrate: "3.5 Mbps", sub: "Mặc định review", status: "ready" },
     { id: "1080p", label: "1080p", res: "1920×1080", bitrate: "8 Mbps", sub: "Check chi tiết · cần mạng tốt", status: "pending", progress: 0 },
   ],
-  comments: [
-    { id: "c1", who: "lan", ms: 8200, content: "Cắt nhanh hơn ở đầu shot này, đang bị lê khoảng nửa giây.", resolved: false, ago: "2 giờ trước", replies: [{ who: "minh", content: "Ok mình trim lại 12 frame." }] },
-    { id: "c2", who: "minh", ms: 18600, content: "Color khung này hơi ngả xanh — chỉnh lại white balance cho ấm hơn chút.", resolved: false, ago: "1 giờ trước", replies: [] },
-    { id: "c3", who: "tu", ms: 41200, content: "Tăng audio ambience bếp lên ~2dB, đang mỏng.", resolved: false, ago: "1 giờ trước", replies: [] },
-    { id: "c4", who: "minh", ms: 64800, content: "Logo Karofi lệch khỏi safe area, kéo vào title-safe.", resolved: true, ago: "hôm qua", replies: [{ who: "lan", content: "Đã fix ở V3." }] },
-    { id: "c5", who: "khach", ms: 91500, content: "Thiếu lower-third tên nhân vật ở đoạn này. Bổ sung giúp mình nhé.", resolved: false, ago: "47 phút trước", replies: [] },
-    { id: "c6", who: "lan", ms: 118200, content: "Transition hơi gắt, thử dissolve 8 frame xem mượt hơn không.", resolved: false, ago: "30 phút trước", replies: [] },
-  ],
+  comments: [],
 };
 
 // timers
 let playTimer = null, lastTick = 0;
-let speedTimer = null, importTimer = null;
-const tcTimers = [];
+let speedTimer = null;
 
 function setState(patch) { Object.assign(state, patch); render(); }
 function effStatus(p) { if (!p) return "progress"; return state.projectStatus[p.id] || p.status; }
@@ -439,18 +306,8 @@ function setQuality(id, opts) {
   else setState({ showQualityMenu: false, showTranscode: true });
 }
 function requestTranscode(id) {
-  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: 4 } : q);
+  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: Math.max(4, q.progress || 0) } : q);
   render();
-  const t = setInterval(() => {
-    state.qualities = state.qualities.map((q) => {
-      if (q.id !== id) return q;
-      const np = (q.progress || 0) + 7;
-      if (np >= 100) { clearInterval(t); return { ...q, status: "ready", progress: 100 }; }
-      return { ...q, progress: np };
-    });
-    render();
-  }, 320);
-  tcTimers.push(t);
 }
 
 // ---- import ----
@@ -478,11 +335,9 @@ async function openImport() {
 }
 function closeImport() { setState({ showImport: false, nasError: "", nasLoading: false }); }
 async function navInto(arg) {
-  if (!remote.me) return setState({ nasPath: [...state.nasPath, Number(arg)] });
   await refreshNasListing(decodeURIComponent(arg));
 }
 async function navTo(arg) {
-  if (!remote.me) return setState({ nasPath: state.nasPath.slice(0, Number(arg)) });
   await refreshNasListing(decodeURIComponent(arg));
 }
 function toggleSel(id, meta) { const sel = { ...state.importSel }; if (sel[id]) delete sel[id]; else sel[id] = meta; setState({ importSel: sel }); }
@@ -490,55 +345,22 @@ async function doImport() {
   const files = Object.values(state.importSel);
   if (!files.length) return;
   const pid = state.selectedProjectId;
-  if (remote.me) {
-    try {
-      await remoteImport(pid, files.map((f) => f.path));
-      state.showImport = false;
-      state.importSel = {};
-      state.view = "project";
-      render();
-    } catch (err) {
-      state.nasError = (err && err.message) || "Import thất bại";
-      render();
-    }
-    return;
-  }
-  const base = Date.now();
-  const existing = (state.sourcesByProject[pid] || []).length;
-  const newSources = files.map((f, i) => ({
-    id: "imp" + base + i, title: f.name.replace(/\.[^.]+$/, ""),
-    dur: f.dur, codec: f.codec, size: f.size,
-    status: "processing", progress: 5 + Math.floor(Math.random() * 8),
-    versions: 1, comments: 0,
-    a: PAL[(existing + i) % PAL.length][0], b: PAL[(existing + i) % PAL.length][1],
-  }));
-  state.sourcesByProject = { ...state.sourcesByProject, [pid]: [...(state.sourcesByProject[pid] || []), ...newSources] };
-  state.showImport = false; state.importSel = {}; state.nasPath = []; state.view = "project";
-  render();
-  if (!importTimer) {
-    importTimer = setInterval(() => {
-      let any = false;
-      const map = {};
-      Object.keys(state.sourcesByProject).forEach((k) => {
-        map[k] = state.sourcesByProject[k].map((a) => {
-          if (a.status !== "processing") return a;
-          any = true;
-          const np = (a.progress || 0) + Math.floor(4 + Math.random() * 7);
-          if (np >= 100) return { ...a, status: "ready", progress: 100 };
-          return { ...a, progress: np };
-        });
-      });
-      if (!any) { clearInterval(importTimer); importTimer = null; }
-      state.sourcesByProject = map;
-      render();
-    }, 360);
+  try {
+    await remoteImport(pid, files.map((f) => f.path));
+    state.showImport = false;
+    state.importSel = {};
+    state.view = "project";
+    render();
+  } catch (err) {
+    state.nasError = (err && err.message) || "Import thất bại";
+    render();
   }
 }
 
 // ---- comments ----
 function postComment() {
   const text = (state.newComment || "").trim(); if (!text) return;
-  state.comments = [...state.comments, { id: "n" + Date.now(), who: "minh", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [] }];
+  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [] }];
   state.newComment = "";
   render();
 }
@@ -637,25 +459,6 @@ function formatSpeedValue(mbps) {
   if (mbps >= 1000) return { value: (mbps / 1000).toFixed(mbps >= 10000 ? 0 : 1), unit: "Gbps" };
   return { value: String(Math.round(mbps)), unit: "Mbps" };
 }
-function simulateSpeedTest() {
-  return new Promise((resolve) => {
-    let n = 0;
-    const final = Math.round(26 + Math.random() * 28);
-    speedTimer = setInterval(() => {
-      n++;
-      if (n >= 15) {
-        clearInterval(speedTimer);
-        speedTimer = null;
-        resolve(final);
-        return;
-      }
-      const ramp = final * (0.35 + n / 18);
-      const j = Math.round(ramp + (Math.random() * 2 - 1) * final * 0.22);
-      state.speedDisplay = Math.max(1, j);
-      render();
-    }, 110);
-  });
-}
 async function runSpeedTest() {
   if (state.speedTesting) return;
   state.speedTesting = true;
@@ -666,11 +469,12 @@ async function runSpeedTest() {
   try {
     final = await measureSpeedMbps();
   } catch (_) {}
-  if (final == null) final = await simulateSpeedTest();
   state.speedTesting = false;
-  state.speedMbps = final;
-  state.speedDisplay = final;
-  if (state.autoQualityEnabled) applyAutoQualityRecommendation(final);
+  if (final != null) {
+    state.speedMbps = final;
+    state.speedDisplay = final;
+    if (state.autoQualityEnabled) applyAutoQualityRecommendation(final);
+  }
   render();
 }
 
@@ -765,7 +569,6 @@ function topBar(vals) {
       ${ICON.bell}
       ${vals.notificationCount > 0 ? `<span style="position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ef4d57;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;">${vals.notificationCount}</span>` : ""}
     </div>
-    <button class="co-btn-blue" style="display:inline-flex;align-items:center;gap:7px;background:#2da8e2;color:#07111a;font-weight:700;font-size:13px;padding:8px 14px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.35);">${ICON.share}Share</button>
     <div style="width:32px;height:32px;border-radius:50%;background:${vals.meColor};display:grid;place-items:center;font-weight:700;font-size:13px;color:#07090e;">${esc(vals.meInitial)}</div>
   </header>`;
 }
@@ -945,7 +748,7 @@ function projectDetail(vals) {
         <div style="color:var(--co-muted);font-size:13px;font-weight:600;margin-top:7px;">${esc(vals.detailMeta)}</div>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
-        <button data-act="toggleMembers" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.team}Thành viên</button>
+        <button data-act="toggleMembers" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.team}Quyền truy cập</button>
         ${vals.canManageProject ? `
           <button data-act="toggleAudit" class="co-border-hover" title="Xem nhật ký hoạt động" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.clock}Audit</button>
         ` : ""}
@@ -1110,13 +913,18 @@ function membersModal(vals) {
     <div data-stop="1" style="width:min(720px,100%);max-height:min(82vh,860px);overflow:auto;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:22px;">
       <div style="display:flex;align-items:flex-start;gap:16px;">
         <div>
-          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Project Members</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Project Access</div>
           <div style="margin-top:4px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);">${esc(vals.projectName)}</div>
-          <div style="margin-top:4px;color:var(--co-muted);font-size:12px;font-weight:600;">Mời editor, reviewer hoặc client vào project và chỉnh role ngay trong workspace.</div>
+          <div style="margin-top:4px;color:var(--co-muted);font-size:12px;font-weight:600;">Owner quản lý quyền. Editor thao tác nội dung. Reviewer và client chỉ review/comment.</div>
         </div>
         <button data-act="closeMembers" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
       </div>
-      <div style="margin-top:18px;display:grid;grid-template-columns:1.4fr 0.9fr auto;gap:10px;">
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:12px;color:var(--co-text-2);font-size:12px;font-weight:600;line-height:1.6;">
+        <div><strong>Owner:</strong> mời người, đổi role, thu hồi quyền, archive project.</div>
+        <div><strong>Editor:</strong> import nguồn, transcode, reorder, comment, chỉnh nội dung project.</div>
+        <div><strong>Reviewer / Client:</strong> chỉ xem, review và comment theo timeline.</div>
+      </div>
+      ${vals.canManageAccess ? `<div style="margin-top:18px;display:grid;grid-template-columns:1.4fr 0.9fr auto;gap:10px;">
         <select id="memberInviteUser" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
           <option value="">Chọn thành viên để mời</option>
           ${vals.memberInviteOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
@@ -1125,7 +933,7 @@ function membersModal(vals) {
           ${vals.memberRoleOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
         </select>
         <button data-act="doInviteMember" style="border:none;border-radius:12px;padding:0 16px;background:${vals.inviteBtnBg};color:${vals.inviteBtnColor};font-weight:800;font-size:13px;cursor:pointer;">Mời vào project</button>
-      </div>
+      </div>` : `<div style="margin-top:16px;color:var(--co-faint);font-size:12px;font-weight:600;">Chỉ owner mới có thể thay đổi phân quyền project này.</div>`}
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
         ${vals.projectMembers.map((member) => `
           <div style="display:flex;align-items:center;gap:12px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;padding:12px 13px;">
@@ -1135,9 +943,10 @@ function membersModal(vals) {
               <div style="color:var(--co-muted);font-size:11.5px;font-weight:600;">${esc(member.meta)}</div>
             </div>
             <span style="display:inline-flex;align-items:center;gap:6px;background:${member.badgeBg};color:${member.badgeColor};font-weight:800;font-size:10.5px;padding:5px 9px;border-radius:999px;text-transform:uppercase;">${esc(member.badge)}</span>
-            <select data-member-user-id="${member.userId}" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:9px 11px;color:var(--co-text);font-size:12px;font-weight:700;outline:none;">
+            <select data-member-user-id="${member.userId}" ${!vals.canManageAccess ? "disabled" : ""} style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:9px 11px;color:var(--co-text);font-size:12px;font-weight:700;outline:none;${!vals.canManageAccess ? "opacity:.6;cursor:not-allowed;" : ""}">
               ${member.roleOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
             </select>
+            ${vals.canManageAccess ? `<button data-act="removeMember" data-arg="${member.userId}" style="border:none;border-radius:10px;padding:9px 12px;background:rgba(239,77,87,0.12);color:#ef4d57;font-weight:800;font-size:12px;cursor:pointer;">Gỡ</button>` : ""}
           </div>
         `).join("")}
       </div>
@@ -1197,6 +1006,7 @@ function auditLabel(e) {
     "project.restored": "khôi phục project",
     "project.member_added": "thêm thành viên",
     "project.member_role_changed": "đổi role thành viên",
+    "project.member_removed": "gỡ thành viên",
     "asset.imported": "import nguồn từ NAS",
     "comment.created": "tạo comment",
     "comment.edited": "sửa comment",
@@ -1490,7 +1300,7 @@ function computeVals() {
   // no projects yet (fresh install, all archived, etc.), render() needs a
   // non-null object to walk so downstream code doesn't crash with "undefined.id".
   const EMPTY_PROJECT = { id: "", name: "—", status: "progress", client: "", team: [], updated: "" };
-  const selProject = PROJECTS.find((p) => p.id === s.selectedProjectId) || PROJECTS[0] || EMPTY_PROJECT;
+  const selProject = PROJECTS.find((p) => p.id === s.selectedProjectId) || EMPTY_PROJECT;
   const projStatus = effStatus(selProject);
 
   const counts = { all: PROJECTS.length, progress: 0, done: 0, published: 0 };
@@ -1544,13 +1354,7 @@ function computeVals() {
   const filterTitle = s.statusFilter === "all" ? "Tất cả project" : SM[s.statusFilter].label;
   const clientOptions = [{ value: "all", label: "Tất cả client", selected: s.clientFilter === "all" }]
     .concat(clientValues.map((client) => ({ value: client, label: client, selected: s.clientFilter === client })));
-  const selectedProjectMembers = (window.__projectMembersByProject && window.__projectMembersByProject[s.selectedProjectId])
-    || selProject.team.map((t, idx) => ({
-      projectId: selProject.id,
-      userId: selProject.id + "_local_" + idx,
-      role: idx === 0 ? "owner" : "editor",
-      user: { id: selProject.id + "_local_" + idx, name: "Member " + (idx + 1), initial: t[0], color: t[1], email: "" },
-    }));
+  const selectedProjectMembers = (window.__projectMembersByProject && window.__projectMembersByProject[s.selectedProjectId]) || [];
   const roleLabel = { owner: "Owner", editor: "Editor", reviewer: "Reviewer", client: "Client" };
   const projectMembers = selectedProjectMembers.map((member) => {
     const user = member.user || {};
@@ -1625,7 +1429,7 @@ function computeVals() {
   });
 
   const mapComment = (c) => {
-    const au = A[c.who] || A.minh;
+    const au = A[c.who] || A.me;
     return { id: c.id, color: au.color, initial: au.initial, name: au.name,
       roleTag: au.role, roleColor: au.role ? "#35c389" : "transparent",
       content: c.content, ago: c.ago, resolved: c.resolved,
@@ -1640,7 +1444,7 @@ function computeVals() {
       isEditing: s.editingCommentId === c.id,
       editingText: s.editingCommentId === c.id ? s.editingCommentText : c.content,
       hasReplies: c.replies && c.replies.length > 0,
-      replies: (c.replies || []).map((r) => ({ name: (A[r.who] || A.minh).name, color: (A[r.who] || A.minh).color, content: r.content })) };
+      replies: (c.replies || []).map((r) => ({ name: (A[r.who] || A.me).name, color: (A[r.who] || A.me).color, content: r.content })) };
   };
   const sorted = [...s.comments].sort((a, b) => a.ms - b.ms);
   const all = sorted.map(mapComment);
@@ -1657,7 +1461,7 @@ function computeVals() {
   const tabColor = (on) => on ? "#07111a" : "#8896ab";
 
   const remoteVersions = (window.__versionsByAsset && window.__versionsByAsset[s.selectedId]) || null;
-  const versions = (remoteVersions || VERSIONS_DATA).map((v, index, arr) => {
+  const versions = (remoteVersions || EMPTY_VERSIONS).map((v, index, arr) => {
     const id = v.id;
     const label = v.label || ("V" + v.versionNumber);
     const note = v.note || (index === arr.length - 1 ? "current" : "");
@@ -1677,50 +1481,35 @@ function computeVals() {
 
   // NAS browser
   let crumbs, folderLabel, nasList;
-  if (remote.me) {
-    const listing = REMOTE_NAS || { path: "/", crumbs: [{ label: "/", path: "/" }], entries: [] };
-    crumbs = (listing.crumbs || [{ label: "/", path: "/" }]).map((cr) => ({ label: cr.label, path: cr.path }));
-    folderLabel = listing.path || "/";
-    nasList = (listing.entries || []).map((ch) => {
-      if (ch.type === "folder") {
-        return {
-          isFolder: true,
-          isFile: false,
-          name: ch.name,
-          navArg: encodeURIComponent(ch.path),
-          meta: typeof ch.childCount === "number" ? (ch.childCount + " mục") : "Folder",
-        };
-      }
-      const id = ch.path;
-      const on = !!s.importSel[id];
+  const listing = REMOTE_NAS || { path: "/", crumbs: [{ label: "/", path: "/" }], entries: [] };
+  crumbs = (listing.crumbs || [{ label: "/", path: "/" }]).map((cr) => ({ label: cr.label, path: cr.path }));
+  folderLabel = listing.path || "/";
+  nasList = (listing.entries || []).map((ch) => {
+    if (ch.type === "folder") {
       return {
-        isFolder: false,
-        isFile: true,
-        id,
+        isFolder: true,
+        isFile: false,
         name: ch.name,
-        meta: [ch.sizeLabel || "—", ch.codec || "unknown", fmtDur(ch.durationMs || 0)].join(" · "),
-        checked: on,
-        checkBg: on ? "#2da8e2" : "transparent",
-        checkBorder: on ? "#2da8e2" : "var(--co-border-2)",
-        checkColor: on ? "#07090e" : "transparent",
-        rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
-        _meta: { path: ch.path, name: ch.name, size: ch.sizeLabel || "—", codec: ch.codec || "unknown", dur: ch.durationMs || 0, folder: folderLabel },
+        navArg: encodeURIComponent(ch.path),
+        meta: typeof ch.childCount === "number" ? (ch.childCount + " mục") : "Folder",
       };
-    });
-  } else {
-    let nasNode = NAS_TREE;
-    crumbs = [{ label: "Footage", path: "0" }];
-    s.nasPath.forEach((pi) => { nasNode = (nasNode.children || [])[pi] || nasNode; crumbs.push({ label: nasNode.name, path: String(pi) }); });
-    folderLabel = crumbs.slice(1).map((c) => c.label).join(" / ") || "Footage";
-    nasList = (nasNode.children || []).map((ch, i) => {
-      if (ch.type === "folder") return { isFolder: true, isFile: false, name: ch.name, navArg: String(i), meta: (ch.children || []).length + " mục" };
-      const id = folderLabel + "/" + ch.name; const on = !!s.importSel[id];
-      return { isFolder: false, isFile: true, id, name: ch.name, meta: ch.size + " · " + ch.codec + " · " + fmtDur(ch.dur),
-        checked: on, checkBg: on ? "#2da8e2" : "transparent", checkBorder: on ? "#2da8e2" : "var(--co-border-2)", checkColor: on ? "#07090e" : "transparent",
-        rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
-        _meta: { path: id, name: ch.name, size: ch.size, codec: ch.codec, dur: ch.dur, folder: folderLabel } };
-    });
-  }
+    }
+    const id = ch.path;
+    const on = !!s.importSel[id];
+    return {
+      isFolder: false,
+      isFile: true,
+      id,
+      name: ch.name,
+      meta: [ch.sizeLabel || "—", ch.codec || "unknown", fmtDur(ch.durationMs || 0)].join(" · "),
+      checked: on,
+      checkBg: on ? "#2da8e2" : "transparent",
+      checkBorder: on ? "#2da8e2" : "var(--co-border-2)",
+      checkColor: on ? "#07090e" : "transparent",
+      rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
+      _meta: { path: ch.path, name: ch.name, size: ch.sizeLabel || "—", codec: ch.codec || "unknown", dur: ch.durationMs || 0, folder: folderLabel },
+    };
+  });
   const importCount = Object.keys(s.importSel).length;
 
   const speedVal = s.speedTesting ? s.speedDisplay : s.speedMbps;
@@ -1762,7 +1551,7 @@ function computeVals() {
     nasCrumbs: crumbs, nasList, importCount,
     nasLoading: s.nasLoading,
     nasError: s.nasError,
-    nasRootLabel: remote.me ? "DSM / Shared Folder" : "\\\\NAS-STUDIO\\",
+    nasRootLabel: "DSM / Shared Folder",
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
     importBtnBg: importCount > 0 ? "#2da8e2" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
     importCountLabel: importCount + " nguồn đã chọn · sẽ tự tạo proxy sau import",
@@ -1786,6 +1575,7 @@ function computeVals() {
     inviteBtnColor: inviteReady ? "#07111a" : "var(--co-faint)",
     isArchived: !!(selProject && selProject.archivedAt),
     isOwner: (selProject && selProject.myRole === "owner") || !remote.me,
+    canManageAccess: (selProject && selProject.myRole === "owner") || !remote.me,
     canManageProject: !remote.me || ["owner", "editor"].includes(selProject && selProject.myRole),
     auditEntries: prepareAuditEntries(s.auditEntries || []),
     notificationCount: Object.values(s.notificationsByProject || {}).reduce((sum, count) => sum + count, 0),
@@ -1880,6 +1670,7 @@ function handleAct(act, arg, e, node) {
     case "restoreProject": return restoreSelectedProject();
     case "toggleShowArchived": return toggleShowArchived();
     case "doInviteMember": return doInviteMember();
+    case "removeMember": return removeMember(arg);
     case "setListView": return setState({ sourceView: "list" });
     case "setGridView": return setState({ sourceView: "grid" });
     case "openImport": return openImport();
@@ -1953,7 +1744,10 @@ document.addEventListener("change", (e) => {
     return;
   }
   if (e.target && e.target.dataset && e.target.dataset.memberUserId) {
-    remoteSetProjectMemberRole(state.selectedProjectId, e.target.dataset.memberUserId, e.target.value);
+    remoteSetProjectMemberRole(state.selectedProjectId, e.target.dataset.memberUserId, e.target.value).catch((err) => {
+      window.alert("Không thể cập nhật role: " + ((err && err.message) || "lỗi không xác định"));
+      refreshProjectMembers(state.selectedProjectId).then(() => render()).catch(() => {});
+    });
   }
 });
 document.addEventListener("keydown", (e) => {
@@ -2095,7 +1889,7 @@ async function bootstrap() {
     remote.error = err.message;
     remote.connected = false;
   }
-  // 1. Probe /me. If reachable + authed → load from API. If 401 → show login. If unreachable → connection-error overlay (NOT mockup).
+  // 1. Probe /me. If reachable + authed → load from API. If 401 → show login. If unreachable → connection-error overlay.
   setHint("Xác thực phiên…");
   try {
     const r = await api("/me");
@@ -2152,8 +1946,16 @@ async function loadRemote() {
     const [projects, users] = await Promise.all([api("/projects"), api("/users")]);
     remote.users = {}; users.forEach((u) => { remote.users[u.id] = u; });
     REMOTE_PROJECTS = projects;
-    await refreshProjectSources(state.selectedProjectId);
-    await refreshProjectMembers(state.selectedProjectId);
+    const hasSelected = projects.some((project) => project.id === state.selectedProjectId);
+    if (!hasSelected) {
+      state.selectedProjectId = projects[0] ? projects[0].id : "";
+      state.selectedId = "";
+      state.view = projects[0] ? state.view : "projects";
+    }
+    if (state.selectedProjectId) {
+      await refreshProjectSources(state.selectedProjectId);
+      await refreshProjectMembers(state.selectedProjectId);
+    }
     openEventStream();
     startPresence();
     try { remote.presence = await api("/presence"); } catch (_) {}
@@ -2490,23 +2292,27 @@ async function remotePatchProject(pid, patch) {
 }
 async function remoteInviteProjectMember(pid, userId, role) {
   if (!remote.me) return;
-  try {
-    await api("/projects/" + pid + "/members", { method: "POST", body: { userId, role } });
-    await refreshProjectMembers(pid);
-    const projects = await api("/projects");
-    REMOTE_PROJECTS = projects;
-    render();
-  } catch (_) {}
+  await api("/projects/" + pid + "/members", { method: "POST", body: { userId, role } });
+  await refreshProjectMembers(pid);
+  const projects = await api("/projects");
+  REMOTE_PROJECTS = projects;
+  render();
 }
 async function remoteSetProjectMemberRole(pid, userId, role) {
   if (!remote.me) return;
-  try {
-    await api("/projects/" + pid + "/members/" + userId, { method: "PATCH", body: { role } });
-    await refreshProjectMembers(pid);
-    const projects = await api("/projects");
-    REMOTE_PROJECTS = projects;
-    render();
-  } catch (_) {}
+  await api("/projects/" + pid + "/members/" + userId, { method: "PATCH", body: { role } });
+  await refreshProjectMembers(pid);
+  const projects = await api("/projects");
+  REMOTE_PROJECTS = projects;
+  render();
+}
+async function remoteRemoveProjectMember(pid, userId) {
+  if (!remote.me) return;
+  await api("/projects/" + pid + "/members/" + userId, { method: "DELETE" });
+  await refreshProjectMembers(pid);
+  const projects = await api("/projects");
+  REMOTE_PROJECTS = projects;
+  render();
 }
 async function remoteImport(pid, nasPaths) {
   if (!remote.me) return;
@@ -2675,7 +2481,18 @@ function doInviteMember() {
   state.inviteUserId = "";
   state.inviteRole = "reviewer";
   render();
-  if (remote.me) remoteInviteProjectMember(projectId, userId, role);
+  if (remote.me) {
+    remoteInviteProjectMember(projectId, userId, role).catch((err) => {
+      window.alert("Không thể thêm thành viên: " + ((err && err.message) || "lỗi không xác định"));
+    });
+  }
+}
+function removeMember(userId) {
+  if (!userId) return;
+  if (!window.confirm("Gỡ thành viên này khỏi project?")) return;
+  remoteRemoveProjectMember(state.selectedProjectId, userId).catch((err) => {
+    window.alert("Không thể gỡ thành viên: " + ((err && err.message) || "lỗi không xác định"));
+  });
 }
 
 // patch handleAct to recognize new actions
@@ -2707,8 +2524,6 @@ render = function () {
     return;
   }
   // Show login (or connection-error) overlay whenever user isn't authenticated.
-  // Previously this only triggered when `remote.connected===true`, so an offline API
-  // would fall through to the seed mockup → app felt fake and backend-dependent clicks did nothing.
   if (!remote.me) {
     const app = document.getElementById("app");
     document.documentElement.setAttribute("data-theme", state.theme);
@@ -2730,14 +2545,11 @@ function applyRemoteToState() {
   window.__projectMembersByProject = REMOTE_MEMBERS_BY_PROJECT;
   window.__versionsByAsset = REMOTE_VERSIONS_BY_ASSET;
   if (!REMOTE_PROJECTS) return;
-  // Build a PROJECTS-shape array for the existing computeVals(); preserve order/status from remote.
   const transformedProjects = REMOTE_PROJECTS.map((p) => ({
     id: p.id, name: p.name, status: p.status, client: p.client, updated: p.updatedAt,
     team: (p.team || []).map((u) => [u.initial, u.color]),
   }));
-  // mutate the module-level PROJECTS (declared as const above; we patch via splice on a writable alias)
   PROJECTS_REF.length = 0; transformedProjects.forEach((x) => PROJECTS_REF.push(x));
-  // sources: convert remote sources into the seed shape and stash into state.sourcesByProject
   const byProj = {};
   for (const pid of Object.keys(REMOTE_SOURCES)) {
     byProj[pid] = REMOTE_SOURCES[pid].sort((a, b) => a.position - b.position).map((s) => ({
@@ -2746,8 +2558,12 @@ function applyRemoteToState() {
       a: s.paletteA, b: s.paletteB,
     }));
   }
-  // merge: keep seed for unloaded projects, overwrite for loaded
   state.sourcesByProject = { ...state.sourcesByProject, ...byProj };
+  const selectedProjectSources = state.sourcesByProject[state.selectedProjectId] || [];
+  if (selectedProjectSources.length && !selectedProjectSources.some((source) => source.id === state.selectedId)) {
+    state.selectedId = selectedProjectSources[0].id;
+    state.duration = selectedProjectSources[0].dur || state.duration;
+  }
   if (state._currentVersionId && REMOTE_RENDITIONS[state._currentVersionId]) {
     const renditionMap = {};
     REMOTE_RENDITIONS[state._currentVersionId].forEach((r) => { renditionMap[r.height] = r; });
@@ -2765,7 +2581,6 @@ function applyRemoteToState() {
       return { ...base, status: r.status, progress: r.progress || 0 };
     });
   }
-  // selected version's comments
   if (REMOTE_COMMENTS_FOR_SELECTED) {
     state.comments = REMOTE_COMMENTS_FOR_SELECTED.filter((c) => !c.parentId).map((c) => {
       const replies = REMOTE_COMMENTS_FOR_SELECTED.filter((r) => r.parentId === c.id).map((r) => ({
@@ -2781,10 +2596,7 @@ function applyRemoteToState() {
 let REMOTE_COMMENTS_FOR_SELECTED = null;
 function mapAuthor(userId) {
   const u = remote.users && remote.users[userId];
-  if (!u) return "minh";
-  // map DSM user color/initial to one of the seeded author keys for compatibility with existing AUTHORS lookup
-  // best effort: use 'minh' for editor self, 'khach' for client. Otherwise pass through by extending AUTHORS.
-  if (u.role === "client") return ensureAuthor("u_" + u.id, u);
+  if (!u) return "me";
   return ensureAuthor("u_" + u.id, u);
 }
 function ensureAuthor(key, u) {
@@ -2792,8 +2604,6 @@ function ensureAuthor(key, u) {
   return key;
 }
 
-// PROJECTS / SEED_SOURCES are declared with `const` in the file above; for hydration we keep them
-// const but expose a writable reference. (Same array identity → computeVals() picks up edits.)
 const PROJECTS_REF = PROJECTS;
 
 // hook openSource/openProject to refresh remote data
@@ -2818,6 +2628,11 @@ openSource = async function (id) {
       await refreshComments(current.id);
       await refreshRenditions(current.id);
       REMOTE_COMMENTS_FOR_SELECTED = REMOTE_COMMENTS[current.id] || null;
+    } else {
+      state._currentVersionId = "";
+      state.version = "v1";
+      REMOTE_COMMENTS_FOR_SELECTED = [];
+      state.comments = [];
     }
     render();
   } catch (_) {}

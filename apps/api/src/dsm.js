@@ -255,8 +255,8 @@ const DEV_TREE = {
           { type: "file", name: "Balcony_dusk_take5.mov", sizeLabel: "60.2 GB", codec: "ProRes 4444", durationMs: 69000 },
         ] },
         { type: "folder", name: "Product", children: [
-          { type: "file", name: "Product_U05_demo_v3.mov", sizeLabel: "33.0 GB", codec: "ProRes 422", durationMs: 96000 },
-          { type: "file", name: "Product_S038_demo.mov", sizeLabel: "28.4 GB", codec: "ProRes 422", durationMs: 88000 },
+          { type: "file", name: "Product_U05_master_v3.mov", sizeLabel: "33.0 GB", codec: "ProRes 422", durationMs: 96000 },
+          { type: "file", name: "Product_S038_master.mov", sizeLabel: "28.4 GB", codec: "ProRes 422", durationMs: 88000 },
         ] },
         { type: "folder", name: "Interview", children: [
           { type: "file", name: "CEO_master_reel.mov", sizeLabel: "110 GB", codec: "ProRes 422 HQ", durationMs: 312000 },

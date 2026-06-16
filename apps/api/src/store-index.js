@@ -1,5 +1,5 @@
 // Storage dispatcher: picks Postgres when DATABASE_URL is set, otherwise the
-// in-memory seed store. Exposes a uniformly async API. Server + worker use only
+// in-memory fallback store used by local tests/dev. Exposes a uniformly async API. Server + worker use only
 // this module — neither imports store.js or store-pg.js directly.
 
 import { db } from "./db.js";
@@ -24,6 +24,7 @@ export const listProjectMembers  = USE_PG ? impl.listProjectMembers  : A(impl.li
 export const listProjectMembersForUser = USE_PG ? impl.listProjectMembersForUser : A(impl.listProjectMembersForUser);
 export const upsertProjectMember = USE_PG ? impl.upsertProjectMember : A(impl.upsertProjectMember);
 export const setProjectMemberRole = USE_PG ? impl.setProjectMemberRole : A(impl.setProjectMemberRole);
+export const removeProjectMember = USE_PG ? impl.removeProjectMember : A(impl.removeProjectMember);
 export const listProjectMemberUserIds = USE_PG ? impl.listProjectMemberUserIds : A(impl.listProjectMemberUserIds);
 export const patchProject        = USE_PG ? impl.patchProject        : async (id, patch) => {
   const p = mem.projects.get(id); if (!p) return null;

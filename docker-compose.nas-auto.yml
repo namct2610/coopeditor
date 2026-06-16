@@ -82,18 +82,10 @@ services:
       MINIO_ACCESS_KEY: coopeditor-minio
       MINIO_SECRET_KEY: coopeditor-minio-secret
       HOST: 0.0.0.0
-      # Để trống → applyCors() chấp nhận same-host (Origin trùng Host header
-      # do reverse proxy forward). Anh chỉ cần override khi dùng FE và API ở
-      # 2 domain khác nhau (ví dụ: app.example.com gọi tới api.example.com).
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
-      # Đặt SEED_DEMO_DATA=1 trong .env nếu muốn nạp dữ liệu mẫu (4 user, 6 project,
-      # 8 source giả). Mặc định KHÔNG seed — production khởi đầu rỗng, login DSM
-      # đầu tiên sẽ tự tạo user thật.
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-0}
     command: >
       sh -c "
         node apps/api/src/migrate.js &&
-        if [ ! -f /data/.seeded ]; then node apps/api/src/seed.js && touch /data/.seeded; fi;
         node apps/api/src/bootstrap.js
       "
     volumes:

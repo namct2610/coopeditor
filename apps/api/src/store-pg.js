@@ -184,6 +184,12 @@ export async function setProjectMemberRole(projectId, userId, role) {
      WHERE project_id = $1 AND user_id = $2
      RETURNING *`, [projectId, userId, role]));
 }
+export async function removeProjectMember(projectId, userId) {
+  return projectMemberRow(await one(`
+    DELETE FROM project_members
+     WHERE project_id = $1 AND user_id = $2
+     RETURNING *`, [projectId, userId]));
+}
 export async function listProjectMemberUserIds(projectId) {
   return (await q(`SELECT user_id FROM project_members WHERE project_id = $1 ORDER BY position`, [projectId])).map((row) => row.user_id);
 }

@@ -76,6 +76,11 @@ async function requireProjectAccess(res, projectId, userId, allowedRoles = null)
   return member;
 }
 
+async function ensureProjectHasAnotherOwner(projectId, userId) {
+  const members = await store.listProjectMembers(projectId);
+  return members.some((member) => member.userId !== userId && member.role === "owner");
+}
+
 // Annotation payload: { strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }] }
 // Coordinates are normalized 0..1 so they survive scaling. Size cap = 50 strokes × 256 points.
 function validateAnnotation(raw) {
@@ -362,7 +367,7 @@ async function handle(req, res, url) {
       return send(res, 200, enriched);
     }
     if (m === "POST") {
-      if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
+      if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
       const body = await readJson(req).catch(() => null);
       if (!body || typeof body.userId !== "string" || !["owner", "editor", "reviewer", "client"].includes(body.role)) {
         return bad(res, "userId and valid role required");
@@ -378,13 +383,34 @@ async function handle(req, res, url) {
   if ((mat = p.match(/^\/projects\/([^/]+)\/members\/([^/]+)$/)) && m === "PATCH") {
     const projectId = mat[1];
     const targetUserId = mat[2];
-    if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
+    if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
     const body = await readJson(req).catch(() => null);
     if (!body || !["owner", "editor", "reviewer", "client"].includes(body.role)) return bad(res, "valid role required");
+    const current = await store.getProjectMember(projectId, targetUserId);
+    if (!current) return bad(res, "Member not found", 404);
+    if (current.role === "owner" && body.role !== "owner") {
+      const hasAnotherOwner = await ensureProjectHasAnotherOwner(projectId, targetUserId);
+      if (!hasAnotherOwner) return bad(res, "Project must keep at least one owner", 409);
+    }
     const member = await store.setProjectMemberRole(projectId, targetUserId, body.role);
     if (!member) return bad(res, "Member not found", 404);
     await audit.record({ actorUserId: sess.userId, action: "project.member_role_changed", resourceType: "project_member", resourceId: targetUserId, projectId, payload: { role: body.role } });
     return send(res, 200, { ...member, user: await store.getUser(targetUserId) });
+  }
+  if ((mat = p.match(/^\/projects\/([^/]+)\/members\/([^/]+)$/)) && m === "DELETE") {
+    const projectId = mat[1];
+    const targetUserId = mat[2];
+    if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
+    const current = await store.getProjectMember(projectId, targetUserId);
+    if (!current) return bad(res, "Member not found", 404);
+    if (current.role === "owner") {
+      const hasAnotherOwner = await ensureProjectHasAnotherOwner(projectId, targetUserId);
+      if (!hasAnotherOwner) return bad(res, "Project must keep at least one owner", 409);
+    }
+    const removed = await store.removeProjectMember(projectId, targetUserId);
+    if (!removed) return bad(res, "Member not found", 404);
+    await audit.record({ actorUserId: sess.userId, action: "project.member_removed", resourceType: "project_member", resourceId: targetUserId, projectId });
+    return send(res, 200, { ok: true, removed });
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/sources$/)) && m === "GET") {
     const projectId = mat[1];

@@ -181,6 +181,44 @@ test("project members can be listed and invited", async () => {
   const patched = await http("/projects/p1/members/u_phong", { method: "PATCH", body: { role: "client" } });
   assert.equal(patched.status, 200);
   assert.equal(patched.json.role, "client");
+
+  const removed = await http("/projects/p1/members/u_phong", { method: "DELETE" });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.json.ok, true);
+});
+
+test("project access keeps at least one owner", async () => {
+  const downgradeOnlyOwner = await http("/projects/p1/members/u_minh", { method: "PATCH", body: { role: "editor" } });
+  assert.equal(downgradeOnlyOwner.status, 409);
+
+  const removeOnlyOwner = await http("/projects/p1/members/u_minh", { method: "DELETE" });
+  assert.equal(removeOnlyOwner.status, 409);
+
+  const secondOwner = await http("/projects/p1/members", { method: "POST", body: { userId: "u_phong", role: "owner" } });
+  assert.equal(secondOwner.status, 201);
+
+  const downgradeFormerOnlyOwner = await http("/projects/p1/members/u_minh", { method: "PATCH", body: { role: "editor" } });
+  assert.equal(downgradeFormerOnlyOwner.status, 200);
+  assert.equal(downgradeFormerOnlyOwner.json.role, "editor");
+});
+
+test("only owner can manage project access", async () => {
+  await http("/auth/logout", { method: "POST" });
+  const loggedIn = await http("/auth/dsm/login", { method: "POST", body: { account: "lan", passwd: "x" } });
+  assert.equal(loggedIn.status, 200);
+
+  const invite = await http("/projects/p1/members", { method: "POST", body: { userId: "u_tu", role: "reviewer" } });
+  assert.equal(invite.status, 403);
+
+  const patchRole = await http("/projects/p1/members/u_phong", { method: "PATCH", body: { role: "client" } });
+  assert.equal(patchRole.status, 403);
+
+  const remove = await http("/projects/p1/members/u_phong", { method: "DELETE" });
+  assert.equal(remove.status, 403);
+
+  await http("/auth/logout", { method: "POST" });
+  const ownerLogin = await http("/auth/dsm/login", { method: "POST", body: { account: "phong", passwd: "x" } });
+  assert.equal(ownerLogin.status, 200);
 });
 
 test("PATCH project status moves it between groups", async () => {

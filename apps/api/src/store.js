@@ -337,6 +337,13 @@ export function setProjectMemberRole(projectId, userId, role) {
   syncProjectTeam(projectId);
   return existing;
 }
+export function removeProjectMember(projectId, userId) {
+  const existing = getProjectMember(projectId, userId);
+  if (!existing) return null;
+  projectMembers.delete(projectId + ":" + userId);
+  syncProjectTeam(projectId);
+  return existing;
+}
 export function listProjectMemberUserIds(projectId) {
   return listProjectMembers(projectId).map((m) => m.userId);
 }
