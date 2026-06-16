@@ -10,6 +10,8 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,6 +42,11 @@ async function dsmGet(path, params) {
   }
   if (!res.ok) throw new Error("DSM HTTP " + res.status);
   return res.json();
+}
+
+function dsmErrorMessage(prefix, body) {
+  const code = body && body.error && body.error.code;
+  return prefix + (code ? " (code " + code + ")" : "");
 }
 
 // Returns { ok, sid, uid, name, email } OR { needsOtp: true } OR { error }
@@ -99,29 +106,39 @@ export async function dsmListFolder(sid, path) {
   if (isDevMode()) return devNasListing(path);
   if (path === "/") {
     // top level: list shared folders
-    const body = await dsmGet("/webapi/entry.cgi", {
-      api: "SYNO.FileStation.List", version: "2", method: "list_share", _sid: sid,
-      additional: '["real_path","size"]',
-    });
-    if (!body || !body.success) throw new Error("FileStation list_share failed");
-    return {
-      path: "/",
-      crumbs: [{ label: "/", path: "/" }],
-      entries: (body.data.shares || []).map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
-    };
+    try {
+      const body = await dsmGet("/webapi/entry.cgi", {
+        api: "SYNO.FileStation.List", version: "2", method: "list_share", _sid: sid,
+        additional: '["real_path","size"]',
+      });
+      if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list_share failed", body));
+      return {
+        path: "/",
+        crumbs: [{ label: "/", path: "/" }],
+        entries: (body.data.shares || []).map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
+      };
+    } catch (err) {
+      if (DSM_MOUNT_ROOT) return listMountedFolder("/");
+      throw err;
+    }
   }
-  const body = await dsmGet("/webapi/entry.cgi", {
-    api: "SYNO.FileStation.List", version: "2", method: "list", _sid: sid,
-    folder_path: path, additional: '["size","type"]',
-  });
-  if (!body || !body.success) throw new Error("FileStation list failed");
-  const entries = (body.data.files || []).map((f) => {
-    if (f.isdir) return { type: "folder", name: f.name, path: f.path, childCount: 0 };
-    const ext = f.name.split(".").pop().toLowerCase();
-    const codec = /mov|mp4|mxf/.test(ext) ? "ProRes 422" : ext.toUpperCase();
-    return { type: "file", name: f.name, path: f.path, sizeLabel: humanSize(f.additional && f.additional.size), codec, durationMs: 0 };
-  });
-  return { path, crumbs: buildCrumbs(path), entries };
+  try {
+    const body = await dsmGet("/webapi/entry.cgi", {
+      api: "SYNO.FileStation.List", version: "2", method: "list", _sid: sid,
+      folder_path: path, additional: '["size","type"]',
+    });
+    if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
+    const entries = (body.data.files || []).map((f) => {
+      if (f.isdir) return { type: "folder", name: f.name, path: f.path, childCount: 0 };
+      const ext = f.name.split(".").pop().toLowerCase();
+      const codec = /mov|mp4|mxf/.test(ext) ? "ProRes 422" : ext.toUpperCase();
+      return { type: "file", name: f.name, path: f.path, sizeLabel: humanSize(f.additional && f.additional.size), codec, durationMs: 0 };
+    });
+    return { path, crumbs: buildCrumbs(path), entries };
+  } catch (err) {
+    if (DSM_MOUNT_ROOT) return listMountedFolder(path);
+    throw err;
+  }
 }
 
 export async function getFileMeta(sid, path) {
@@ -194,22 +211,71 @@ function parseHumanSize(label) {
 
 async function dsmGetFileEntry(sid, path) {
   const parent = path.replace(/\/[^/]+$/, "") || "/";
-  const body = await dsmGet("/webapi/entry.cgi", {
-    api: "SYNO.FileStation.List",
-    version: "2",
-    method: "list",
-    _sid: sid,
-    folder_path: parent,
-    additional: '["real_path","size","type"]',
-  });
-  if (!body || !body.success) throw new Error("FileStation list failed");
-  return (body.data.files || []).find((file) => file.path === path && !file.isdir) || null;
+  try {
+    const body = await dsmGet("/webapi/entry.cgi", {
+      api: "SYNO.FileStation.List",
+      version: "2",
+      method: "list",
+      _sid: sid,
+      folder_path: parent,
+      additional: '["real_path","size","type"]',
+    });
+    if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
+    return (body.data.files || []).find((file) => file.path === path && !file.isdir) || null;
+  } catch (err) {
+    if (!DSM_MOUNT_ROOT) throw err;
+    return getMountedFileEntry(path);
+  }
 }
 
 function resolveProbePath(dsmPath, realPath) {
   if (DSM_MOUNT_ROOT) return DSM_MOUNT_ROOT.replace(/\/+$/, "") + dsmPath;
   if (realPath && realPath.startsWith("/")) return realPath;
   return null;
+}
+
+async function listMountedFolder(path) {
+  const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
+  const rel = path === "/" ? "" : path.replace(/^\/+/, "");
+  const diskPath = rel ? join(mountRoot, rel) : mountRoot;
+  const rows = await readdir(diskPath, { withFileTypes: true });
+  const entries = await Promise.all(rows
+    .filter((row) => !row.name.startsWith("."))
+    .map(async (row) => {
+      const childPath = (path === "/" ? "" : path) + "/" + row.name;
+      const normalizedPath = childPath.replace(/\/+/g, "/");
+      if (row.isDirectory()) return { type: "folder", name: row.name, path: normalizedPath, childCount: 0 };
+      const info = await stat(join(diskPath, row.name));
+      return {
+        type: "file",
+        name: row.name,
+        path: normalizedPath,
+        sizeLabel: humanSize(info.size),
+        codec: guessCodecFromName(row.name),
+        durationMs: 0,
+      };
+    }));
+  entries.sort((a, b) => {
+    if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+    return a.name.localeCompare(b.name, "vi");
+  });
+  return { path, crumbs: buildCrumbs(path), entries };
+}
+
+async function getMountedFileEntry(path) {
+  const probePath = resolveProbePath(path, "");
+  if (!probePath) return null;
+  const info = await stat(probePath);
+  if (!info.isFile()) return null;
+  return {
+    name: path.split("/").pop() || path,
+    path,
+    isdir: false,
+    additional: {
+      size: info.size,
+      real_path: probePath,
+    },
+  };
 }
 
 function guessCodecFromName(name) {
