@@ -192,6 +192,9 @@ const state = {
   workspaceSearch: "",
   clientFilter: "all",
   inviteUserId: "",
+  // Picker by DSM username (creates placeholder user the moment owner clicks)
+  inviteDsmName: "",
+  inviteDsmRole: "reviewer",
   inviteRole: "reviewer",
   commentMenuId: null,
   editingCommentId: null,
@@ -1244,16 +1247,29 @@ function membersModal(vals) {
         <div><strong>Editor:</strong> import nguồn, transcode, reorder, comment, chỉnh nội dung project.</div>
         <div><strong>Reviewer / Client:</strong> chỉ xem, review và comment theo timeline.</div>
       </div>
-      ${vals.canManageAccess ? `<div style="margin-top:18px;display:grid;grid-template-columns:1.4fr 0.9fr auto;gap:10px;">
+      ${vals.canManageAccess ? `
+      <div style="margin-top:18px;display:grid;grid-template-columns:1.4fr 0.9fr auto;gap:10px;">
         <select id="memberInviteUser" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
-          <option value="">Chọn thành viên để mời</option>
+          <option value="">Chọn thành viên đã có…</option>
           ${vals.memberInviteOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
         </select>
         <select id="memberInviteRole" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
           ${vals.memberRoleOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
         </select>
-        <button data-act="doInviteMember" style="border:none;border-radius:12px;padding:0 16px;background:${vals.inviteBtnBg};color:${vals.inviteBtnColor};font-weight:800;font-size:13px;cursor:pointer;">Mời vào project</button>
-      </div>` : `<div style="margin-top:16px;color:var(--co-faint);font-size:12px;font-weight:600;">Chỉ owner mới có thể thay đổi phân quyền project này.</div>`}
+        <button data-act="doInviteMember" ${vals.inviteBtnColor === "var(--co-faint)" ? "disabled" : ""} style="border:none;border-radius:12px;padding:0 16px;background:${vals.inviteBtnBg};color:${vals.inviteBtnColor};font-weight:800;font-size:13px;cursor:pointer;">Mời vào project</button>
+      </div>
+      <div style="margin-top:10px;padding:12px;background:var(--co-panel);border:1px dashed var(--co-border);border-radius:12px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;color:var(--co-faint);text-transform:uppercase;margin-bottom:6px;">Thêm thành viên DSM mới</div>
+        <div style="display:grid;grid-template-columns:1.4fr 0.9fr auto;gap:10px;">
+          <input id="memberInviteDsmName" type="text" placeholder="DSM username (vd: nam.nguyen)" oninput="state.inviteDsmName=this.value;render();" value="${esc(state.inviteDsmName || "")}" style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;" />
+          <select id="memberInviteDsmRole" onchange="state.inviteDsmRole=this.value;" style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
+            ${vals.memberRoleOptions.map((opt) => `<option value="${opt.value}" ${(state.inviteDsmRole || "reviewer") === opt.value ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
+          </select>
+          <button data-act="inviteDsmUser" ${(state.inviteDsmName || "").trim() ? "" : "disabled"} style="border:none;border-radius:12px;padding:0 16px;background:${(state.inviteDsmName || "").trim() ? "#2da8e2" : "var(--co-panel-2)"};color:${(state.inviteDsmName || "").trim() ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:13px;cursor:${(state.inviteDsmName || "").trim() ? "pointer" : "not-allowed"};">Mời DSM user</button>
+        </div>
+        <div style="margin-top:8px;color:var(--co-faint);font-size:11.5px;font-weight:600;line-height:1.5;">Nhập DSM username — placeholder user sẽ được tạo ngay. Khi user đó login DSM lần đầu, hồ sơ sẽ tự match.</div>
+      </div>
+      ` : `<div style="margin-top:16px;color:var(--co-faint);font-size:12px;font-weight:600;">Chỉ owner mới có thể thay đổi phân quyền project này.</div>`}
       <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
         ${vals.projectMembers.map((member) => `
           <div style="display:flex;align-items:center;gap:12px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;padding:12px 13px;">
@@ -2284,6 +2300,18 @@ function handleAct(act, arg, e, node) {
     case "deleteProject": return deleteSelectedProject();
     case "toggleShowArchived": return toggleShowArchived();
     case "doInviteMember": return doInviteMember();
+    case "inviteDsmUser": {
+      const name = (state.inviteDsmName || "").trim();
+      if (!name) return;
+      const role = state.inviteDsmRole || "reviewer";
+      const pid = state.selectedProjectId;
+      state.inviteDsmName = "";
+      render();
+      remoteInviteDsmUser(pid, name, role).catch((err) => {
+        window.alert("Không thêm được DSM user: " + ((err && err.message) || "lỗi không xác định"));
+      });
+      return;
+    }
     case "removeMember": return removeMember(arg);
     case "setListView": return setState({ sourceView: "list" });
     case "setGridView": return setState({ sourceView: "grid" });
@@ -3182,6 +3210,17 @@ async function remoteInviteProjectMember(pid, userId, role) {
   await refreshProjectMembers(pid);
   const projects = await api("/projects");
   REMOTE_PROJECTS = projects;
+  // /users list grew if a brand new placeholder was added — refresh it
+  try { remote.users = Object.fromEntries((await api("/users")).map((u) => [u.id, u])); } catch (_) {}
+  render();
+}
+
+async function remoteInviteDsmUser(pid, dsmUsername, role) {
+  if (!remote.me) return;
+  await api("/projects/" + pid + "/members", { method: "POST", body: { dsmUsername, role } });
+  await refreshProjectMembers(pid);
+  REMOTE_PROJECTS = await api("/projects");
+  try { remote.users = Object.fromEntries((await api("/users")).map((u) => [u.id, u])); } catch (_) {}
   render();
 }
 async function remoteSetProjectMemberRole(pid, userId, role) {

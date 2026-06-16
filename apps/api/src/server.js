@@ -456,14 +456,32 @@ async function handle(req, res, url) {
     if (m === "POST") {
       if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
       const body = await readJson(req).catch(() => null);
-      if (!body || typeof body.userId !== "string" || !["owner", "editor", "reviewer", "client"].includes(body.role)) {
-        return bad(res, "userId and valid role required");
+      if (!body || !["owner", "editor", "reviewer", "client"].includes(body.role)) {
+        return bad(res, "valid role required");
       }
-      const user = await store.getUser(body.userId);
-      if (!user) return bad(res, "User not found", 404);
-      const member = await store.upsertProjectMember(projectId, body.userId, body.role);
+      // Two paths:
+      // 1) body.userId — existing user in our DB (dropdown picker case)
+      // 2) body.dsmUsername — pre-create a placeholder user record now; when
+      //    that DSM user first logs in, upsertUserFromDsm reconciles by name.
+      let user = null;
+      if (typeof body.userId === "string" && body.userId.trim()) {
+        user = await store.getUser(body.userId);
+        if (!user) return bad(res, "User not found", 404);
+      } else if (typeof body.dsmUsername === "string" && body.dsmUsername.trim()) {
+        const dsmName = body.dsmUsername.trim();
+        // Hash username to a stable numeric pseudo-uid so upsertUserFromDsm
+        // can generate a deterministic id. Real DSM uid will replace this on
+        // first login (upsertUserFromDsm matches on dsm_uid OR name alias).
+        let hash = 0;
+        for (let i = 0; i < dsmName.length; i++) hash = (hash * 31 + dsmName.charCodeAt(i)) >>> 0;
+        const pseudoUid = (hash % 1000000) + 100000; // keep out of low-range DSM uids
+        user = await store.upsertUserFromDsm({ uid: pseudoUid, name: dsmName, email: body.dsmEmail || null });
+      } else {
+        return bad(res, "userId hoặc dsmUsername là bắt buộc");
+      }
+      const member = await store.upsertProjectMember(projectId, user.id, body.role);
       const project = await store.getProject(projectId);
-      await audit.record({ actorUserId: sess.userId, action: "project.member_added", resourceType: "project_member", resourceId: body.userId, projectId, payload: { role: body.role, userName: user.name } });
+      await audit.record({ actorUserId: sess.userId, action: "project.member_added", resourceType: "project_member", resourceId: user.id, projectId, payload: { role: body.role, userName: user.name } });
       return send(res, 201, { ...member, user, teamUserIds: project && project.teamUserIds });
     }
   }
