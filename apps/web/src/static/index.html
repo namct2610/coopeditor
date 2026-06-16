@@ -1746,7 +1746,7 @@ function computeVals() {
       isFile: true,
       id,
       name: ch.name,
-      thumbUrl: ch.thumbUrl || ("/nas/thumb?path=" + encodeURIComponent(ch.path)),
+      thumbUrl: ch.thumbUrl || apiMediaUrl("/nas/thumb?path=" + encodeURIComponent(ch.path)),
       resolutionLabel: ch.resolutionLabel || "",
       meta: [ch.sizeLabel || "—", ch.codec || "unknown", ch.resolutionLabel || null, fmtDur(ch.durationMs || 0)].filter(Boolean).join(" · "),
       checked: on,
@@ -2072,6 +2072,10 @@ const API_BASE = (function () {
   if (location.port === "3000") return location.protocol + "//" + location.hostname + ":4000";
   return "/api";
 })();
+
+function apiMediaUrl(path) {
+  return API_BASE + path;
+}
 
 const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true }, updateStatus: null };
 let presenceTimer = null;
@@ -3026,8 +3030,8 @@ function applyRemoteToState() {
     byProj[pid] = REMOTE_SOURCES[pid].sort((a, b) => a.position - b.position).map((s) => ({
       id: s.id, title: s.title, dur: s.durationMs, codec: s.codec, size: s.sizeLabel,
       width: s.width || 0, height: s.height || 0, resolutionLabel: s.resolutionLabel || "",
-      posterUrl: "/assets/" + s.id + "/poster",
-      playbackUrl: "/assets/" + s.id + "/source",
+      posterUrl: apiMediaUrl("/assets/" + s.id + "/poster"),
+      playbackUrl: apiMediaUrl("/assets/" + s.id + "/source"),
       status: s.status, progress: s.progress, versions: s.versionsCount, comments: s.commentsCount,
       a: s.paletteA, b: s.paletteB,
     }));
