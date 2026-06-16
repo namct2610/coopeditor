@@ -34,7 +34,9 @@ const server = createServer((_, res) => {
     "content-security-policy",
     "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; " +
       "connect-src 'self' ws: wss: http://localhost:4000 http://127.0.0.1:4000; " +
-      "script-src 'self' 'unsafe-inline'; " +
+      // jsdelivr: hls.js bundle. blob: scripts: hls.js spawns a worker via Blob URL.
+      "script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net; " +
+      "worker-src 'self' blob:; " +
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
       "font-src 'self' https://fonts.gstatic.com data:; " +
       "base-uri 'self'; frame-ancestors 'none'",

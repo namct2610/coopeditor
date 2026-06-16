@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" />
+<!-- hls.js: Chrome/Firefox/Edge không native phát HLS .m3u8. Safari thì phát
+     được luôn (Mac/iOS). Library này hook vào <video> qua MSE để phát proxy. -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
@@ -274,9 +277,50 @@ function syncPlaybackUi() {
   if (attachLabel) attachLabel.textContent = "Gắn @ " + fmtTc(state.currentMs);
 }
 
+// hls.js wrapper: native <video src=…m3u8> only works in Safari. Everywhere
+// else we need hls.js attached to the element via MSE. We swap the instance
+// when the src changes (e.g. user picks a different rendition rung).
+let _activeHls = null;
+function attachHlsIfNeeded(video) {
+  if (!video) return;
+  const url = video.getAttribute("src") || "";
+  const isHls = /\.m3u8(\?|$)/i.test(url);
+  if (!isHls) {
+    if (_activeHls) { try { _activeHls.destroy(); } catch (_) {} _activeHls = null; video.removeAttribute("data-hls"); }
+    return;
+  }
+  // Safari can play HLS natively — skip hls.js to keep things simple.
+  if (video.canPlayType("application/vnd.apple.mpegurl")) return;
+  if (typeof Hls === "undefined" || !Hls.isSupported()) return;
+  // If hls.js is already wired to this exact URL, leave it alone.
+  if (video.dataset.hls === url) return;
+  if (_activeHls) { try { _activeHls.destroy(); } catch (_) {} _activeHls = null; }
+  video.removeAttribute("src"); // hls.js drives the source from here on
+  _activeHls = new Hls({
+    // Send credentials so the API session cookie reaches /api/hls/* segment fetches.
+    xhrSetup: (xhr) => { xhr.withCredentials = true; },
+    enableWorker: true,
+    lowLatencyMode: false,
+  });
+  _activeHls.loadSource(url);
+  _activeHls.attachMedia(video);
+  video.dataset.hls = url;
+  _activeHls.on(Hls.Events.ERROR, (_e, data) => {
+    if (data && data.fatal) console.warn("[hls.js] fatal", data.type, data.details);
+  });
+}
+
 function bindReviewVideo() {
   const video = document.getElementById("reviewVideo");
-  if (!video || video.dataset.bound === "1") {
+  if (!video) {
+    syncPlaybackUi();
+    syncPlayButtons(state.playing);
+    return;
+  }
+  // Always re-check HLS attachment because render() rebuilds the DOM but the
+  // <video> may be the same element with a new src.
+  attachHlsIfNeeded(video);
+  if (video.dataset.bound === "1") {
     syncPlaybackUi();
     syncPlayButtons(state.playing);
     return;
@@ -1017,14 +1061,14 @@ function sourceGridView(vals) {
         <div style="position:absolute;right:10px;bottom:10px;background:rgba(7,9,14,0.8);color:#fff;font-weight:700;font-size:11px;padding:3px 7px;border-radius:5px;font-variant-numeric:tabular-nums;">${s.durLabel}</div>
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(7,9,14,0.5);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.25);"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></div>
       </div>
-      <div style="padding:12px 13px 13px;">
+      <div data-act="openSource" data-arg="${s.id}" style="padding:12px 13px 13px;cursor:pointer;">
         <div style="font-weight:700;font-size:13.5px;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.title)}</div>
         <div style="color:var(--co-faint);font-size:11px;font-weight:600;margin-top:2px;">${esc(s.meta)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
           <span style="display:inline-flex;align-items:center;gap:5px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:10.5px;padding:4px 8px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
           <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11px;">${ICON.msg}${s.comments}</span>
         </div>
-        ${vals.canManageProject ? `<div style="display:flex;gap:8px;margin-top:10px;">
+        ${vals.canManageProject ? `<div data-stop="1" style="display:flex;gap:8px;margin-top:10px;">
           <button data-act="editSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:8px;color:var(--co-text);font-weight:700;font-size:11px;cursor:pointer;">Sửa</button>
           <button data-act="deleteSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);border-radius:8px;color:#ef4d57;font-weight:700;font-size:11px;cursor:pointer;">Xóa</button>
         </div>` : ""}
@@ -1374,16 +1418,16 @@ function review(vals) {
         <div style="position:relative;width:100%;max-width:1180px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);background:#000;">
           <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
-          <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;"></div>
-          <div style="position:absolute;left:0;right:0;bottom:0;height:7.5%;background:#000;"></div>
+          <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;pointer-events:none;"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:7.5%;background:#000;pointer-events:none;"></div>
           ${safeAreaOverlay(state.safeAspect)}
-          <div id="reviewTcCurrent" style="position:absolute;left:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:rgba(255,255,255,0.92);text-shadow:0 1px 3px rgba(0,0,0,0.8);letter-spacing:0.02em;">${vals.tcCurrent}</div>
-          <div id="reviewFrameNumber" style="position:absolute;right:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-shadow:0 1px 3px rgba(0,0,0,0.8);">F ${vals.frameNumber}</div>
-          <div style="position:absolute;left:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:8px;">
+          <div id="reviewTcCurrent" style="position:absolute;left:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:rgba(255,255,255,0.92);text-shadow:0 1px 3px rgba(0,0,0,0.8);letter-spacing:0.02em;pointer-events:none;">${vals.tcCurrent}</div>
+          <div id="reviewFrameNumber" style="position:absolute;right:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-shadow:0 1px 3px rgba(0,0,0,0.8);pointer-events:none;">F ${vals.frameNumber}</div>
+          <div style="position:absolute;left:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:8px;pointer-events:none;">
             <span style="background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);color:#fff;font-weight:800;font-size:11px;letter-spacing:0.1em;padding:5px 9px;border-radius:6px;">${esc(vals.sceneLabel)}</span>
             <span style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${esc(vals.sceneSub)}</span>
           </div>
-          <div style="position:absolute;right:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);padding:5px 9px;border-radius:6px;">
+          <div style="position:absolute;right:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);padding:5px 9px;border-radius:6px;pointer-events:none;">
             <span style="width:7px;height:7px;border-radius:50%;background:#2da8e2;"></span>
             <span style="color:#fff;font-weight:700;font-size:11px;">Proxy ${esc(vals.activeQualityLabel)}</span>
           </div>
