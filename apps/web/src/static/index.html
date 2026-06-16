@@ -1327,7 +1327,12 @@ function updateModal(vals) {
           <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(localVersion)}</div>
           <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(localSummary)}</div>
           <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
-            <div>SHA: ${esc(local && local.sha ? local.sha.slice(0, 12) : "không rõ")}</div>
+            <div>API SHA: ${esc(local && local.sha ? local.sha.slice(0, 12) : "không rõ")}</div>
+            <div>FE đang chạy: ${esc((window.__BUILD_SHA || "unknown").slice(0, 12))}${
+              (local && local.sha && window.__BUILD_SHA && local.sha.slice(0,12) !== window.__BUILD_SHA.slice(0,12))
+                ? ' <span style="color:#ef4d57;">⚠ KHÁC API — hãy hard reload (Cmd+Shift+R)</span>'
+                : ' <span style="color:#35c389;">✓ khớp</span>'
+            }</div>
             <div>Built: ${esc(local && local.builtAt ? local.builtAt : "không rõ")}</div>
             <div>Published: ${esc(local && local.publishedAt ? local.publishedAt : "không rõ")}</div>
           </div>
