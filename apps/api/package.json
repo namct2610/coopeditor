@@ -13,6 +13,7 @@
     "typecheck": "echo \"add TypeScript setup for api\""
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.682.0",
     "nodemailer": "^6.9.15",
     "pg": "^8.13.0",
     "pino": "^9.4.0",

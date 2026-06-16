@@ -15,6 +15,34 @@ import { readFile, stat } from "node:fs/promises";
 
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
 const MINIO_BUCKET = process.env.MINIO_BUCKET || "coopeditor-proxy";
+const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "minio";
+const MINIO_SECRET_KEY = process.env.MINIO_SECRET_KEY || "minio123";
+
+// MinIO buckets are private by default — a bare `fetch(http://minio:9000/bucket/key)`
+// from the API gets 403 because there are no S3 credentials on the request.
+// Use the AWS S3 SDK (lazy-loaded so the API can boot without MinIO) to sign
+// GetObject for each playlist/segment we proxy.
+let _s3Client = null;
+async function getS3() {
+  if (_s3Client) return _s3Client;
+  const { S3Client } = await import("@aws-sdk/client-s3");
+  _s3Client = new S3Client({
+    region: "us-east-1",
+    endpoint: MINIO_ENDPOINT,
+    forcePathStyle: true,
+    credentials: { accessKeyId: MINIO_ACCESS_KEY, secretAccessKey: MINIO_SECRET_KEY },
+  });
+  return _s3Client;
+}
+async function s3Get(key) {
+  const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+  const s3 = await getS3();
+  try {
+    return { ok: true, response: await s3.send(new GetObjectCommand({ Bucket: MINIO_BUCKET, Key: key })) };
+  } catch (err) {
+    return { ok: false, status: err.$metadata && err.$metadata.httpStatusCode || 502, err };
+  }
+}
 const HLS_CDN_PUBLIC_URL = (process.env.HLS_CDN_PUBLIC_URL || "").replace(/\/+$/, "");
 const HLS_CDN_SIGNING_SECRET = process.env.HLS_CDN_SIGNING_SECRET || "";
 const HLS_CDN_TOKEN_TTL_SECONDS = Math.max(30, Number.parseInt(process.env.HLS_CDN_TOKEN_TTL_SECONDS || "300", 10) || 300);
@@ -77,6 +105,12 @@ async function readUpstreamText(url) {
   return { ok: true, status: 200, text: await res.text() };
 }
 
+async function readObjectText(key) {
+  const got = await s3Get(key);
+  if (!got.ok) return { ok: false, status: got.status, text: "" };
+  return { ok: true, status: 200, text: await got.response.Body.transformToString() };
+}
+
 export async function serveHls(req, res, renditionId, file, opts = {}) {
   if (!ALLOWED.test(renditionId) || !ALLOWED.test(file)) { res.statusCode = 400; return res.end("bad path"); }
 
@@ -85,33 +119,25 @@ export async function serveHls(req, res, renditionId, file, opts = {}) {
   const isPlaylist = ext === "m3u8";
   const cacheControl = isPlaylist ? HLS_PLAYLIST_CACHE_CONTROL : (opts.signedPlayback ? HLS_SEGMENT_CACHE_CONTROL : HLS_DIRECT_CACHE_CONTROL);
 
-  // 1. MinIO mode
+  // 1. MinIO mode — fetch via S3 SDK with credentials (private bucket).
   if (MINIO_ENDPOINT) {
-    const upstream = MINIO_ENDPOINT.replace(/\/+$/, "") + "/" + MINIO_BUCKET + "/" + renditionId + "/" + file;
+    const key = renditionId + "/" + file;
     try {
       if (isPlaylist) {
-        const up = await readUpstreamText(upstream);
+        const up = await readObjectText(key);
         if (!up.ok) { res.statusCode = up.status; return res.end(); }
         res.statusCode = 200;
         res.setHeader("content-type", contentType);
         res.setHeader("cache-control", cacheControl);
         return res.end(rewritePlaylistBody(up.text, renditionId));
       }
-      const up = await fetch(upstream);
-      if (!up.ok) { res.statusCode = up.status; return res.end(); }
+      const got = await s3Get(key);
+      if (!got.ok) { res.statusCode = got.status; return res.end(); }
       res.statusCode = 200;
       res.setHeader("content-type", contentType);
       res.setHeader("cache-control", cacheControl);
-      const reader = up.body.getReader();
-      const pump = async () => {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          res.write(Buffer.from(value));
-        }
-        res.end();
-      };
-      return pump();
+      // Body is a Node Readable stream when using @aws-sdk in Node runtime
+      return got.response.Body.pipe(res);
     } catch (err) {
       res.statusCode = 502; res.setHeader("content-type", "text/plain"); return res.end("upstream fetch failed: " + err.message);
     }
