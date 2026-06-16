@@ -30,3 +30,34 @@ test("dsmListFolder falls back to mounted NAS when FileStation list_share fails"
     global.fetch = originalFetch;
   }
 });
+
+test("mounted NAS listing hides non-video files and system folders", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-filter-"));
+  await mkdir(join(root, "@eaDir"));
+  await mkdir(join(root, "Clips"));
+  await writeFile(join(root, "clip.mp4"), "demo");
+  await writeFile(join(root, "notes.odoc"), "doc");
+  await writeFile(join(root, "cover.jpg"), "img");
+
+  process.env.DSM_HOST = "https://nas.example.com:5001";
+  process.env.DSM_MOUNT_ROOT = root;
+  process.env.DSM_DEV_LOGIN = "";
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({ success: false, error: { code: 117 } }),
+  });
+
+  try {
+    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?filter=" + Date.now());
+    const listing = await mod.dsmListFolder("sid-demo", "/");
+    assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "Clips"));
+    assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "clip.mp4"));
+    assert.ok(!listing.entries.some((entry) => entry.name === "notes.odoc"));
+    assert.ok(!listing.entries.some((entry) => entry.name === "cover.jpg"));
+    assert.ok(!listing.entries.some((entry) => entry.name === "@eaDir"));
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

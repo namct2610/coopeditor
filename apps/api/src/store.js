@@ -86,6 +86,7 @@ function mkAsset(pid, rows) {
     assets.set(id, {
       id, projectId: pid, title, position: i, nasPath: "\\\\NAS-STUDIO\\Footage\\" + title + ".mov",
       codec: codec || "ProRes 422", sizeLabel: sizeLabel || "—", durationMs: dur, frameRate: 24,
+      width: 3840, height: 2160, resolutionLabel: "4K", mimeType: "video/quicktime",
       status: status || "ready", progress: progress || 0,
       commentsCount: commentsCount || 0, versionsCount: versionsCount || 1,
       paletteA, paletteB, createdAt: now(),
@@ -467,12 +468,13 @@ function aliasUserId(raw) {
   return map[slug] || null;
 }
 
-export function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath }) {
+export function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream" }) {
   const id = "imp_" + randomUUID().slice(0, 8);
   const existing = listAssetsByProject(projectId).length;
   const [paletteA, paletteB] = PAL[existing % PAL.length];
   const a = {
-    id, projectId, title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: 24,
+    id, projectId, title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: Math.round(frameRate || 24),
+    width: width || 0, height: height || 0, resolutionLabel: resolutionLabel || "", mimeType: mimeType || "application/octet-stream",
     status: "processing", progress: 5 + Math.floor(Math.random() * 8),
     commentsCount: 0, versionsCount: 1, paletteA, paletteB, createdAt: now(),
   };

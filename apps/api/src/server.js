@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 
 // Reusable random buffer for /speedtest/segment — generated once at startup and
 // written repeatedly. 256 KiB is small enough to fit in CPU cache yet large
@@ -43,6 +45,14 @@ function send(res, status, body, extraHeaders) {
 }
 function bad(res, msg, status = 400) { send(res, status, { error: msg }); }
 
+function sendBinary(res, status, body, contentType, extraHeaders) {
+  res.statusCode = status;
+  res.setHeader("content-type", contentType);
+  res.setHeader("cache-control", "private, max-age=300");
+  if (extraHeaders) for (const [k, v] of Object.entries(extraHeaders)) res.setHeader(k, v);
+  res.end(body);
+}
+
 function setSecurityHeaders(res) {
   res.setHeader("x-content-type-options", "nosniff");
   res.setHeader("x-frame-options", "DENY");
@@ -60,6 +70,55 @@ async function readJson(req) {
     req.on("end", () => { if (!data) return resolve({}); try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
     req.on("error", reject);
   });
+}
+
+function mimeFromPath(path) {
+  const lower = String(path || "").toLowerCase();
+  if (lower.endsWith(".mp4")) return "video/mp4";
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".m4v")) return "video/x-m4v";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mkv")) return "video/x-matroska";
+  if (lower.endsWith(".avi")) return "video/x-msvideo";
+  if (lower.endsWith(".mxf")) return "application/mxf";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  return "application/octet-stream";
+}
+
+async function streamLocalMedia(req, res, filePath, contentType) {
+  const info = await stat(filePath);
+  const total = info.size;
+  const range = req.headers.range;
+  if (range) {
+    const match = String(range).match(/bytes=(\d*)-(\d*)/);
+    if (!match) {
+      res.statusCode = 416;
+      res.setHeader("content-range", "bytes */" + total);
+      return res.end();
+    }
+    let start = match[1] ? Number(match[1]) : 0;
+    let end = match[2] ? Number(match[2]) : total - 1;
+    if (!Number.isFinite(start) || start < 0) start = 0;
+    if (!Number.isFinite(end) || end >= total) end = total - 1;
+    if (start > end || start >= total) {
+      res.statusCode = 416;
+      res.setHeader("content-range", "bytes */" + total);
+      return res.end();
+    }
+    res.statusCode = 206;
+    res.setHeader("accept-ranges", "bytes");
+    res.setHeader("content-range", `bytes ${start}-${end}/${total}`);
+    res.setHeader("content-length", String(end - start + 1));
+    res.setHeader("content-type", contentType);
+    res.setHeader("cache-control", "private, max-age=60");
+    return createReadStream(filePath, { start, end }).pipe(res);
+  }
+  res.statusCode = 200;
+  res.setHeader("accept-ranges", "bytes");
+  res.setHeader("content-length", String(total));
+  res.setHeader("content-type", contentType);
+  res.setHeader("cache-control", "private, max-age=60");
+  return createReadStream(filePath).pipe(res);
 }
 
 async function requireSession(req, res) {
@@ -242,6 +301,20 @@ async function handle(req, res, url) {
   if (p === "/me" && m === "GET") {
     const user = await store.getUser(sess.userId);
     return send(res, 200, { user });
+  }
+
+  if (p === "/nas/thumb" && m === "GET") {
+    const path = url.searchParams.get("path") || "";
+    if (!path) return bad(res, "path required");
+    try {
+      const file = await dsm.getFileMeta(sess.dsmSid, path);
+      if (!file || !file.isVideo || !file.sourcePath) return bad(res, "Video not found", 404);
+      const seekMs = Math.min(Math.max(1000, Math.round((file.durationMs || 0) * 0.1)), Math.max(1000, (file.durationMs || 0) - 1000));
+      const thumbPath = await dsm.ensureVideoThumbnail(file.sourcePath, path + ":" + (file.durationMs || 0), { seekMs });
+      return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
+    } catch (err) {
+      return bad(res, "Khong tao duoc thumbnail: " + (err && err.message), 500);
+    }
   }
 
   if (p === "/events" && m === "GET") {
@@ -430,6 +503,34 @@ async function handle(req, res, url) {
     await store.reorderAssets(projectId, body.orderedAssetIds);
     return send(res, 200, await store.listAssetsByProject(projectId));
   }
+  if ((mat = p.match(/^\/assets\/([^/]+)\/poster$/)) && m === "GET") {
+    const assetId = mat[1];
+    const projectId = await store.findProjectIdForAsset(assetId);
+    if (!projectId) return bad(res, "Asset not found", 404);
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const asset = await store.getAsset(assetId);
+    if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
+    try {
+      const seekMs = Math.min(Math.max(1000, Math.round((asset.durationMs || 0) * 0.1)), Math.max(1000, (asset.durationMs || 0) - 1000));
+      const thumbPath = await dsm.ensureVideoThumbnail(asset.nasPath, "asset:" + asset.id + ":" + (asset.durationMs || 0), { seekMs });
+      return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
+    } catch (err) {
+      return bad(res, "Khong tao duoc poster: " + (err && err.message), 500);
+    }
+  }
+  if ((mat = p.match(/^\/assets\/([^/]+)\/source$/)) && m === "GET") {
+    const assetId = mat[1];
+    const projectId = await store.findProjectIdForAsset(assetId);
+    if (!projectId) return bad(res, "Asset not found", 404);
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const asset = await store.getAsset(assetId);
+    if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
+    try {
+      return await streamLocalMedia(req, res, asset.nasPath, asset.mimeType || mimeFromPath(asset.nasPath));
+    } catch (err) {
+      return bad(res, "Khong mo duoc source video: " + (err && err.message), 404);
+    }
+  }
   if ((mat = p.match(/^\/projects\/([^/]+)\/import$/)) && m === "POST") {
     const pid = mat[1];
     if (!(await requireProjectAccess(res, pid, sess.userId, ["owner", "editor"]))) return;
@@ -439,10 +540,17 @@ async function handle(req, res, url) {
     const created = [];
     for (const path of body.nasPaths) {
       const file = await dsm.getFileMeta(sess.dsmSid, path);
-      if (!file || file.type !== "file") continue;
+      if (!file || file.type !== "file" || !file.isVideo) continue;
       const a = await store.addAssetFromImport({
         projectId: pid, title: file.name.replace(/\.[^.]+$/, ""), codec: file.codec || "unknown",
-        sizeLabel: file.sizeLabel || "—", durationMs: file.durationMs || 0, nasPath: file.sourcePath || path,
+        sizeLabel: file.sizeLabel || "—",
+        durationMs: file.durationMs || 0,
+        nasPath: file.sourcePath || path,
+        width: file.width || 0,
+        height: file.height || 0,
+        frameRate: file.frameRate || 0,
+        resolutionLabel: file.resolutionLabel || "",
+        mimeType: file.mimeType || mimeFromPath(file.name),
       });
       created.push(a);
       const versions = await store.listVersionsForAsset(a.id);

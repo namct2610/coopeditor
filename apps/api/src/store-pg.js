@@ -25,6 +25,8 @@ const projectRow = (r) => r && ({
 const assetRow = (r) => r && ({
   id: r.id, projectId: r.project_id, title: r.title, position: r.position, nasPath: r.nas_path,
   codec: r.codec, sizeLabel: r.size_label, durationMs: r.duration_ms, frameRate: r.frame_rate,
+  width: r.width_px || 0, height: r.height_px || 0, resolutionLabel: r.resolution_label || "",
+  mimeType: r.mime_type || "application/octet-stream",
   status: r.status, progress: r.progress, paletteA: r.palette_a, paletteB: r.palette_b,
   commentsCount: Number(r.comments_count || 0), versionsCount: Number(r.versions_count || 0),
   createdAt: r.created_at,
@@ -397,14 +399,14 @@ export async function enqueueTranscode(renditionId) {
   await q(`SELECT pg_notify('coopeditor_jobs', $1)`, [renditionId]).catch(() => {});
 }
 
-export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath }) {
+export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream" }) {
   const id = "imp_" + randomUUID().slice(0, 8);
   const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],["#15171c","#3a4453"],["#291230","#6e2a55"],["#241a0e","#7a5524"],["#102b2b","#1f5a52"],["#1a1430","#3a2f6e"]];
   const existing = (await one(`SELECT COUNT(*)::int AS n FROM assets WHERE project_id = $1`, [projectId])).n;
   const [a, b] = PAL[existing % PAL.length];
-  const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, status, progress, palette_a, palette_b)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,24,'processing',$9,$10,$11) RETURNING *`,
-    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, 5 + Math.floor(Math.random() * 8), a, b]);
+  const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, width_px, height_px, resolution_label, mime_type, status, progress, palette_a, palette_b)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'processing',$14,$15,$16) RETURNING *`,
+    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", 5 + Math.floor(Math.random() * 8), a, b]);
 
   // seed V1 + 3 renditions (pending; worker will tick when requested or on import)
   const vid = id + "_v1";

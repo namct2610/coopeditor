@@ -3,6 +3,8 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache ffmpeg
+
 # Install only api deps (pg). We copy package.json first so the layer is cached
 # between code changes.
 COPY apps/api/package.json ./apps/api/package.json

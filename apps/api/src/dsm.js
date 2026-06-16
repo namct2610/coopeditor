@@ -8,12 +8,16 @@
 //   DSM_INSECURE=1   (skip TLS verify; only for self-signed dev)
 //   DSM_DEV_LOGIN=1  (offline dev: accept any account/passwd; useful when DSM is not reachable)
 
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { readdir, stat } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const execFileAsync = promisify(execFile);
+const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
+const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
+const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
 
 const DSM_HOST = process.env.DSM_HOST || "";
 const DSM_DEV_LOGIN = process.env.DSM_DEV_LOGIN === "1";
@@ -25,6 +29,94 @@ if (process.env.DSM_INSECURE === "1") {
 }
 
 export function isDevMode() { return DSM_DEV_LOGIN || !DSM_HOST; }
+
+function isVisibleNasName(name) {
+  return !!name && !name.startsWith(".") && !HIDDEN_NAMES.has(name);
+}
+
+function getExtension(name) {
+  const ext = String(name || "").split(".").pop();
+  return ext ? ext.toLowerCase() : "";
+}
+
+function looksLikeVideoName(name) {
+  return VIDEO_EXTENSIONS.has(getExtension(name));
+}
+
+function parseFrameRate(raw) {
+  if (!raw) return 0;
+  const val = String(raw);
+  if (val.includes("/")) {
+    const [num, den] = val.split("/").map((part) => Number(part));
+    if (num > 0 && den > 0) return Math.round((num / den) * 100) / 100;
+  }
+  const n = Number(val);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function resolutionLabel(width, height) {
+  const w = Number(width) || 0;
+  const h = Number(height) || 0;
+  if (w >= 3840 || h >= 2160) return "4K";
+  if (w >= 1920 || h >= 1080) return "Full HD";
+  if (w >= 1280 || h >= 720) return "HD";
+  if (w > 0 || h > 0) return "SD";
+  return "";
+}
+
+function mimeFromName(name) {
+  switch (getExtension(name)) {
+    case "mp4": return "video/mp4";
+    case "mov": return "video/quicktime";
+    case "m4v": return "video/x-m4v";
+    case "mkv": return "video/x-matroska";
+    case "webm": return "video/webm";
+    case "avi": return "video/x-msvideo";
+    case "mxf": return "application/mxf";
+    default: return "application/octet-stream";
+  }
+}
+
+function thumbCachePath(key) {
+  const hash = createHash("sha1").update(key).digest("hex");
+  return join(APP_DATA_DIR, "system", "thumbs", hash + ".jpg");
+}
+
+async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
+  if (!looksLikeVideoName(name)) return null;
+  const base = {
+    type: "file",
+    name,
+    path,
+    bytes,
+    sizeLabel: humanSize(bytes),
+    codec: guessCodecFromName(name),
+    durationMs: 0,
+    width: 0,
+    height: 0,
+    frameRate: 0,
+    resolutionLabel: "",
+    mimeType: mimeFromName(name),
+    isVideo: true,
+  };
+  if (!probePath) return base;
+  try {
+    const probed = await ffprobeFile(probePath);
+    if (!probed.hasVideo) return null;
+    return {
+      ...base,
+      codec: probed.codec || base.codec,
+      durationMs: probed.durationMs || 0,
+      width: probed.width || 0,
+      height: probed.height || 0,
+      frameRate: probed.frameRate || 0,
+      resolutionLabel: resolutionLabel(probed.width, probed.height),
+      sourcePath: probePath,
+    };
+  } catch (_) {
+    return { ...base, sourcePath: probePath };
+  }
+}
 
 async function dsmGet(path, params) {
   if (!DSM_HOST) throw new Error("DSM_HOST not configured");
@@ -115,7 +207,9 @@ export async function dsmListFolder(sid, path) {
       return {
         path: "/",
         crumbs: [{ label: "/", path: "/" }],
-        entries: (body.data.shares || []).map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
+        entries: (body.data.shares || [])
+          .filter((share) => isVisibleNasName(share.name))
+          .map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
       };
     } catch (err) {
       if (DSM_MOUNT_ROOT) return listMountedFolder("/");
@@ -125,15 +219,23 @@ export async function dsmListFolder(sid, path) {
   try {
     const body = await dsmGet("/webapi/entry.cgi", {
       api: "SYNO.FileStation.List", version: "2", method: "list", _sid: sid,
-      folder_path: path, additional: '["size","type"]',
+      folder_path: path, additional: '["size","type","real_path"]',
     });
     if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
-    const entries = (body.data.files || []).map((f) => {
-      if (f.isdir) return { type: "folder", name: f.name, path: f.path, childCount: 0 };
-      const ext = f.name.split(".").pop().toLowerCase();
-      const codec = /mov|mp4|mxf/.test(ext) ? "ProRes 422" : ext.toUpperCase();
-      return { type: "file", name: f.name, path: f.path, sizeLabel: humanSize(f.additional && f.additional.size), codec, durationMs: 0 };
-    });
+    const entries = (await Promise.all((body.data.files || [])
+      .filter((f) => isVisibleNasName(f.name))
+      .map(async (f) => {
+        if (f.isdir) return { type: "folder", name: f.name, path: f.path, childCount: 0 };
+        const built = await buildVideoEntry({
+          name: f.name,
+          path: f.path,
+          bytes: Number(f.additional && f.additional.size) || 0,
+          probePath: resolveProbePath(f.path, f.additional && f.additional.real_path),
+        });
+        if (!built) return null;
+        return built;
+      })))
+      .filter(Boolean);
     return { path, crumbs: buildCrumbs(path), entries };
   } catch (err) {
     if (DSM_MOUNT_ROOT) return listMountedFolder(path);
@@ -153,6 +255,12 @@ export async function getFileMeta(sid, path) {
       sizeLabel: file.sizeLabel,
       codec: file.codec,
       durationMs: file.durationMs,
+      width: file.width || 3840,
+      height: file.height || 2160,
+      frameRate: file.frameRate || 24,
+      resolutionLabel: resolutionLabel(file.width || 3840, file.height || 2160),
+      mimeType: mimeFromName(file.name),
+      isVideo: true,
       sourcePath: path,
     };
   }
@@ -161,30 +269,8 @@ export async function getFileMeta(sid, path) {
   if (!entry) return null;
 
   const bytes = Number(entry.additional && entry.additional.size) || 0;
-  const meta = {
-    type: "file",
-    name: entry.name,
-    path,
-    bytes,
-    sizeLabel: humanSize(bytes),
-    codec: guessCodecFromName(entry.name),
-    durationMs: 0,
-  };
-
   const probePath = resolveProbePath(path, entry.additional && entry.additional.real_path);
-  if (!probePath) return meta;
-
-  try {
-    const probed = await ffprobeFile(probePath);
-    return {
-      ...meta,
-      codec: probed.codec || meta.codec,
-      durationMs: probed.durationMs || 0,
-      sourcePath: probePath,
-    };
-  } catch (_) {
-    return { ...meta, sourcePath: probePath };
-  }
+  return buildVideoEntry({ name: entry.name, path, bytes, probePath });
 }
 
 function buildCrumbs(path) {
@@ -251,26 +337,25 @@ async function listMountedFolder(path) {
     throw err;
   }
   const entries = await Promise.all(rows
-    .filter((row) => !row.name.startsWith("."))
+    .filter((row) => isVisibleNasName(row.name))
     .map(async (row) => {
       const childPath = (path === "/" ? "" : path) + "/" + row.name;
       const normalizedPath = childPath.replace(/\/+/g, "/");
       if (row.isDirectory()) return { type: "folder", name: row.name, path: normalizedPath, childCount: 0 };
       const info = await stat(join(diskPath, row.name));
-      return {
-        type: "file",
+      return buildVideoEntry({
         name: row.name,
         path: normalizedPath,
-        sizeLabel: humanSize(info.size),
-        codec: guessCodecFromName(row.name),
-        durationMs: 0,
-      };
+        bytes: info.size,
+        probePath: join(diskPath, row.name),
+      });
     }));
-  entries.sort((a, b) => {
+  const filteredEntries = entries.filter(Boolean);
+  filteredEntries.sort((a, b) => {
     if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
     return a.name.localeCompare(b.name, "vi");
   });
-  return { path, crumbs: buildCrumbs(path), entries };
+  return { path, crumbs: buildCrumbs(path), entries: filteredEntries };
 }
 
 async function getMountedFileEntry(path) {
@@ -306,7 +391,7 @@ function guessCodecFromName(name) {
 async function ffprobeFile(path) {
   const { stdout } = await execFileAsync("ffprobe", [
     "-v", "error",
-    "-show_entries", "format=duration:stream=index,codec_type,codec_name",
+    "-show_entries", "format=duration:stream=index,codec_type,codec_name,width,height,avg_frame_rate",
     "-of", "json",
     path,
   ]);
@@ -314,8 +399,12 @@ async function ffprobeFile(path) {
   const video = (data.streams || []).find((stream) => stream.codec_type === "video");
   const durationSec = Number(data.format && data.format.duration) || 0;
   return {
+    hasVideo: !!video,
     codec: normalizeCodec(video && video.codec_name),
     durationMs: Math.round(durationSec * 1000),
+    width: Number(video && video.width) || 0,
+    height: Number(video && video.height) || 0,
+    frameRate: parseFrameRate(video && video.avg_frame_rate),
   };
 }
 
@@ -325,6 +414,25 @@ function normalizeCodec(codecName) {
   if (codecName === "hevc") return "H.265";
   if (codecName === "h264") return "H.264";
   return String(codecName).toUpperCase();
+}
+
+export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000, width = 640 } = {}) {
+  const outPath = thumbCachePath(cacheKey || sourcePath);
+  await mkdir(join(APP_DATA_DIR, "system", "thumbs"), { recursive: true });
+  try {
+    await stat(outPath);
+    return outPath;
+  } catch (_) {}
+  await execFileAsync("ffmpeg", [
+    "-y",
+    "-ss", String(Math.max(0, seekMs) / 1000),
+    "-i", sourcePath,
+    "-frames:v", "1",
+    "-vf", "scale=" + width + ":-2",
+    "-q:v", "3",
+    outPath,
+  ]);
+  return outPath;
 }
 
 // --- dev shim NAS tree (mirrors the frontend NAS_TREE so dev login still works end-to-end) ---
