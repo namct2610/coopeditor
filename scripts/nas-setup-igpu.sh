@@ -102,21 +102,21 @@ fi
 log "Đã ghi cấu hình iGPU vào $OVERRIDE"
 
 # 3. Validate YAML qua docker compose config (lỗi sớm còn hơn lỗi runtime)
-if ! docker compose -f docker-compose.nas-auto.yml -f "$OVERRIDE" config >/dev/null 2>&1; then
+if ! docker compose -f docker-compose.nas-auto.yml -f docker-compose.override.yml -f "$OVERRIDE" config >/dev/null 2>&1; then
   echo "---" >&2
-  docker compose -f docker-compose.nas-auto.yml -f "$OVERRIDE" config 2>&1 | head -10 >&2
+  docker compose -f docker-compose.nas-auto.yml -f docker-compose.override.yml -f "$OVERRIDE" config 2>&1 | head -10 >&2
   fail "docker compose không parse được override.yml — xem lỗi phía trên. Sửa tay rồi chạy 'docker compose ... up -d worker'."
 fi
 log "YAML hợp lệ."
 
 # 4. Khởi động lại worker
-log "Restart worker container..."
-docker compose -f docker-compose.nas-auto.yml up -d worker
+log "Force-recreate worker container (để áp dụng devices + group_add)..."
+docker compose -f docker-compose.nas-auto.yml -f docker-compose.override.yml up -d --force-recreate worker
 
 # 5. Đợi rồi check probe
 log "Đợi 8s rồi check hwaccel..."
 sleep 8
-docker compose -f docker-compose.nas-auto.yml logs worker --tail=30 | grep -iE "probe|hwaccel|starting" || true
+docker compose -f docker-compose.nas-auto.yml -f docker-compose.override.yml logs worker --tail=30 | grep -iE "probe|hwaccel|starting" || true
 
 log "Xong. Nếu thấy 'probe ok' hoặc 'switched to vaapi' → iGPU đã hoạt động."
 log "Nếu thấy 'probe FAILED' → ffmpeg trong container không build với VAAPI; cần đổi base image worker."

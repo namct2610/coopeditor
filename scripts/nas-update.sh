@@ -19,6 +19,10 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.nas-auto.yml}"
+# Cờ -f cho mọi lệnh compose: luôn nạp override.yml nếu có để các tuỳ
+# chỉnh local (iGPU, GHCR PAT, …) không bị bỏ qua khi pass -f explicit.
+COMPOSE_FLAGS="-f $COMPOSE_FILE"
+[ -f docker-compose.override.yml ] && COMPOSE_FLAGS="$COMPOSE_FLAGS -f docker-compose.override.yml"
 LOG_FILE="${LOG_FILE:-/tmp/coopeditor-update.log}"
 GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:8080/api/version}"
 
@@ -39,11 +43,11 @@ log "Bắt đầu update — SHA hiện tại: ${BEFORE_SHA:0:12}"
 
 # 2. Pull image mới từ GHCR. docker compose pull idempotent: không có gì mới → 0 byte.
 log "Pull image mới từ ghcr.io..."
-docker compose -f "$COMPOSE_FILE" pull --quiet 2>&1 | tee -a "$LOG_FILE" || fail "docker compose pull thất bại"
+docker compose $COMPOSE_FLAGS pull --quiet 2>&1 | tee -a "$LOG_FILE" || fail "docker compose pull thất bại"
 
 # 3. Recreate container cho image vừa pull. Compose chỉ restart container nào image đổi.
 log "Recreate container có image mới..."
-docker compose -f "$COMPOSE_FILE" up -d 2>&1 | tee -a "$LOG_FILE" || fail "docker compose up -d thất bại"
+docker compose $COMPOSE_FLAGS up -d 2>&1 | tee -a "$LOG_FILE" || fail "docker compose up -d thất bại"
 
 # 4. Đợi API healthy
 log "Đợi API healthy..."
