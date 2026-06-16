@@ -261,8 +261,10 @@ async function handle(req, res, url) {
       const sess = await requireSession(req, res);
       if (!sess) return;
       const projectId = await store.findProjectIdForRendition(renditionId);
-      if (!projectId) return bad(res, "Rendition not found", 404);
-      if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+      if (!projectId) { req.log.warn({ renditionId }, "hls: rendition lookup returned null"); return bad(res, "Rendition not found", 404); }
+      const member = await store.getProjectMember(projectId, sess.userId);
+      if (!member) { req.log.warn({ renditionId, projectId, userId: sess.userId }, "hls: getProjectMember returned null"); return bad(res, "Forbidden", 403); }
+      req.log.info({ renditionId, projectId, userId: sess.userId, role: member.role }, "hls: auth ok");
     }
     return serveHls(req, res, renditionId, file, { signedPlayback });
   }
