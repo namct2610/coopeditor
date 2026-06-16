@@ -234,6 +234,8 @@ const timelineHover = {
   restoreMs: 0,
   restoreWasPlaying: false,
 };
+let _timelinePreviewRaf = 0;
+let _timelinePreviewPendingMs = null;
 
 // rAF-coalesced setState: if multiple setState() fire in the same frame
 // (common during drag, fetch waterfall, presence ping), batch them into a
@@ -305,7 +307,7 @@ function syncPlaybackUi() {
   if (playBar) playBar.style.width = playPct + "%";
   if (bufferBar) bufferBar.style.width = Math.min(100, playPct + 16) + "%";
   if (needle) needle.style.left = playPct + "%";
-  if (attachLabel) attachLabel.textContent = "Gắn @ " + fmtTc(state.currentMs);
+  if (attachLabel) attachLabel.textContent = state.attachTc ? ("Gắn @ " + fmtTc(state.currentMs)) : "Không gắn timecode";
 }
 
 // hls.js wrapper: native <video src=…m3u8> only works in Safari. Everywhere
@@ -362,6 +364,7 @@ function bindReviewVideo() {
     if (Number.isFinite(video.duration) && video.duration > 0) state.duration = Math.round(video.duration * 1000);
     state.playing = !video.paused;
     syncPlaybackUi();
+    requestAnnRepaint();
     syncPlayButtons(state.playing);
   };
   video.addEventListener("loadedmetadata", updateFromVideo);
@@ -503,10 +506,6 @@ function applyTimelinePreview(ms, opts) {
   const config = opts || {};
   const nextMs = Math.max(0, Math.min(timelineDurationMs(), ms || 0));
   const video = document.getElementById("reviewVideo");
-  if (video) {
-    if (config.pause !== false) video.pause();
-    video.currentTime = nextMs / 1000;
-  }
   state.currentMs = nextMs;
   state.timelineHoverMs = nextMs;
   const pct = timelineDurationMs() > 0 ? (nextMs / timelineDurationMs()) * 100 : 0;
@@ -520,6 +519,24 @@ function applyTimelinePreview(ms, opts) {
   if (tcA) tcA.textContent = fmtTc(nextMs);
   if (tcB) tcB.textContent = fmtTc(nextMs);
   if (tcHover) tcHover.textContent = fmtTc(nextMs);
+  if (video) {
+    _timelinePreviewPendingMs = nextMs;
+    if (_timelinePreviewRaf) return;
+    _timelinePreviewRaf = requestAnimationFrame(() => {
+      _timelinePreviewRaf = 0;
+      const targetMs = _timelinePreviewPendingMs;
+      _timelinePreviewPendingMs = null;
+      if (targetMs == null) return;
+      if (config.pause !== false) video.pause();
+      const targetSec = targetMs / 1000;
+      const currentSec = video.currentTime || 0;
+      if (Math.abs(currentSec - targetSec) < 0.06) return;
+      if (typeof video.fastSeek === "function") {
+        try { video.fastSeek(targetSec); return; } catch (_) {}
+      }
+      video.currentTime = targetSec;
+    });
+  }
 }
 
 function restoreTimelinePreview() {
@@ -530,6 +547,8 @@ function restoreTimelinePreview() {
   timelineHover.committed = false;
   state.timelineHoverMs = null;
   state.currentMs = restoreMs;
+  _timelinePreviewPendingMs = null;
+  if (_timelinePreviewRaf) { cancelAnimationFrame(_timelinePreviewRaf); _timelinePreviewRaf = 0; }
   const video = document.getElementById("reviewVideo");
   if (video) {
     video.currentTime = restoreMs / 1000;
@@ -547,6 +566,8 @@ function commitTimelinePreview(ms) {
   timelineHover.committed = true;
   state.timelineHoverMs = null;
   state.currentMs = ms;
+  _timelinePreviewPendingMs = null;
+  if (_timelinePreviewRaf) { cancelAnimationFrame(_timelinePreviewRaf); _timelinePreviewRaf = 0; }
   jumpTo(ms);
 }
 
@@ -571,7 +592,7 @@ function bindTimelinePreview() {
   const bar = document.getElementById("reviewTimelineBar");
   if (!wrap || !bar || wrap.dataset.bound === "1") return;
   wrap.dataset.bound = "1";
-  wrap.addEventListener("mousemove", (ev) => {
+  bar.addEventListener("mousemove", (ev) => {
     beginTimelineHover();
     applyTimelinePreview(timelineMsFromClientX(ev.clientX, bar));
   });
@@ -1005,13 +1026,13 @@ function projectsHub(vals) {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;">
           ${g.projects.map((p) => `
             <div data-act="openProject" data-arg="${p.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--co-shadow);transition:transform 250ms cubic-bezier(0.16,1,0.3,1),border-color 250ms;">
-              <div style="position:relative;height:132px;background:${p.cover};">
+              <div style="position:relative;height:132px;background:${p.coverIsImage ? `center/cover no-repeat url(${esc(p.cover)})` : p.cover};">
                 <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.12),transparent 60%);"></div>
                 <div style="position:absolute;left:11px;top:11px;">
                   <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);color:${p.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;"><span style="width:7px;height:7px;border-radius:50%;background:${p.statusColor};"></span>${esc(p.statusLabel)}</span>
                 </div>
                 <div style="position:absolute;left:11px;right:11px;bottom:11px;display:flex;gap:5px;height:30px;">
-                  ${p.thumbs.map((t) => `<div style="flex:1;border-radius:5px;background:${t};border:1px solid var(--co-border-2);"></div>`).join("")}
+                  ${p.thumbs.map((t) => `<div style="flex:1;border-radius:5px;background:${/^https?:|^\//.test(t) ? `center/cover no-repeat url(${esc(t)})` : t};border:1px solid var(--co-border-2);"></div>`).join("")}
                 </div>
               </div>
               <div style="padding:14px;">
@@ -1098,7 +1119,7 @@ function sourceListView(vals) {
     <div draggable="true" data-drag-id="${s.id}" class="co-border-hover" style="display:flex;align-items:center;gap:14px;padding:11px 14px;background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:12px;opacity:${s.dragOpacity};box-shadow:var(--co-shadow);transition:border-color 200ms;">
       <div style="display:flex;flex-direction:column;gap:2px;color:var(--co-faint);cursor:grab;">${ICON.drag}</div>
       <div style="font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;color:#2da8e2;width:28px;text-align:center;">${s.pos}</div>
-      <div data-act="openSource" data-arg="${s.id}" style="position:relative;width:104px;height:58px;border-radius:8px;overflow:hidden;flex:0 0 104px;cursor:pointer;background:${s.bg};">
+      <div data-act="openSource" data-arg="${s.id}" style="position:relative;width:104px;height:58px;border-radius:8px;overflow:hidden;flex:0 0 104px;cursor:pointer;background:${s.thumbBg};">
         <div style="position:absolute;inset:0;background:radial-gradient(100% 80% at 50% 30%,rgba(255,255,255,0.14),transparent 60%);"></div>
         <div style="position:absolute;right:5px;bottom:5px;background:rgba(7,9,14,0.8);color:#fff;font-weight:700;font-size:10px;padding:2px 5px;border-radius:4px;font-variant-numeric:tabular-nums;">${s.durLabel}</div>
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:rgba(7,9,14,0.5);display:grid;place-items:center;border:1px solid rgba(255,255,255,0.3);">${ICON.miniPlay}</div>
@@ -1124,7 +1145,7 @@ function sourceListView(vals) {
 function sourceGridView(vals) {
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:16px;">${vals.sources.map((s) => `
     <div draggable="true" data-drag-id="${s.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:13px;overflow:hidden;opacity:${s.dragOpacity};cursor:grab;box-shadow:var(--co-shadow);transition:border-color 200ms,transform 200ms;">
-      <div data-act="openSource" data-arg="${s.id}" style="position:relative;aspect-ratio:16/9;background:${s.bg};cursor:pointer;">
+      <div data-act="openSource" data-arg="${s.id}" style="position:relative;aspect-ratio:16/9;background:${s.thumbBg};cursor:pointer;">
         <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.13),transparent 60%);"></div>
         <div style="position:absolute;left:10px;top:10px;width:30px;height:30px;border-radius:8px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);display:grid;place-items:center;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;color:#2da8e2;border:1px solid rgba(45,168,226,0.4);">${s.pos}</div>
         <div style="position:absolute;right:10px;top:10px;color:rgba(255,255,255,0.55);">${ICON.drag}</div>
@@ -1263,7 +1284,9 @@ function renderStrokeSvg(s) {
 function repaintAnnotationSvg() {
   const svg = document.getElementById("annotationSvg");
   if (!svg) return;
-  const strokes = state.annotationStrokes || [];
+  const anchored = visibleAnchoredAnnotations();
+  const savedStrokes = anchored.flatMap((a) => a.strokes || []);
+  const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
   const drawing = state.annotationDrawing;
   const all = drawing ? [...strokes, drawing] : strokes;
   svg.innerHTML = all.map((s) => renderStrokeSvg(s)).join("");
@@ -1979,10 +2002,12 @@ function computeVals() {
     const est = effStatus(p);
     const sm = SM[est];
     const first = srcs[0] || { a: "#15171c", b: "#3a4453" };
+    const firstPoster = srcs.find((x) => x.posterUrl)?.posterUrl || "";
     return {
       ...p, statusLabel: sm.label, statusColor: sm.color,
-      cover: "linear-gradient(150deg," + first.a + "," + first.b + ")",
-      thumbs: srcs.slice(0, 4).map((x) => "linear-gradient(160deg," + x.a + "," + x.b + ")"),
+      cover: p.thumbUrl || firstPoster || ("linear-gradient(150deg," + first.a + "," + first.b + ")"),
+      coverIsImage: !!(p.thumbUrl || firstPoster),
+      thumbs: srcs.slice(0, 4).map((x) => x.posterUrl || ("linear-gradient(160deg," + x.a + "," + x.b + ")")),
       nSources: srcs.length, nComments,
       pct: srcs.length ? Math.round((nReady / srcs.length) * 100) : 0,
       readyLabel: nReady + "/" + srcs.length + " nguồn có proxy",
@@ -2039,6 +2064,7 @@ function computeVals() {
     return {
       id: src.id, pos: String(i + 1).padStart(2, "0"), title: src.title,
       bg: "linear-gradient(150deg," + src.a + "," + src.b + ")",
+      thumbBg: src.posterUrl ? `center/cover no-repeat url(${src.posterUrl})` : ("linear-gradient(150deg," + src.a + "," + src.b + ")"),
       durLabel: fmtDur(src.dur),
       meta: metaParts.join(" · "),
       // Even while proxy is being transcoded, the original is playable via
@@ -3662,6 +3688,7 @@ function applyRemoteToState() {
   if (!REMOTE_PROJECTS) return;
   const transformedProjects = REMOTE_PROJECTS.map((p) => ({
     id: p.id, name: p.name, status: p.status, client: p.client, updated: p.updatedAt,
+    thumbUrl: p.thumbUrl ? apiMediaUrl(p.thumbUrl) : "",
     team: (p.team || []).map((u) => [u.initial, u.color]),
     // Fields below the original shape didn't have but downstream code reads
     // (computeVals → canManageAccess / canManageUpdates / canManageProject).

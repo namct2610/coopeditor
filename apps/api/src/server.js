@@ -1,12 +1,15 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, mkdir, writeFile, unlink } from "node:fs/promises";
+import { join } from "node:path";
 
 // Reusable random buffer for /speedtest/segment — generated once at startup and
 // written repeatedly. 256 KiB is small enough to fit in CPU cache yet large
 // enough that the per-chunk write overhead doesn't dominate at gigabit speeds.
 const SPEEDTEST_NOISE = randomBytes(256 * 1024);
+const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
+const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
 
 import * as store from "./store-index.js";
 import { db, initPg } from "./db.js";
@@ -83,6 +86,31 @@ function mimeFromPath(path) {
   if (lower.endsWith(".mxf")) return "application/mxf";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   return "application/octet-stream";
+}
+
+function projectThumbRecordPath(projectId) {
+  return join(PROJECT_THUMB_DIR, projectId + ".txt");
+}
+
+async function saveProjectThumbDataUrl(projectId, dataUrl) {
+  await mkdir(PROJECT_THUMB_DIR, { recursive: true });
+  await writeFile(projectThumbRecordPath(projectId), String(dataUrl || "").trim(), "utf8");
+}
+
+async function clearProjectThumb(projectId) {
+  try { await unlink(projectThumbRecordPath(projectId)); } catch (_) {}
+}
+
+async function loadProjectThumb(projectId) {
+  try {
+    const raw = String(await readFile(projectThumbRecordPath(projectId), "utf8") || "").trim();
+    if (!raw.startsWith("data:")) return null;
+    const match = raw.match(/^data:([^;,]+);base64,(.+)$/);
+    if (!match) return null;
+    return { contentType: match[1], body: Buffer.from(match[2], "base64") };
+  } catch (_) {
+    return null;
+  }
 }
 
 async function streamLocalMedia(req, res, filePath, contentType) {
@@ -390,7 +418,14 @@ async function handle(req, res, url) {
       if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
       const body = await readJson(req).catch(() => null);
       if (!body) return bad(res, "Invalid body");
-      const updated = await store.patchProject(projectId, body);
+      if (Object.prototype.hasOwnProperty.call(body, "thumbDataUrl")) {
+        const thumbDataUrl = typeof body.thumbDataUrl === "string" ? body.thumbDataUrl.trim() : "";
+        if (thumbDataUrl) await saveProjectThumbDataUrl(projectId, thumbDataUrl);
+        else await clearProjectThumb(projectId);
+      }
+      const patch = { ...body };
+      delete patch.thumbDataUrl;
+      const updated = await store.patchProject(projectId, patch);
       if (!updated) return bad(res, "Project not found", 404);
       await audit.record({ actorUserId: sess.userId, action: "project.update", resourceType: "project", resourceId: projectId, projectId, payload: body });
       return send(res, 200, await decorateProject(updated, sess.userId));
@@ -403,6 +438,22 @@ async function handle(req, res, url) {
       if (!deleted) return bad(res, "Project not found", 404);
       await audit.record({ actorUserId: sess.userId, action: "project.deleted", resourceType: "project", resourceId: projectId, projectId, payload: { name: project.name } });
       return send(res, 200, { ok: true, projectId });
+    }
+  }
+  if ((mat = p.match(/^\/projects\/([^/]+)\/thumb$/)) && m === "GET") {
+    const projectId = mat[1];
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const customThumb = await loadProjectThumb(projectId);
+    if (customThumb) return sendBinary(res, 200, customThumb.body, customThumb.contentType);
+    const assets = await store.listAssetsByProject(projectId);
+    const firstAsset = assets[0];
+    if (!firstAsset || !firstAsset.nasPath) return bad(res, "Project thumb not found", 404);
+    try {
+      const seekMs = Math.min(Math.max(1000, Math.round((firstAsset.durationMs || 0) * 0.1)), Math.max(1000, (firstAsset.durationMs || 0) - 1000));
+      const thumbPath = await dsm.ensureVideoThumbnail(firstAsset.nasPath, "project:" + projectId + ":" + firstAsset.id + ":" + (firstAsset.durationMs || 0), { seekMs });
+      return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
+    } catch (err) {
+      return bad(res, "Khong tao duoc project thumb: " + (err && err.message), 500);
     }
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/audit$/)) && m === "GET") {
@@ -610,7 +661,7 @@ async function handle(req, res, url) {
       created.push(a);
       const versions = await store.listVersionsForAsset(a.id);
       const rends = await store.listRenditionsForVersion(versions[0].id);
-      for (const r of rends) requestTranscode(r.id);
+      await Promise.all(rends.map((r) => requestTranscode(r.id)));
       await audit.record({
         actorUserId: sess.userId,
         action: "asset.imported",
@@ -863,7 +914,11 @@ async function decorateProject(p, userId) {
   const team = [];
   for (const uid of (p.teamUserIds || [])) { const u = await store.getUser(uid); if (u) team.push(u); }
   const member = userId ? await store.getProjectMember(p.id, userId) : null;
-  return { ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team };
+  let thumbUrl = "";
+  try {
+    if (await loadProjectThumb(p.id)) thumbUrl = "/projects/" + p.id + "/thumb";
+  } catch (_) {}
+  return { ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl };
 }
 
 async function handleLogin(req, res) {

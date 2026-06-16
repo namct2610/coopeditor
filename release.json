@@ -1,10 +1,10 @@
 {
-  "version": "0.2.8",
-  "summary": "Sửa nút Cập nhật ngay để trigger đúng Watchtower HTTP API và fallback tốt hơn với updater khác.",
+  "version": "0.2.9",
+  "summary": "Sửa review/import thumbnails: annotation hiện lại theo timecode, import tự enqueue proxy thật, và hiển thị thumbnail source/project đúng hơn.",
   "changes": [
-    "Backend trigger update giờ gọi Watchtower bằng GET /v1/update đúng chuẩn thay vì POST nên nút update trên web gửi lệnh được thật.",
-    "Nếu updater khác chỉ nhận POST, backend sẽ fallback thử POST trước khi báo lỗi hoàn toàn.",
-    "Kết quả trigger trả về kèm method đã dùng để dễ debug khi đổi sang updater service khác ngoài Watchtower."
+    "Overlay annotation giờ repaint theo playback time nên khi tua/phát đến đúng mốc comment, các nét vẽ sẽ hiện lại trên khung hình.",
+    "Import từ NAS giờ đợi enqueue toàn bộ rendition xong trước khi trả response nên proxy tự vào hàng đợi ngay sau khi import.",
+    "Danh sách source và card project dùng thumbnail thật từ poster/project thumb thay vì chỉ gradient placeholder; custom project thumb cũng được lưu và serve lại."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }
