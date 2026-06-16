@@ -393,6 +393,15 @@ async function handle(req, res, url) {
       await audit.record({ actorUserId: sess.userId, action: "project.update", resourceType: "project", resourceId: projectId, projectId, payload: body });
       return send(res, 200, await decorateProject(updated, sess.userId));
     }
+    if (m === "DELETE") {
+      if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
+      const project = await store.getProject(projectId);
+      if (!project) return bad(res, "Project not found", 404);
+      const deleted = await store.deleteProject(projectId);
+      if (!deleted) return bad(res, "Project not found", 404);
+      await audit.record({ actorUserId: sess.userId, action: "project.deleted", resourceType: "project", resourceId: projectId, projectId, payload: { name: project.name } });
+      return send(res, 200, { ok: true, projectId });
+    }
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/audit$/)) && m === "GET") {
     const projectId = mat[1];
@@ -502,6 +511,32 @@ async function handle(req, res, url) {
     if (!body || !Array.isArray(body.orderedAssetIds)) return bad(res, "orderedAssetIds required");
     await store.reorderAssets(projectId, body.orderedAssetIds);
     return send(res, 200, await store.listAssetsByProject(projectId));
+  }
+  if ((mat = p.match(/^\/assets\/([^/]+)$/))) {
+    const assetId = mat[1];
+    const projectId = await store.findProjectIdForAsset(assetId);
+    if (!projectId) return bad(res, "Asset not found", 404);
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    if (m === "PATCH") {
+      if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
+      const body = await readJson(req).catch(() => null);
+      if (!body) return bad(res, "Invalid body");
+      const updated = await store.patchAsset(assetId, body);
+      if (!updated) return bad(res, "Asset not found", 404);
+      await audit.record({ actorUserId: sess.userId, action: "asset.updated", resourceType: "asset", resourceId: assetId, projectId, payload: body });
+      await publishProjectEvent(projectId, { type: "asset", action: "updated", assetId });
+      return send(res, 200, updated);
+    }
+    if (m === "DELETE") {
+      if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
+      const asset = await store.getAsset(assetId);
+      if (!asset) return bad(res, "Asset not found", 404);
+      const deleted = await store.deleteAsset(assetId);
+      if (!deleted) return bad(res, "Asset not found", 404);
+      await audit.record({ actorUserId: sess.userId, action: "asset.deleted", resourceType: "asset", resourceId: assetId, projectId, payload: { title: asset.title } });
+      await publishProjectEvent(projectId, { type: "asset", action: "deleted", assetId });
+      return send(res, 200, { ok: true, assetId });
+    }
   }
   if ((mat = p.match(/^\/assets\/([^/]+)\/poster$/)) && m === "GET") {
     const assetId = mat[1];

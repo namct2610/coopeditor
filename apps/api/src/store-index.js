@@ -36,6 +36,7 @@ export const patchProject        = USE_PG ? impl.patchProject        : async (id
 };
 export const archiveProject       = USE_PG ? impl.archiveProject       : A(impl.archiveProject);
 export const restoreProject       = USE_PG ? impl.restoreProject       : A(impl.restoreProject);
+export const deleteProject        = USE_PG ? impl.deleteProject        : A(impl.deleteProject);
 export const createProject        = USE_PG ? impl.createProject        : A(impl.createProject);
 export const duplicateProject     = USE_PG ? impl.duplicateProject     : A(impl.duplicateProject);
 export const listProjectTemplates = USE_PG ? impl.listProjectTemplates : A(impl.listProjectTemplates);
@@ -45,6 +46,8 @@ export const createProjectFromTemplate = USE_PG ? impl.createProjectFromTemplate
 
 export const listAssetsByProject = USE_PG ? impl.listAssetsByProject : A(impl.listAssetsByProject);
 export const getAsset            = USE_PG ? impl.getAsset            : async (id) => mem.assets.get(id) || null;
+export const patchAsset          = USE_PG ? impl.patchAsset          : A(impl.patchAsset);
+export const deleteAsset         = USE_PG ? impl.deleteAsset         : A(impl.deleteAsset);
 export const findProjectIdForAsset = USE_PG ? impl.findProjectIdForAsset : A(impl.findProjectIdForAsset);
 export const reorderAssets       = USE_PG ? impl.reorderAssets       : A(impl.reorderAssets);
 export const addAssetFromImport  = USE_PG ? impl.addAssetFromImport  : A(impl.addAssetFromImport);

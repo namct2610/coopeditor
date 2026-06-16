@@ -899,6 +899,8 @@ function projectDetail(vals) {
             ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#35c389;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.refresh}Khôi phục</button>`
             : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#f5a623;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">📦 Archive</button>`
         ) : ""}
+        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">✎ Sửa project</button>` : ""}
+        ${vals.isOwner && !vals.isArchived ? `<button data-act="deleteProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);color:#ef4d57;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">🗑 Xóa project</button>` : ""}
         <div style="display:flex;gap:3px;background:var(--co-panel);padding:4px;border-radius:10px;border:1px solid var(--co-border);">
           <button data-act="setListView" title="Danh sách" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
           <button data-act="setGridView" title="Lưới album" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
@@ -929,6 +931,10 @@ function sourceListView(vals) {
       </div>
       <span style="display:inline-flex;align-items:center;gap:6px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
       <span style="display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11.5px;width:42px;">${ICON.msg}${s.comments}</span>
+      ${vals.canManageProject ? `<div style="display:flex;align-items:center;gap:6px;">
+        <button data-act="editSource" data-arg="${s.id}" class="co-border-hover" style="height:28px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:8px;color:var(--co-text);font-weight:700;font-size:11px;padding:0 10px;cursor:pointer;">Sửa</button>
+        <button data-act="deleteSource" data-arg="${s.id}" class="co-border-hover" style="height:28px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);border-radius:8px;color:#ef4d57;font-weight:700;font-size:11px;padding:0 10px;cursor:pointer;">Xóa</button>
+      </div>` : ""}
       <div style="display:flex;flex-direction:column;gap:3px;">
         <button data-act="moveUp" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevUp}</button>
         <button data-act="moveDown" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevDownSmall}</button>
@@ -954,6 +960,10 @@ function sourceGridView(vals) {
           <span style="display:inline-flex;align-items:center;gap:5px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:10.5px;padding:4px 8px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
           <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11px;">${ICON.msg}${s.comments}</span>
         </div>
+        ${vals.canManageProject ? `<div style="display:flex;gap:8px;margin-top:10px;">
+          <button data-act="editSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:8px;color:var(--co-text);font-weight:700;font-size:11px;cursor:pointer;">Sửa</button>
+          <button data-act="deleteSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);border-radius:8px;color:#ef4d57;font-weight:700;font-size:11px;cursor:pointer;">Xóa</button>
+        </div>` : ""}
       </div>
     </div>
   `).join("")}</div>`;
@@ -1905,7 +1915,11 @@ function handleAct(act, arg, e, node) {
       return render();
     case "toggleStatusMenu": return setState({ showStatusMenu: !state.showStatusMenu });
     case "closeStatusMenu": return setState({ showStatusMenu: false });
-    case "setProjectStatus": return setState({ projectStatus: { ...state.projectStatus, [state.selectedProjectId]: arg }, showStatusMenu: false });
+    case "setProjectStatus":
+      state.projectStatus = { ...state.projectStatus, [state.selectedProjectId]: arg };
+      state.showStatusMenu = false;
+      render();
+      return remotePatchProject(state.selectedProjectId, { status: arg });
     case "setWorkspaceSearch": return setState({ workspaceSearch: arg || "" });
     case "setClientFilter": return setState({ clientFilter: arg || "all" });
     case "toggleMembers": return setState({ showMembers: !state.showMembers });
@@ -1918,6 +1932,8 @@ function handleAct(act, arg, e, node) {
     case "closeAudit": return setState({ showAudit: false });
     case "archiveProject": return archiveSelectedProject();
     case "restoreProject": return restoreSelectedProject();
+    case "editProject": return editSelectedProject();
+    case "deleteProject": return deleteSelectedProject();
     case "toggleShowArchived": return toggleShowArchived();
     case "doInviteMember": return doInviteMember();
     case "removeMember": return removeMember(arg);
@@ -1933,6 +1949,8 @@ function handleAct(act, arg, e, node) {
       return;
     }
     case "doImport": return doImport();
+    case "editSource": return editSourceById(arg);
+    case "deleteSource": return deleteSourceById(arg);
     case "togglePlay": return togglePlay();
     case "frameBack": return frameBack();
     case "frameFwd": return frameFwd();
@@ -2658,7 +2676,28 @@ async function remoteReorder(pid, orderedIds) {
 }
 async function remotePatchProject(pid, patch) {
   if (!remote.me) return;
-  try { await api("/projects/" + pid, { method: "PATCH", body: patch }); } catch (_) {}
+  try {
+    await api("/projects/" + pid, { method: "PATCH", body: patch });
+    const projects = await api("/projects" + (state.showArchived ? "?includeArchived=1" : ""));
+    REMOTE_PROJECTS = projects;
+    await refreshProjectSources(pid);
+    render();
+  } catch (_) {}
+}
+async function remoteDeleteProject(pid) {
+  if (!remote.me) return;
+  await api("/projects/" + pid, { method: "DELETE" });
+  REMOTE_PROJECTS = await api("/projects" + (state.showArchived ? "?includeArchived=1" : ""));
+}
+async function remotePatchAsset(assetId, patch) {
+  if (!remote.me) return;
+  await api("/assets/" + assetId, { method: "PATCH", body: patch });
+  await refreshProjectSources(state.selectedProjectId);
+}
+async function remoteDeleteAsset(assetId) {
+  if (!remote.me) return;
+  await api("/assets/" + assetId, { method: "DELETE" });
+  await refreshProjectSources(state.selectedProjectId);
 }
 async function remoteInviteProjectMember(pid, userId, role) {
   if (!remote.me) return;
@@ -2820,6 +2859,63 @@ async function createNewProject() {
     render();
   } catch (err) {
     window.alert("Tạo project thất bại: " + (err && err.message || "lỗi không xác định"));
+  }
+}
+
+async function editSelectedProject() {
+  const project = PROJECTS.find((item) => item.id === state.selectedProjectId);
+  if (!project) return;
+  const name = window.prompt("Tên project:", project.name || "");
+  if (!name || !name.trim()) return;
+  const client = window.prompt("Client:", project.client || "") || "";
+  try {
+    await remotePatchProject(project.id, { name: name.trim(), client: client.trim() });
+  } catch (err) {
+    window.alert("Sửa project thất bại: " + ((err && err.message) || "lỗi không xác định"));
+  }
+}
+
+async function deleteSelectedProject() {
+  const project = PROJECTS.find((item) => item.id === state.selectedProjectId);
+  if (!project) return;
+  if (!window.confirm("Xóa vĩnh viễn project \"" + project.name + "\" và toàn bộ video/comment bên trong?")) return;
+  try {
+    await remoteDeleteProject(project.id);
+    state.view = "projects";
+    state.selectedProjectId = "";
+    render();
+  } catch (err) {
+    window.alert("Xóa project thất bại: " + ((err && err.message) || "lỗi không xác định"));
+  }
+}
+
+async function editSourceById(assetId) {
+  const src = ((state.sourcesByProject[state.selectedProjectId] || []).find((item) => item.id === assetId)) || null;
+  if (!src) return;
+  const title = window.prompt("Tên video:", src.title || "");
+  if (!title || !title.trim()) return;
+  try {
+    await remotePatchAsset(assetId, { title: title.trim() });
+    render();
+  } catch (err) {
+    window.alert("Sửa video thất bại: " + ((err && err.message) || "lỗi không xác định"));
+  }
+}
+
+async function deleteSourceById(assetId) {
+  const src = ((state.sourcesByProject[state.selectedProjectId] || []).find((item) => item.id === assetId)) || null;
+  if (!src) return;
+  if (!window.confirm("Xóa video \"" + src.title + "\" khỏi project này?")) return;
+  try {
+    await remoteDeleteAsset(assetId);
+    if (state.selectedId === assetId) {
+      const remaining = state.sourcesByProject[state.selectedProjectId] || [];
+      state.selectedId = remaining[0] ? remaining[0].id : "";
+      if (!remaining.length) state.view = "project";
+    }
+    render();
+  } catch (err) {
+    window.alert("Xóa video thất bại: " + ((err && err.message) || "lỗi không xác định"));
   }
 }
 

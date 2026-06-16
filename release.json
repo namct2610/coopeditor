@@ -1,10 +1,10 @@
 {
-  "version": "0.2.2",
-  "summary": "Quét media thật từ NAS, lọc đúng video, tạo thumbnail và phát video thật trong review.",
+  "version": "0.2.3",
+  "summary": "Bổ sung quản lý project và video ngay trong UI: sửa, xoá, cập nhật trạng thái thật.",
   "changes": [
-    "Import NAS giờ chỉ hiện file video thật; ẩn file tài liệu, ảnh và thư mục hệ thống như @eaDir, #recycle.",
-    "Bổ sung ffprobe/ffmpeg ở API để đọc đúng duration, codec, độ phân giải và sinh thumbnail từ frame video thật.",
-    "Màn review chuyển từ player demo sang video thật với route poster/source nội bộ và seek theo timecode thực."
+    "Thêm thao tác sửa và xóa project trong UI, kèm API xóa project vĩnh viễn cho owner.",
+    "Thêm thao tác sửa tên và xóa video ngay trong màn hình project, đồng bộ backend và audit log.",
+    "Đổi trạng thái project trong UI giờ lưu thật xuống backend thay vì chỉ đổi cục bộ trên trình duyệt."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }

@@ -153,6 +153,9 @@ export async function archiveProject(id) {
 export async function restoreProject(id) {
   return projectRow(await one(`UPDATE projects SET archived_at = NULL WHERE id = $1 AND archived_at IS NOT NULL RETURNING *`, [id]));
 }
+export async function deleteProject(id) {
+  return projectRow(await one(`DELETE FROM projects WHERE id = $1 RETURNING *`, [id]));
+}
 export async function getProject(id) {
   const r = await one(`
     SELECT p.*,
@@ -216,6 +219,23 @@ export async function listAssetsByProject(pid) {
   return rows.map(assetRow);
 }
 export async function getAsset(id) { return assetRow(await one(`SELECT * FROM assets WHERE id = $1`, [id])); }
+export async function patchAsset(id, patch) {
+  const sets = []; const vals = []; let i = 1;
+  if (typeof patch.title === "string" && patch.title.trim()) { sets.push("title = $" + i++); vals.push(patch.title.trim()); }
+  if (typeof patch.position === "number") { sets.push("position = $" + i++); vals.push(patch.position); }
+  if (!sets.length) return getAsset(id);
+  vals.push(id);
+  return assetRow(await one(`UPDATE assets SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`, vals));
+}
+export async function deleteAsset(id) {
+  const row = await one(`DELETE FROM assets WHERE id = $1 RETURNING *`, [id]);
+  if (!row) return null;
+  const remaining = await q(`SELECT id FROM assets WHERE project_id = $1 ORDER BY position, created_at`, [row.project_id]);
+  for (let i = 0; i < remaining.length; i++) {
+    await q(`UPDATE assets SET position = $1 WHERE id = $2`, [i, remaining[i].id]);
+  }
+  return assetRow(row);
+}
 export async function findProjectIdForAsset(assetId) {
   const row = await one(`SELECT project_id FROM assets WHERE id = $1`, [assetId]);
   return row ? row.project_id : null;

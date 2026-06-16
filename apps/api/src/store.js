@@ -309,6 +309,19 @@ export function restoreProject(id) {
   p.archivedAt = null;
   return p;
 }
+export function deleteProject(id) {
+  const p = projects.get(id);
+  if (!p) return null;
+  for (const asset of [...assets.values()].filter((item) => item.projectId === id)) deleteAsset(asset.id);
+  for (const key of [...projectMembers.keys()]) {
+    if (key.startsWith(id + ":")) projectMembers.delete(key);
+  }
+  for (const template of projectTemplates.values()) {
+    if (template.sourceProjectId === id) template.sourceProjectId = null;
+  }
+  projects.delete(id);
+  return p;
+}
 export function getProjectMember(projectId, userId) { return projectMembers.get(projectId + ":" + userId) || null; }
 export function listProjectMembers(projectId) {
   return [...projectMembers.values()].filter((m) => m.projectId === projectId).sort((a, b) => a.position - b.position);
@@ -357,6 +370,35 @@ export function listAssetsByProject(pid) {
   return [...assets.values()].filter((a) => a.projectId === pid).sort((a, b) => a.position - b.position);
 }
 export function getAsset(id) { return assets.get(id) || null; }
+export function patchAsset(id, patch) {
+  const asset = assets.get(id);
+  if (!asset) return null;
+  if (typeof patch.title === "string" && patch.title.trim()) asset.title = patch.title.trim();
+  if (typeof patch.position === "number") asset.position = patch.position;
+  return asset;
+}
+export function deleteAsset(id) {
+  const asset = assets.get(id);
+  if (!asset) return null;
+  const linkedVersions = versionsByAsset.get(id) || [];
+  for (const version of linkedVersions) {
+    renditionsByVersion.delete(version.id);
+    for (const renditionId of [...renditions.keys()]) {
+      const rendition = renditions.get(renditionId);
+      if (rendition && rendition.assetVersionId === version.id) renditions.delete(renditionId);
+    }
+    versions.delete(version.id);
+    for (const commentId of [...comments.keys()]) {
+      const comment = comments.get(commentId);
+      if (comment && comment.assetVersionId === version.id) comments.delete(commentId);
+    }
+  }
+  versionsByAsset.delete(id);
+  assets.delete(id);
+  const siblings = listAssetsByProject(asset.projectId);
+  siblings.forEach((item, index) => { item.position = index; });
+  return asset;
+}
 export function findProjectIdForAsset(assetId) {
   const asset = assets.get(assetId);
   return asset ? asset.projectId : null;
