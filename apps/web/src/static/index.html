@@ -169,6 +169,7 @@ const state = {
   annotationColor: "#ef4d57",
   annotationStrokes: [],
   annotationDrawing: null,
+  timelineHoverMs: null,
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
@@ -227,6 +228,12 @@ const state = {
 // timers
 let playTimer = null, lastTick = 0;
 let speedTimer = null;
+const timelineHover = {
+  active: false,
+  committed: false,
+  restoreMs: 0,
+  restoreWasPlaying: false,
+};
 
 // rAF-coalesced setState: if multiple setState() fire in the same frame
 // (common during drag, fetch waterfall, presence ping), batch them into a
@@ -477,64 +484,98 @@ function jumpTo(ms) {
   pause();
   setState({ currentMs: ms });
 }
+
+function timelineDurationMs() {
+  const video = document.getElementById("reviewVideo");
+  if (video && Number.isFinite(video.duration) && video.duration > 0) return video.duration * 1000;
+  return state.duration || 0;
+}
+
+function timelineMsFromClientX(clientX, bar) {
+  if (!bar) return 0;
+  const rect = bar.getBoundingClientRect();
+  let p = (clientX - rect.left) / rect.width;
+  p = Math.max(0, Math.min(1, p));
+  return p * timelineDurationMs();
+}
+
+function applyTimelinePreview(ms, opts) {
+  const config = opts || {};
+  const nextMs = Math.max(0, Math.min(timelineDurationMs(), ms || 0));
+  const video = document.getElementById("reviewVideo");
+  if (video) {
+    if (config.pause !== false) video.pause();
+    video.currentTime = nextMs / 1000;
+  }
+  state.currentMs = nextMs;
+  state.timelineHoverMs = nextMs;
+  const pct = timelineDurationMs() > 0 ? (nextMs / timelineDurationMs()) * 100 : 0;
+  const needle = document.getElementById("reviewNeedle");
+  const playBar = document.getElementById("reviewPlayPct");
+  const tcA = document.getElementById("reviewTcCurrent");
+  const tcB = document.getElementById("reviewTcCurrentInline");
+  const tcHover = document.getElementById("reviewTimelineHoverTc");
+  if (needle) needle.style.left = pct + "%";
+  if (playBar) playBar.style.width = pct + "%";
+  if (tcA) tcA.textContent = fmtTc(nextMs);
+  if (tcB) tcB.textContent = fmtTc(nextMs);
+  if (tcHover) tcHover.textContent = fmtTc(nextMs);
+}
+
+function restoreTimelinePreview() {
+  if (!timelineHover.active || timelineHover.committed) return;
+  const restoreMs = timelineHover.restoreMs || 0;
+  const shouldResume = timelineHover.restoreWasPlaying;
+  timelineHover.active = false;
+  timelineHover.committed = false;
+  state.timelineHoverMs = null;
+  state.currentMs = restoreMs;
+  const video = document.getElementById("reviewVideo");
+  if (video) {
+    video.currentTime = restoreMs / 1000;
+    if (shouldResume) video.play().catch(() => {});
+    else video.pause();
+  } else {
+    state.currentMs = restoreMs;
+    state.playing = shouldResume;
+  }
+  render();
+}
+
+function commitTimelinePreview(ms) {
+  timelineHover.active = false;
+  timelineHover.committed = true;
+  state.timelineHoverMs = null;
+  state.currentMs = ms;
+  jumpTo(ms);
+}
+
+function beginTimelineHover() {
+  if (timelineHover.active) return;
+  timelineHover.active = true;
+  timelineHover.committed = false;
+  timelineHover.restoreMs = state.currentMs || 0;
+  timelineHover.restoreWasPlaying = !!state.playing;
+}
 // node = the bar element with data-act="seekFromEvent" (passed from the
 // delegated click dispatcher). e.currentTarget is `document` in delegated
 // handlers, so we must pin to `node` for rect math.
 function seekFromEvent(e, node) {
   const bar = node || (e.target && e.target.closest && e.target.closest('[data-act="seekFromEvent"]'));
   if (!bar) return;
-  const r = bar.getBoundingClientRect();
-  let p = (e.clientX - r.left) / r.width;
-  p = Math.max(0, Math.min(1, p));
-  const video = document.getElementById("reviewVideo");
-  if (video) {
-    video.currentTime = p * (video.duration || (state.duration / 1000) || 0);
-  } else {
-    setState({ currentMs: p * state.duration });
-  }
-  startScrubFromEvent(bar);
+  commitTimelinePreview(timelineMsFromClientX(e.clientX, bar));
 }
 
-// Drag-to-scrub: while the mouse is held down on the seek bar we keep
-// updating video.currentTime. The bar element is captured in closure so
-// re-rendering the DOM doesn't lose the reference.
-function startScrubFromEvent(bar) {
-  if (!bar) return;
-  let scrubbing = true;
-  const move = (ev) => {
-    if (!scrubbing) return;
-    const rect = bar.getBoundingClientRect();
-    const clientX = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
-    let p = (clientX - rect.left) / rect.width;
-    p = Math.max(0, Math.min(1, p));
-    const video = document.getElementById("reviewVideo");
-    const dur = video ? (video.duration || state.duration / 1000) : state.duration / 1000;
-    const tMs = p * dur * 1000;
-    if (video) video.currentTime = p * dur;
-    // Update needle inline without a full re-render to keep scrub at 60fps.
-    const needle = document.getElementById("reviewNeedle");
-    const playBar = document.getElementById("reviewPlayPct");
-    const tcA = document.getElementById("reviewTcCurrent");
-    const tcB = document.getElementById("reviewTcCurrentInline");
-    if (needle) needle.style.left = (p * 100) + "%";
-    if (playBar) playBar.style.width = (p * 100) + "%";
-    if (tcA) tcA.textContent = fmtTc(tMs);
-    if (tcB) tcB.textContent = fmtTc(tMs);
-    state.currentMs = tMs;
-  };
-  const up = () => {
-    scrubbing = false;
-    window.removeEventListener("mousemove", move);
-    window.removeEventListener("mouseup", up);
-    window.removeEventListener("touchmove", move);
-    window.removeEventListener("touchend", up);
-    // One final render to settle marker/comment highlights.
-    render();
-  };
-  window.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", up);
-  window.addEventListener("touchmove", move, { passive: true });
-  window.addEventListener("touchend", up);
+function bindTimelinePreview() {
+  const wrap = document.getElementById("reviewTimelineWrap");
+  const bar = document.getElementById("reviewTimelineBar");
+  if (!wrap || !bar || wrap.dataset.bound === "1") return;
+  wrap.dataset.bound = "1";
+  wrap.addEventListener("mousemove", (ev) => {
+    beginTimelineHover();
+    applyTimelinePreview(timelineMsFromClientX(ev.clientX, bar));
+  });
+  wrap.addEventListener("mouseleave", () => restoreTimelinePreview());
 }
 
 // ---- transcode ----
@@ -633,7 +674,8 @@ async function doImport() {
 // ---- comments ----
 function postComment() {
   const text = (state.newComment || "").trim(); if (!text) return;
-  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [] }];
+  const annotation = (state.annotationStrokes && state.annotationStrokes.length) ? { strokes: state.annotationStrokes.slice() } : null;
+  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
   state.newComment = "";
   render();
 }
@@ -1154,21 +1196,29 @@ function annotationToolbar() {
         <span style="display:inline-flex;gap:4px;align-items:center;padding:0 4px;">
           ${colors.map((c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === color ? "#fff" : "transparent"};cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,0.3);"></button>`).join("")}
         </span>
-        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${strokeCount} nét — sẽ gửi cùng comment tiếp theo</span>
+        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${strokeCount} nét @ ${fmtTc(state.currentMs)} — sẽ gửi cùng comment tiếp theo</span>
         <button data-act="clearAnnotation" style="background:transparent;color:#ef4d57;border:1px solid rgba(239,77,87,0.3);font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">Xóa</button>
       ` : ""}
     </div>`;
 }
 
+function visibleAnchoredAnnotations() {
+  const comments = state.comments || [];
+  const threshold = Math.max(320, Math.round(1000 / Math.max(1, state.fps)) * 6);
+  return comments
+    .filter((c) => c && c.annotation && c.annotation.strokes && c.annotation.strokes.length && Math.abs((c.ms || 0) - state.currentMs) <= threshold)
+    .map((c) => ({ ...c.annotation, _commentId: c.id, _commentMs: c.ms }));
+}
+
 function annotationOverlay() {
-  const strokes = state.annotationStrokes || [];
+  const anchored = visibleAnchoredAnnotations();
+  const savedStrokes = anchored.flatMap((a) => a.strokes || []);
+  const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
   const drawing = state.annotationDrawing;
   const all = drawing ? [...strokes, drawing] : strokes;
-  // z-index:40 keeps the SVG ABOVE the video poster + play-button overlay
-  // (which sit on the same stacking context). Without this the canvas got
-  // covered by the controls and felt "sunk".
+  const active = !!state.annotationMode;
   return `
-    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:crosshair;touch-action:none;z-index:40;pointer-events:auto;"
+    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:${active ? "crosshair" : "default"};touch-action:none;z-index:40;pointer-events:${active ? "auto" : "none"};"
          onpointerdown="window.__annPtr&&window.__annPtr('down',event)"
          onpointermove="window.__annPtr&&window.__annPtr('move',event)"
          onpointerup="window.__annPtr&&window.__annPtr('up',event)"
@@ -1548,8 +1598,8 @@ function review(vals) {
   return `
   <div data-theme="dark" style="flex:1;display:flex;min-height:0;">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#07090e;">
-      <div style="flex:1;min-height:0;display:grid;place-items:center;padding:22px;position:relative;">
-        <div style="position:relative;width:100%;max-width:1180px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);background:#000;">
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 22px 10px;position:relative;overflow:auto;">
+        <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 300px));aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);background:#000;flex:0 0 auto;">
           <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;pointer-events:none;"></div>
@@ -1565,18 +1615,19 @@ function review(vals) {
             <span style="width:7px;height:7px;border-radius:50%;background:#2da8e2;"></span>
             <span style="color:#fff;font-weight:700;font-size:11px;">Proxy ${esc(vals.activeQualityLabel)}</span>
           </div>
-          ${state.annotationMode ? annotationOverlay() : `
+          ${annotationOverlay()}
+          ${!state.annotationMode ? `
             <div id="reviewVideoOverlay" data-act="togglePlay" style="position:absolute;inset:0;display:${state.playing ? "none" : "grid"};place-items:center;cursor:pointer;">
               ${!state.playing ? `
                 <div style="width:76px;height:76px;border-radius:50%;background:rgba(7,9,14,0.55);backdrop-filter:blur(6px);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.3);box-shadow:0 8px 30px rgba(0,0,0,0.5);">${ICON.bigPlay}</div>
               ` : ""}
             </div>
-          `}
+          ` : ""}
         </div>
-        ${annotationToolbar()}
+        <div style="width:min(100%,1180px);flex:0 0 auto;">${annotationToolbar()}</div>
       </div>
       <div style="flex:0 0 auto;background:var(--co-chrome);border-top:1px solid var(--co-border);padding:12px 18px 16px;">
-        <div style="position:relative;padding-top:18px;">
+        <div id="reviewTimelineWrap" style="position:relative;padding-top:18px;">
           <div style="position:absolute;left:0;right:0;top:0;height:16px;">
             ${vals.markers.map((m, i) => `
               <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:0;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;">
@@ -1585,11 +1636,14 @@ function review(vals) {
               </div>
             `).join("")}
           </div>
-          <div data-act="seekFromEvent" style="position:relative;height:38px;border-radius:7px;overflow:hidden;cursor:pointer;display:flex;">
+          <div id="reviewTimelineBar" data-act="seekFromEvent" style="position:relative;height:38px;border-radius:7px;overflow:hidden;cursor:pointer;display:flex;">
             ${vals.thumbs.map((t) => `<div style="flex:1;background:${t.bg};"></div>`).join("")}
             <div id="reviewBufferedPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.bufferedPct}%;background:var(--co-border);pointer-events:none;"></div>
             <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(45,168,226,0.22);border-right:2px solid #2da8e2;pointer-events:none;"></div>
             <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(45,168,226,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(45,168,226,0.9);"></div></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:7px;">
+            <div style="background:rgba(45,168,226,0.12);border:1px solid rgba(45,168,226,0.24);color:#2da8e2;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;font-variant-numeric:tabular-nums;">Hover preview: <span id="reviewTimelineHoverTc">${vals.timelineHoverTc}</span> · click trái để chọn</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-top:13px;">
@@ -1670,7 +1724,10 @@ function commentsPanel(vals) {
               </div>
               <button data-act="toggleResolve" data-arg="${c.id}" title="Đánh dấu xong" style="width:26px;height:26px;display:grid;place-items:center;border-radius:7px;border:1px solid ${c.resolveBorder};background:${c.resolveBg};color:${c.resolveColor};cursor:pointer;">${ICON.check}</button>
             </div>
-            <button data-act="jumpTo" data-arg="${c.ms}" style="margin:10px 0 0;display:inline-flex;align-items:center;gap:6px;background:rgba(45,168,226,0.13);border:none;color:#2da8e2;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
+              <button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(45,168,226,0.13);border:none;color:#2da8e2;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
+              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,0.13);border:none;color:#f5a623;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">✎ Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét</button>` : ""}
+            </div>
             ${c.isEditing ? `
               <div style="margin-top:10px;">
                 <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel-2);border:1px solid rgba(45,168,226,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
@@ -2046,6 +2103,10 @@ function computeVals() {
     return { id: c.id, color: au.color, initial: au.initial, name: au.name,
       roleTag: au.role, roleColor: au.role ? "#35c389" : "transparent",
       content: c.content, ago: c.ago, resolved: c.resolved,
+      annotation: c.annotation || null,
+      hasAnnotation: !!(c.annotation && c.annotation.strokes && c.annotation.strokes.length),
+      annotationStrokeCount: c.annotation && c.annotation.strokes ? c.annotation.strokes.length : 0,
+      annotationTcLabel: fmtTc(c.ms),
       tcLabel: fmtTc(c.ms), ms: c.ms, leftPct: (c.ms / s.duration) * 100,
       cardBg: c.resolved ? "rgba(255,255,255,0.015)" : "var(--co-panel)",
       cardBorder: c.resolved ? "var(--co-hover)" : "var(--co-border)",
@@ -2065,7 +2126,7 @@ function computeVals() {
   let visible = all;
   if (s.filter === "open") visible = all.filter((c) => !c.resolved);
   else if (s.filter === "done") visible = all.filter((c) => c.resolved);
-  const markers = all.map((c) => ({ ms: c.ms, leftPct: c.leftPct, color: c.color, markerBg: c.resolved ? "var(--co-panel-2)" : c.color, markerDot: c.resolved ? c.color : "#07090e", tip: c.name + " · " + c.tcLabel }));
+  const markers = all.map((c) => ({ ms: c.ms, leftPct: c.leftPct, color: c.color, markerBg: c.resolved ? "var(--co-panel-2)" : c.color, markerDot: c.resolved ? c.color : "#07090e", tip: c.name + " · " + c.tcLabel + (c.hasAnnotation ? " · có chú thích" : "") }));
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {
@@ -2157,6 +2218,7 @@ function computeVals() {
     versions,
     playPct: (s.currentMs / s.duration) * 100, bufferedPct: Math.min(100, (s.currentMs / s.duration) * 100 + 16),
     tcCurrent: fmtTc(s.currentMs), tcDuration: fmtTc(s.duration), frameNumber: Math.round((s.currentMs / 1000) * s.fps),
+    timelineHoverTc: fmtTc(s.timelineHoverMs == null ? s.currentMs : s.timelineHoverMs),
     // Default playback is the raw original (/assets/:id/source). When the user
     // pins to a proxy rung in the quality menu AND that rendition is "ready",
     // swap to the HLS master so they actually get the smaller stream.
@@ -3590,6 +3652,7 @@ render = function () {
   applyRemoteToState();
   _origRender();
   bindReviewVideo();
+  bindTimelinePreview();
 };
 
 function applyRemoteToState() {
@@ -3649,7 +3712,7 @@ function applyRemoteToState() {
       }));
       return {
         id: c.id, who: mapAuthor(c.authorUserId), ms: c.timestampMs, content: c.content,
-        resolved: !!c.resolved, ago: "vừa qua", replies,
+        resolved: !!c.resolved, ago: "vừa qua", replies, annotation: c.annotation || null,
       };
     });
   }

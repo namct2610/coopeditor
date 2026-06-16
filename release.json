@@ -1,10 +1,10 @@
 {
-  "version": "0.2.6",
-  "summary": "Sửa Update Center để đọc đúng feed runtime config và báo lỗi rõ nếu không lấy được metadata bản mới.",
+  "version": "0.2.7",
+  "summary": "Cải thiện màn review: hover timeline để preview, click để chốt vị trí, và annotation/comment neo đúng theo timecode.",
   "changes": [
-    "Backend check update giờ đọc feed URL từ runtime config của NAS và có fallback sang nhiều nguồn release manifest.",
-    "Nếu update feed lỗi hoặc parse metadata thất bại, UI sẽ hiện lỗi cụ thể thay vì báo nhầm đang chạy bản mới nhất.",
-    "Hiển thị luôn feed URL đang dùng trong Update Center để dễ debug cấu hình updater trên NAS."
+    "Thanh review được bố trí lại để toolbar vẽ không còn bị phần timeline/controls che xuống dưới.",
+    "Timeline giờ hover sẽ preview khung hình, rời chuột sẽ trả về vị trí cũ, và chỉ click trái mới chốt điểm tua.",
+    "Annotation đã bám theo timestamp comment, có badge mốc thời gian trong panel comment và tự hiện lại khi tua về đúng mốc."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }
