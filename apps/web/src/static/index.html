@@ -1776,8 +1776,8 @@ function handleAct(act, arg, e, node) {
     case "setGridView": return setState({ sourceView: "grid" });
     case "openImport": return openImport();
     case "closeImport": return closeImport();
-    case "navInto": return navInto(parseInt(arg, 10));
-    case "navTo": return navTo(parseInt(arg, 10));
+    case "navInto": return navInto(arg);
+    case "navTo": return navTo(arg);
     case "toggleSel": {
       const it = lastNasListMeta.find((x) => x.id === arg);
       if (it) return toggleSel(arg, it._meta);
