@@ -328,7 +328,7 @@ let speedTimer = null, importTimer = null;
 const tcTimers = [];
 
 function setState(patch) { Object.assign(state, patch); render(); }
-function effStatus(p) { return state.projectStatus[p.id] || p.status; }
+function effStatus(p) { if (!p) return "progress"; return state.projectStatus[p.id] || p.status; }
 
 function fmtDur(ms) { const s = Math.floor(ms / 1000); const m = Math.floor(s / 60), ss = s % 60; return m + ":" + String(ss).padStart(2, "0"); }
 function fmtTc(ms) {
@@ -1361,7 +1361,11 @@ function computeVals() {
 
   const allSources = Object.values(s.sourcesByProject).flat();
   const selSrc = allSources.find((x) => x.id === s.selectedId) || allSources[0];
-  const selProject = PROJECTS.find((p) => p.id === s.selectedProjectId) || PROJECTS[0];
+  // Empty-project placeholder: when the user is logged in but the workspace has
+  // no projects yet (fresh install, all archived, etc.), render() needs a
+  // non-null object to walk so downstream code doesn't crash with "undefined.id".
+  const EMPTY_PROJECT = { id: "", name: "—", status: "progress", client: "", team: [], updated: "" };
+  const selProject = PROJECTS.find((p) => p.id === s.selectedProjectId) || PROJECTS[0] || EMPTY_PROJECT;
   const projStatus = effStatus(selProject);
 
   const counts = { all: PROJECTS.length, progress: 0, done: 0, published: 0 };
