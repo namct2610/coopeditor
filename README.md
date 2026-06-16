@@ -43,3 +43,9 @@ Repo nay moi la skeleton kien truc va contract ban dau. Buoc tiep theo hop ly nh
 2. Implement NAS scanner.
 3. Implement queue + FFmpeg worker.
 4. Tao player page va timeline comments realtime.
+
+## Release va Update Center
+
+- `release.json` la nguon version/changelog de API + UI hien thi trong Update Center.
+- Moi lan cap nhat code can tang `version` va viet `summary`/`changes` ngan trong file nay.
+- NAS deploy co the auto-poll image moi qua Watchtower, va owner co them nut `Update now` trong UI de gui lenh update thu cong khi updater da san sang.

@@ -165,6 +165,7 @@ const state = {
   annotationDrawing: null,
   showTranscode: false,
   showImport: false,
+  showUpdateModal: false,
   nasCurrentPath: "/",
   nasLoading: false,
   nasError: "",
@@ -182,6 +183,11 @@ const state = {
   speedDisplay: 42,
   speedTesting: false,
   showSpeedPanel: false,
+  updateStatus: null,
+  updateBusy: false,
+  updateTriggerBusy: false,
+  updateMessage: "",
+  updateError: "",
   autoQualityEnabled: true,
   lastAutoQuality: "720p",
   version: "v1",
@@ -547,6 +553,11 @@ function topBar(vals) {
     </div>
     ` : ""}
     <div style="flex:1"></div>
+    <button data-act="toggleUpdateModal" title="Trung tam cap nhat" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:${vals.updateBadgeBg};border:1px solid var(--co-border-2);color:${vals.updateBadgeColor};font-weight:800;font-size:12px;padding:8px 12px;border-radius:999px;cursor:pointer;">
+      ${ICON.refresh}
+      <span>Update</span>
+      <span style="color:var(--co-text);font-weight:700;">${esc(vals.updateBadgeLabel)}</span>
+    </button>
     <button data-act="toggleTheme" title="Đổi giao diện sáng/tối" class="co-border-hover" style="width:36px;height:36px;display:grid;place-items:center;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:999px;color:var(--co-text-2);cursor:pointer;">${isLight ? ICON.moon : ICON.sun}</button>
     <div style="position:relative;">
       <button data-act="toggleSpeedPanel" title="Tốc độ đường truyền" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid ${vals.speedBorder};color:var(--co-text);font-weight:700;font-size:12.5px;padding:7px 12px;border-radius:999px;cursor:pointer;">
@@ -978,6 +989,81 @@ function auditModal(vals) {
             <div style="color:var(--co-faint);font-size:11px;font-weight:700;white-space:nowrap;">${esc(e.timeLabel)}</div>
           </div>
         `).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+function updateModal(vals) {
+  const status = vals.updateStatus || null;
+  const local = status && status.local ? status.local : null;
+  const remoteMeta = status && status.remote ? status.remote : null;
+  const localVersion = local && local.version ? local.version : "unknown";
+  const localSummary = local && local.summary ? local.summary : "Chua doc duoc metadata ban dang chay.";
+  const remoteVersion = remoteMeta && remoteMeta.version ? remoteMeta.version : "chua co";
+  const remoteSummary = remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chua tim thay ban moi hon." : "Update feed chua san sang.");
+  const changeItems = remoteMeta && remoteMeta.changes && remoteMeta.changes.length ? remoteMeta.changes : (local && local.changes) || [];
+  const statusTone = state.updateError ? "#ef4d57" : (status && status.updateAvailable ? "#f5a623" : "#35c389");
+  const pollLabel = status && status.pollIntervalSeconds ? ("Auto poll moi " + Math.max(1, Math.round(status.pollIntervalSeconds / 60)) + " phut") : "Auto poll dang bat";
+  return `
+  <div data-act="closeUpdateModal" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:92;display:grid;place-items:center;padding:24px;">
+    <div data-stop="1" style="width:min(760px,100%);max-height:min(84vh,920px);overflow:auto;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:22px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;">
+        <div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Update Center</div>
+          <div style="margin-top:4px;font-size:22px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);">Quan ly phien ban Coopeditor</div>
+          <div style="margin-top:4px;color:var(--co-muted);font-size:12px;font-weight:600;">Xem version dang chay, changelog ban moi, va gui lenh update thu cong neu updater da san sang.</div>
+        </div>
+        <button data-act="closeUpdateModal" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
+      </div>
+      <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Dang chay tren NAS</div>
+          <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(localVersion)}</div>
+          <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(localSummary)}</div>
+          <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
+            <div>SHA: ${esc(local && local.sha ? local.sha.slice(0, 12) : "unknown")}</div>
+            <div>Built: ${esc(local && local.builtAt ? local.builtAt : "unknown")}</div>
+            <div>Published: ${esc(local && local.publishedAt ? local.publishedAt : "unknown")}</div>
+          </div>
+        </div>
+        <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Ban moi nhat</div>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(245,166,35,0.14)" : "rgba(53,195,137,0.14)"};color:${status && status.updateAvailable ? "#f5a623" : "#35c389"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Can update" : "Dang current"}</span>
+          </div>
+          <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(remoteVersion)}</div>
+          <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(remoteSummary)}</div>
+          <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
+            <div>SHA: ${esc(remoteMeta && remoteMeta.sha ? remoteMeta.sha.slice(0, 12) : "unknown")}</div>
+            <div>Published: ${esc(remoteMeta && remoteMeta.publishedAt ? remoteMeta.publishedAt : "unknown")}</div>
+            <div>${esc(pollLabel)}</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Thay doi gan day</div>
+            <div style="margin-top:4px;font-size:13px;font-weight:700;color:${statusTone};">${esc(state.updateMessage || (status && status.error) || "San sang kiem tra update.")}</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button data-act="checkUpdateNow" ${state.updateBusy ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${state.updateBusy ? "wait" : "pointer"};">${state.updateBusy ? "Dang kiem tra..." : "Check now"}</button>
+            <button data-act="triggerUpdateNow" ${!vals.canManageUpdates || state.updateTriggerBusy ? "disabled" : ""} class="co-btn-blue" style="background:${vals.canManageUpdates ? "#2da8e2" : "var(--co-panel-2)"};border:none;color:${vals.canManageUpdates ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${!vals.canManageUpdates || state.updateTriggerBusy ? "not-allowed" : "pointer"};opacity:${!vals.canManageUpdates ? ".7" : "1"};">${state.updateTriggerBusy ? "Dang gui lenh..." : "Update now"}</button>
+          </div>
+        </div>
+        <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner co the trigger update thu cong. Neu updater khong ho tro trigger, he thong van tiep tuc auto-poll image moi theo lich." : "Chi owner moi co quyen trigger update thu cong."}</div>
+      </div>
+      <div style="margin-top:16px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Release notes</div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
+          ${changeItems.length ? changeItems.map((item) => `
+            <div style="display:flex;gap:10px;align-items:flex-start;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#2da8e2;flex:0 0 8px;margin-top:7px;"></span>
+              <span>${esc(item)}</span>
+            </div>
+          `).join("") : `<div style="color:var(--co-muted);font-size:13px;font-weight:600;">Chua co release note chi tiet.</div>`}
+        </div>
       </div>
     </div>
   </div>`;
@@ -1516,6 +1602,11 @@ function computeVals() {
   const tier = speedVal >= 40 ? { label: "Mạnh", color: "#35c389", rec: "1080p" } : speedVal >= 22 ? { label: "Ổn", color: "#2da8e2", rec: "720p" } : { label: "Yếu", color: "#f5a623", rec: "540p" };
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
+  const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
+  const updateStatus = remote.updateStatus || s.updateStatus || null;
+  const updateBadge = updateStatus && updateStatus.updateAvailable
+    ? { label: "Update", color: "#f5a623", bg: "rgba(245,166,35,0.14)" }
+    : { label: "Current", color: "#35c389", bg: "rgba(53,195,137,0.14)" };
 
   return {
     projectName: selProject.name, filterTitle, statusNav, projectGroups,
@@ -1577,11 +1668,16 @@ function computeVals() {
     isOwner: (selProject && selProject.myRole === "owner") || !remote.me,
     canManageAccess: (selProject && selProject.myRole === "owner") || !remote.me,
     canManageProject: !remote.me || ["owner", "editor"].includes(selProject && selProject.myRole),
+    canManageUpdates,
     auditEntries: prepareAuditEntries(s.auditEntries || []),
     notificationCount: Object.values(s.notificationsByProject || {}).reduce((sum, count) => sum + count, 0),
     notificationTitle: Object.keys(s.notificationsByProject || {}).length ? "Có comment mới ở project khác" : "Chưa có comment mới",
     meInitial: (remote.me && remote.me.initial) || "M",
     meColor: (remote.me && remote.me.color) || "#2da8e2",
+    updateStatus,
+    updateBadgeLabel: updateBadge.label,
+    updateBadgeColor: updateBadge.color,
+    updateBadgeBg: updateBadge.bg,
   };
 }
 
@@ -1605,6 +1701,7 @@ function render() {
     ${state.showAudit ? auditModal(vals) : ""}
     ${state.showTranscode ? transcodeModal(vals) : ""}
     ${state.showImport ? importModal(vals) : ""}
+    ${state.showUpdateModal ? updateModal(vals) : ""}
     ${state.showVersionMenu ? versionMenu(vals) : ""}
   `;
 
@@ -1641,6 +1738,10 @@ function handleAct(act, arg, e, node) {
     case "openSource": return openSource(arg);
     case "setStatusFilter": return setStatusFilter(arg);
     case "toggleTheme": return toggleTheme();
+    case "toggleUpdateModal": return openUpdateModal();
+    case "closeUpdateModal": return setState({ showUpdateModal: false, updateError: "" });
+    case "checkUpdateNow": return fetchUpdateStatus(true);
+    case "triggerUpdateNow": return triggerUpdateNow();
     case "toggleSpeedPanel": return setState({ showSpeedPanel: !state.showSpeedPanel });
     case "closeSpeedPanel": return setState({ showSpeedPanel: false });
     case "runSpeedTest": return runSpeedTest();
@@ -1802,7 +1903,7 @@ const API_BASE = (function () {
   return "/api";
 })();
 
-const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true } };
+const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true }, updateStatus: null };
 let presenceTimer = null;
 const auth = { needsOtp: false, busy: false, error: "", account: "", passwd: "", otp: "" };
 const API_FETCH_TIMEOUT_MS = 20000;
@@ -1825,6 +1926,10 @@ const setup = {
   smtpFrom: "Coopeditor <no-reply@example.com>",
   slackWebhookUrl: "",
   discordWebhookUrl: "",
+  updateFeedUrl: "",
+  updateTriggerUrl: "",
+  updateTriggerToken: "",
+  updatePollIntervalSeconds: 900,
 };
 
 async function api(path, opts) {
@@ -1882,6 +1987,9 @@ async function bootstrap() {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
       if (status.dsmHost) setup.dsmHost = status.dsmHost;
       if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
+      if (status.updater && status.updater.feedUrl) setup.updateFeedUrl = status.updater.feedUrl;
+      if (status.updater && status.updater.triggerUrl) setup.updateTriggerUrl = status.updater.triggerUrl;
+      if (status.updater && status.updater.pollIntervalSeconds) setup.updatePollIntervalSeconds = status.updater.pollIntervalSeconds;
       render();
       return;
     }
@@ -1916,6 +2024,9 @@ async function tryBootProbe() {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
       if (status.dsmHost) setup.dsmHost = status.dsmHost;
       if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
+      if (status.updater && status.updater.feedUrl) setup.updateFeedUrl = status.updater.feedUrl;
+      if (status.updater && status.updater.triggerUrl) setup.updateTriggerUrl = status.updater.triggerUrl;
+      if (status.updater && status.updater.pollIntervalSeconds) setup.updatePollIntervalSeconds = status.updater.pollIntervalSeconds;
       render();
       return;
     }
@@ -1959,7 +2070,58 @@ async function loadRemote() {
     openEventStream();
     startPresence();
     try { remote.presence = await api("/presence"); } catch (_) {}
+    if (projects.some((project) => project.myRole === "owner")) {
+      fetchUpdateStatus(false).catch(() => {});
+    }
   } catch (e) { remote.error = e.message; }
+}
+
+async function openUpdateModal() {
+  setState({ showUpdateModal: true, updateError: "", updateMessage: "" });
+  if (!remote.updateStatus) {
+    fetchUpdateStatus(false).catch(() => {});
+  }
+}
+
+async function fetchUpdateStatus(force) {
+  if (state.updateBusy) return;
+  state.updateBusy = true;
+  if (force) state.updateMessage = "";
+  state.updateError = "";
+  render();
+  try {
+    const status = await api("/admin/update-status" + (force ? "?refresh=1" : ""));
+    remote.updateStatus = status;
+    state.updateStatus = status;
+    state.updateMessage = status.updateAvailable
+      ? ("Da tim thay ban moi: " + ((status.remote && status.remote.version) || "unknown"))
+      : "Dang chay ban moi nhat theo update feed hien tai.";
+  } catch (err) {
+    state.updateError = err.message || "Khong doc duoc trang thai update";
+    state.updateMessage = "";
+  } finally {
+    state.updateBusy = false;
+    render();
+  }
+}
+
+async function triggerUpdateNow() {
+  if (state.updateTriggerBusy) return;
+  state.updateTriggerBusy = true;
+  state.updateError = "";
+  state.updateMessage = "";
+  render();
+  try {
+    const result = await api("/admin/update-trigger", { method: "POST", body: {} });
+    if (!result.ok) throw new Error(result.error || "Update trigger that bai");
+    state.updateMessage = result.message || "Da gui lenh update. Watchtower se tien hanh refresh image.";
+    await fetchUpdateStatus(true);
+  } catch (err) {
+    state.updateError = err.message || "Khong trigger duoc update";
+  } finally {
+    state.updateTriggerBusy = false;
+    render();
+  }
 }
 
 // Realtime transport: try WebSocket first; fall back to SSE (EventSource).
@@ -2034,6 +2196,10 @@ function setupOverlay() {
         ${setupField("Autoscale threshold", "setupAutoscaleThreshold", String(setup.autoscaleThreshold), "5", "number")}
         ${setupField("Autoscale step", "setupAutoscaleStep", String(setup.autoscaleStep), "1", "number")}
         ${setupField("Max concurrency", "setupMaxConcurrency", String(setup.maxConcurrency), "3", "number")}
+        ${setupField("Update feed URL", "setupUpdateFeedUrl", setup.updateFeedUrl, "https://raw.githubusercontent.com/.../release.json")}
+        ${setupField("Update trigger URL", "setupUpdateTriggerUrl", setup.updateTriggerUrl, "http://watchtower:8080/v1/update")}
+        ${setupField("Update trigger token", "setupUpdateTriggerToken", setup.updateTriggerToken, "internal-token", "password")}
+        ${setupField("Update poll interval (s)", "setupUpdatePollIntervalSeconds", String(setup.updatePollIntervalSeconds), "900", "number")}
       </div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 10px;">
         ${setupToggle("setupDsmDevLogin", "Bật DSM dev login", setup.dsmDevLogin)}
@@ -2085,6 +2251,12 @@ async function applySetup() {
       autoscaleStep: readNumber("setupAutoscaleStep", 1),
       maxConcurrency: readNumber("setupMaxConcurrency", 3),
     },
+    updater: {
+      feedUrl: readValue("setupUpdateFeedUrl"),
+      triggerUrl: readValue("setupUpdateTriggerUrl"),
+      triggerToken: readValue("setupUpdateTriggerToken"),
+      pollIntervalSeconds: readNumber("setupUpdatePollIntervalSeconds", 900),
+    },
   };
   Object.assign(setup, {
     publicUrl: payload.publicUrl,
@@ -2102,6 +2274,10 @@ async function applySetup() {
     smtpFrom: payload.smtp.from,
     slackWebhookUrl: payload.webhooks.slackWebhookUrl,
     discordWebhookUrl: payload.webhooks.discordWebhookUrl,
+    updateFeedUrl: payload.updater.feedUrl,
+    updateTriggerUrl: payload.updater.triggerUrl,
+    updateTriggerToken: payload.updater.triggerToken,
+    updatePollIntervalSeconds: payload.updater.pollIntervalSeconds,
   });
   setup.error = "";
   setup.busy = true;

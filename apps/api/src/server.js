@@ -28,6 +28,7 @@ import * as shareLinks from "./share-links.js";
 import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { publicRuntimeSummary } from "./runtime-config.js";
+import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 
 // ---------- helpers ----------
 
@@ -79,6 +80,11 @@ async function requireProjectAccess(res, projectId, userId, allowedRoles = null)
 async function ensureProjectHasAnotherOwner(projectId, userId) {
   const members = await store.listProjectMembers(projectId);
   return members.some((member) => member.userId !== userId && member.role === "owner");
+}
+
+async function canManageUpdates(userId) {
+  const members = await store.listProjectMembersForUser(userId).catch(() => []);
+  return !!(members && members.some((member) => member.role === "owner"));
 }
 
 // Annotation payload: { strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }] }
@@ -172,10 +178,7 @@ async function handle(req, res, url) {
     return send(res, 200, { ...publicRuntimeSummary(), configured: true });
   }
   if (p === "/version" && m === "GET") {
-    return send(res, 200, {
-      sha: process.env.BUILD_SHA || "unknown",
-      builtAt: process.env.BUILT_AT || "unknown",
-    });
+    return send(res, 200, buildLocalReleaseMeta());
   }
   if (p === "/metrics" && m === "GET") return sendMetrics(res);
   if (p === "/auth/dsm/login" && m === "POST") return handleLogin(req, res);
@@ -576,11 +579,13 @@ async function handle(req, res, url) {
   if (p === "/users" && m === "GET") return send(res, 200, await store.listUsers());
 
   if (p === "/admin/update-status" && m === "GET") {
-    // Any logged-in owner of any project can check. (Cheaper than building a real "admin" role.)
-    const members = await store.listProjectMembersForUser(sess.userId).catch(() => []);
-    const isAdmin = members && members.some((mm) => mm.role === "owner");
-    if (!isAdmin) return bad(res, "Forbidden", 403);
-    return send(res, 200, await checkUpdateStatus());
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    return send(res, 200, await checkUpdateStatus({ force: url.searchParams.get("refresh") === "1" }));
+  }
+
+  if (p === "/admin/update-trigger" && m === "POST") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    return send(res, 200, await triggerUpdateRun());
   }
 
   if ((mat = p.match(/^\/projects\/([^/]+)\/shares$/))) {
@@ -689,27 +694,96 @@ async function handleOidcCallback(req, res, url) {
 //
 // If UPDATE_FEED_URL is unset, we can't check remote — return "unknown".
 let _updateCache = null;
-async function checkUpdateStatus() {
-  const localSha = process.env.BUILD_SHA || "unknown";
-  const localBuiltAt = process.env.BUILT_AT || "unknown";
+async function checkUpdateStatus({ force = false } = {}) {
+  const local = buildLocalReleaseMeta();
   const feed = process.env.UPDATE_FEED_URL || "";
-  if (!feed) return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false };
+  const base = {
+    local,
+    remote: null,
+    updateAvailable: false,
+    checkAvailable: !!feed,
+    triggerAvailable: !!(process.env.UPDATE_TRIGGER_URL || ""),
+    pollIntervalSeconds: clampPositiveInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900),
+  };
+  if (!feed) return { ...base, message: "Update feed chua duoc cau hinh" };
 
-  // Cache 5 phút để không spam GitHub API
-  if (_updateCache && Date.now() - _updateCache.at < 300_000) return { localSha, localBuiltAt, ..._updateCache.data };
+  if (!force && _updateCache && Date.now() - _updateCache.at < 300_000) return { ...base, ..._updateCache.data };
 
   try {
     const r = await fetch(feed, { headers: { "user-agent": "coopeditor-updater", accept: "application/json" }, signal: AbortSignal.timeout?.(8000) });
-    if (!r.ok) return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false, error: "remote HTTP " + r.status };
+    if (!r.ok) return { ...base, error: "remote HTTP " + r.status };
     const body = await r.json();
-    const remoteSha = body.sha || body.id || (body.commit && body.commit.sha) || null;
-    const updateAvailable = !!(remoteSha && localSha !== "unknown" && remoteSha.slice(0, 7) !== localSha.slice(0, 7));
-    const data = { remoteSha, updateAvailable, checkAvailable: true };
+    const remote = normalizeRemoteReleaseMeta(body);
+    const data = {
+      remote,
+      updateAvailable: hasRemoteUpdate(local, remote),
+      checkAvailable: true,
+      checkedAt: new Date().toISOString(),
+    };
     _updateCache = { at: Date.now(), data };
-    return { localSha, localBuiltAt, ...data };
+    return { ...base, ...data };
   } catch (err) {
-    return { localSha, localBuiltAt, remoteSha: null, behind: 0, checkAvailable: false, error: err.message };
+    return { ...base, error: err.message };
   }
+}
+
+async function triggerUpdateRun() {
+  const triggerUrl = process.env.UPDATE_TRIGGER_URL || "";
+  const triggerToken = process.env.UPDATE_TRIGGER_TOKEN || "";
+  if (!triggerUrl) {
+    return { ok: false, triggerAvailable: false, error: "Manual update trigger chua duoc cau hinh" };
+  }
+
+  try {
+    const headers = {
+      "content-type": "application/json",
+      accept: "application/json, text/plain;q=0.9, */*;q=0.8",
+      "user-agent": "coopeditor-updater",
+    };
+    if (triggerToken) {
+      headers.authorization = "Bearer " + triggerToken;
+      headers["x-update-token"] = triggerToken;
+    }
+    const local = buildLocalReleaseMeta();
+    const r = await fetch(triggerUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        source: "coopeditor-ui",
+        requestedAt: new Date().toISOString(),
+        currentVersion: local.version,
+        currentSha: local.sha,
+      }),
+      signal: AbortSignal.timeout?.(12000),
+    });
+    const raw = await r.text();
+    let responseBody = raw;
+    try { responseBody = raw ? JSON.parse(raw) : null; } catch (_) {}
+    if (!r.ok) {
+      return {
+        ok: false,
+        triggerAvailable: true,
+        status: r.status,
+        error: typeof responseBody === "string" ? responseBody.slice(0, 240) : ("trigger HTTP " + r.status),
+      };
+    }
+    _updateCache = null;
+    return {
+      ok: true,
+      triggerAvailable: true,
+      status: r.status,
+      accepted: true,
+      message: "Da gui lenh cap nhat toi updater service",
+      response: responseBody,
+    };
+  } catch (err) {
+    return { ok: false, triggerAvailable: true, error: err.message || "Update trigger failed" };
+  }
+}
+
+function clampPositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 async function handleSharedRead(req, res, token) {

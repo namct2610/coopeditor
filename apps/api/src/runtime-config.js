@@ -32,7 +32,19 @@ export function isRuntimeConfigured() {
 
 export function publicRuntimeSummary() {
   const cfg = readRuntimeConfig();
-  if (!cfg) return { configured: false, appDataDir: APP_DATA_DIR };
+  if (!cfg) {
+    return {
+      configured: false,
+      appDataDir: APP_DATA_DIR,
+      updater: {
+        feedUrl: process.env.UPDATE_FEED_URL || "",
+        triggerUrl: process.env.UPDATE_TRIGGER_URL || "",
+        pollIntervalSeconds: clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
+        feedConfigured: !!process.env.UPDATE_FEED_URL,
+        triggerConfigured: !!process.env.UPDATE_TRIGGER_URL,
+      },
+    };
+  }
   return {
     configured: true,
     appDataDir: APP_DATA_DIR,
@@ -51,6 +63,13 @@ export function publicRuntimeSummary() {
       codecLadder: (cfg.transcode && cfg.transcode.codecLadder) || "h264",
       workerConcurrency: (cfg.transcode && cfg.transcode.workerConcurrency) || 2,
     },
+    updater: {
+      feedUrl: (cfg.updater && cfg.updater.feedUrl) || "",
+      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || "",
+      pollIntervalSeconds: (cfg.updater && cfg.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
+      feedConfigured: !!(cfg.updater && cfg.updater.feedUrl),
+      triggerConfigured: !!(cfg.updater && cfg.updater.triggerUrl),
+    },
   };
 }
 
@@ -64,6 +83,7 @@ export function normalizeRuntimeConfig(input) {
   const hls = input.hls && typeof input.hls === "object" ? input.hls : {};
   const transcode = input.transcode && typeof input.transcode === "object" ? input.transcode : {};
   const retention = input.retention && typeof input.retention === "object" ? input.retention : {};
+  const updater = input.updater && typeof input.updater === "object" ? input.updater : {};
 
   if (!publicUrl) throw new Error("publicUrl required");
   const parsedPublicUrl = new URL(publicUrl);
@@ -107,6 +127,12 @@ export function normalizeRuntimeConfig(input) {
       projectPurgeDays: clampInt(retention.projectPurgeDays, 90, 1, 3650),
       commentPurgeDays: clampInt(retention.commentPurgeDays, 30, 1, 3650),
       sweepMinutes: clampInt(retention.sweepMinutes, 60, 5, 1440),
+    },
+    updater: {
+      feedUrl: String(updater.feedUrl || process.env.UPDATE_FEED_URL || "").trim(),
+      triggerUrl: String(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || "").trim(),
+      triggerToken: String(updater.triggerToken || "").trim(),
+      pollIntervalSeconds: clampInt(updater.pollIntervalSeconds, clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400), 30, 86400),
     },
     savedAt: new Date().toISOString(),
     scheme: parsedPublicUrl.protocol.replace(":", ""),
@@ -168,6 +194,11 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.PROJECT_PURGE_DAYS = String(config.retention && config.retention.projectPurgeDays || 90);
   process.env.COMMENT_PURGE_DAYS = String(config.retention && config.retention.commentPurgeDays || 30);
   process.env.RETENTION_SWEEP_MINUTES = String(config.retention && config.retention.sweepMinutes || 60);
+
+  process.env.UPDATE_FEED_URL = config.updater && config.updater.feedUrl || "";
+  process.env.UPDATE_TRIGGER_URL = config.updater && config.updater.triggerUrl || "";
+  process.env.UPDATE_TRIGGER_TOKEN = config.updater && config.updater.triggerToken || "";
+  process.env.UPDATE_POLL_INTERVAL_SECONDS = String(config.updater && config.updater.pollIntervalSeconds || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400));
   return true;
 }
 

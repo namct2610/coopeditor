@@ -14,6 +14,7 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate \
 # Now copy sources
 COPY apps/api ./apps/api
 COPY packages/contracts ./packages/contracts
+COPY release.json ./release.json
 
 ENV NODE_ENV=production
 ENV PORT=4000

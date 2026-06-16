@@ -83,6 +83,10 @@ services:
       MINIO_SECRET_KEY: coopeditor-minio-secret
       HOST: 0.0.0.0
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      UPDATE_FEED_URL: https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json
+      UPDATE_TRIGGER_URL: http://watchtower:8080/v1/update
+      UPDATE_TRIGGER_TOKEN: coopeditor-local-update
+      UPDATE_POLL_INTERVAL_SECONDS: "900"
     command: >
       sh -c "
         node apps/api/src/migrate.js &&
@@ -160,6 +164,9 @@ services:
       WATCHTOWER_INCLUDE_RESTARTING: "true"
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_POLL_INTERVAL: "900"
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_TOKEN: coopeditor-local-update
+      WATCHTOWER_HTTP_API_PERIODIC_POLLS: "true"
       # GHCR mặc định publish image ở chế độ private. Watchtower cần PAT
       # (scope read:packages) để check version mới — không có thì poll bị 401
       # và Watchtower im lặng "không có update" mãi mãi.

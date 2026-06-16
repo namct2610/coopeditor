@@ -16,6 +16,7 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate \
 
 COPY apps/worker ./apps/worker
 COPY apps/api ./apps/api
+COPY release.json ./release.json
 # Worker imports ../../../packages/contracts/src/event-bus.js (PG channel name,
 # Redis stream key, envelope helpers). Without this COPY the image is missing
 # the file and the container exit-loops on startup with ERR_MODULE_NOT_FOUND.

@@ -97,6 +97,22 @@ test("DSM dev login + /me round trip", async () => {
   assert.equal(me.json.user.dsmUid > 0, true);
 });
 
+test("/version returns release metadata", async () => {
+  const r = await http("/version");
+  assert.equal(r.status, 200);
+  assert.equal(r.json.version, "0.2.0");
+  assert.equal(typeof r.json.summary, "string");
+  assert.ok(Array.isArray(r.json.changes));
+});
+
+test("owner can read update status without feed", async () => {
+  const r = await http("/admin/update-status");
+  assert.equal(r.status, 200);
+  assert.equal(r.json.local.version, "0.2.0");
+  assert.equal(r.json.checkAvailable, false);
+  assert.equal(r.json.triggerAvailable, false);
+});
+
 test("/projects decorates with team, sourcesCount, commentsCount", async () => {
   const r = await http("/projects");
   assert.equal(r.status, 200);
