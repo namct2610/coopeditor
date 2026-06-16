@@ -147,11 +147,14 @@ const state = {
   currentMs: 12330,
   duration: 142000,
   fps: 24,
-  quality: "720p",
+  // "source" = play original NAS file directly (no transcode wait). User can
+  // still pick a proxy ladder rung from the quality menu.
+  quality: "source",
   filter: "open",
   newComment: "",
   attachTc: true,
-  showSafe: false,
+  // Safe-area overlay cycles: off → 16:9 (action+title safe) → 9:16 (vertical short/reel) → 1:1 (square)
+  safeAspect: "off",
   showQualityMenu: false,
   showVersionMenu: false,
   showMembers: false,
@@ -166,6 +169,14 @@ const state = {
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
+  // Create-project modal (replaces the old window.prompt pair). Thumbnail is
+  // optional — user can skip and add later from the project detail page.
+  showCreateProject: false,
+  createProjectName: "",
+  createProjectClient: "",
+  createProjectThumbDataUrl: "",
+  createProjectBusy: false,
+  createProjectError: "",
   nasCurrentPath: "/",
   nasLoading: false,
   nasError: "",
@@ -188,8 +199,10 @@ const state = {
   updateTriggerBusy: false,
   updateMessage: "",
   updateError: "",
-  autoQualityEnabled: true,
-  lastAutoQuality: "720p",
+  // Auto-ABR is opt-in: by default we keep the user on "Bản gốc" so they see
+  // the real video on day one and never run into the proxy-pending modal.
+  autoQualityEnabled: false,
+  lastAutoQuality: "source",
   version: "v1",
   qualities: [
     { id: "540p", label: "540p", res: "960×540", bitrate: "1.8 Mbps", sub: "Mạng yếu · nhiều người xem", status: "ready" },
@@ -403,9 +416,53 @@ function seekFromEvent(e) {
   const video = document.getElementById("reviewVideo");
   if (video) {
     video.currentTime = p * (video.duration || (state.duration / 1000) || 0);
-    return;
+  } else {
+    setState({ currentMs: p * state.duration });
   }
-  setState({ currentMs: p * state.duration });
+  startScrubFromEvent(e);
+}
+
+// Drag-to-scrub: while the mouse is held down on the seek bar we keep
+// updating video.currentTime. We re-resolve the bar's rect on each move
+// (in case the page re-rendered) but pin to the original bar via closure.
+function startScrubFromEvent(e) {
+  const bar = e.currentTarget && e.currentTarget.closest ? e.currentTarget.closest('[data-act="seekFromEvent"]') : null;
+  if (!bar) return;
+  let scrubbing = true;
+  const move = (ev) => {
+    if (!scrubbing) return;
+    const rect = bar.getBoundingClientRect();
+    const clientX = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
+    let p = (clientX - rect.left) / rect.width;
+    p = Math.max(0, Math.min(1, p));
+    const video = document.getElementById("reviewVideo");
+    const dur = video ? (video.duration || state.duration / 1000) : state.duration / 1000;
+    const tMs = p * dur * 1000;
+    if (video) video.currentTime = p * dur;
+    // Update needle inline without a full re-render to keep scrub at 60fps.
+    const needle = document.getElementById("reviewNeedle");
+    const playBar = document.getElementById("reviewPlayPct");
+    const tcA = document.getElementById("reviewTcCurrent");
+    const tcB = document.getElementById("reviewTcCurrentInline");
+    if (needle) needle.style.left = (p * 100) + "%";
+    if (playBar) playBar.style.width = (p * 100) + "%";
+    if (tcA) tcA.textContent = fmtTc(tMs);
+    if (tcB) tcB.textContent = fmtTc(tMs);
+    state.currentMs = tMs;
+  };
+  const up = () => {
+    scrubbing = false;
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", up);
+    window.removeEventListener("touchmove", move);
+    window.removeEventListener("touchend", up);
+    // One final render to settle marker/comment highlights.
+    render();
+  };
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+  window.addEventListener("touchmove", move, { passive: true });
+  window.addEventListener("touchend", up);
 }
 
 // ---- transcode ----
@@ -429,6 +486,13 @@ function applyAutoQualityRecommendation(speedVal) {
 }
 function setQuality(id, opts) {
   const config = opts || {};
+  // "source" is a synthetic quality meaning "play original NAS file" — always
+  // ready, never needs a transcode job.
+  if (id === "source") {
+    const patch = { quality: "source", showQualityMenu: false, showSpeedPanel: false };
+    if (config.manual !== false) patch.autoQualityEnabled = false;
+    return setState(patch);
+  }
   const q = state.qualities.find((x) => x.id === id);
   if (q && q.status === "ready") {
     const patch = { quality: id, showQualityMenu: false, showSpeedPanel: false };
@@ -969,6 +1033,34 @@ function sourceGridView(vals) {
   `).join("")}</div>`;
 }
 
+// Safe-area overlay — supports horizontal (16:9 review masters), vertical
+// short/reel (9:16), and square (1:1). For 9:16 and 1:1 the container is
+// 16:9 so we draw a centered crop rectangle of the target ratio plus the
+// usual inner safe margins (5% title-safe, 10% action-safe) inside that crop.
+function safeAreaOverlay(aspect) {
+  if (!aspect || aspect === "off") return "";
+  if (aspect === "16:9") {
+    return `
+      <div style="position:absolute;inset:10%;border:1px solid rgba(255,255,255,0.4);pointer-events:none;"></div>
+      <div style="position:absolute;inset:5%;border:1px solid rgba(255,255,255,0.2);pointer-events:none;"></div>
+      <div style="position:absolute;left:8px;bottom:calc(7.5% + 4px);background:rgba(0,0,0,0.55);color:#fff;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;pointer-events:none;">SAFE 16:9</div>`;
+  }
+  // For 9:16 inside a 16:9 frame, target width = container height * (9/16).
+  // For 1:1, target width = container height.
+  // We use aspect-ratio CSS on a centered child so the math stays correct
+  // regardless of player width.
+  const ratio = aspect === "9:16" ? "9 / 16" : "1 / 1";
+  const label = aspect === "9:16" ? "SAFE 9:16 (short / reel)" : "SAFE 1:1 (square)";
+  return `
+    <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;">
+      <div style="height:100%;aspect-ratio:${ratio};position:relative;outline:1.5px solid rgba(45,168,226,0.7);background:rgba(0,0,0,0.18);">
+        <div style="position:absolute;inset:6%;border:1px solid rgba(255,255,255,0.4);"></div>
+        <div style="position:absolute;inset:3%;border:1px solid rgba(255,255,255,0.2);"></div>
+        <div style="position:absolute;left:6px;top:6px;background:rgba(45,168,226,0.85);color:#07111a;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;">${label}</div>
+      </div>
+    </div>`;
+}
+
 // ---- Annotation: SVG overlay + toolbar -----------------------------------
 // Coordinates stored 0..1 (normalized) so annotations survive any scaling.
 // On comment submit, state.annotationStrokes is shipped với body.annotation.
@@ -1000,8 +1092,11 @@ function annotationOverlay() {
   const strokes = state.annotationStrokes || [];
   const drawing = state.annotationDrawing;
   const all = drawing ? [...strokes, drawing] : strokes;
+  // z-index:40 keeps the SVG ABOVE the video poster + play-button overlay
+  // (which sit on the same stacking context). Without this the canvas got
+  // covered by the controls and felt "sunk".
   return `
-    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:crosshair;touch-action:none;"
+    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:crosshair;touch-action:none;z-index:40;pointer-events:auto;"
          onpointerdown="window.__annPtr&&window.__annPtr('down',event)"
          onpointermove="window.__annPtr&&window.__annPtr('move',event)"
          onpointerup="window.__annPtr&&window.__annPtr('up',event)"
@@ -1033,6 +1128,29 @@ function renderStrokeSvg(s) {
 }
 
 // Pointer event handler — module-scope so the SVG inline attributes can hit it.
+// IMPORTANT perf note: a naive render() per pointermove rebuilds the entire app
+// DOM (~3k lines of innerHTML) every ~10ms while drawing — the cause of the
+// "vẽ chú thích rất lag" complaint. We avoid full render during drag by
+// patching only the SVG's innerHTML; the full render() runs once on
+// pointerdown (to swap the play-overlay → annotation SVG) and once on
+// pointerup (to commit the stroke into state.annotationStrokes and update
+// the toolbar counter).
+function repaintAnnotationSvg() {
+  const svg = document.getElementById("annotationSvg");
+  if (!svg) return;
+  const strokes = state.annotationStrokes || [];
+  const drawing = state.annotationDrawing;
+  const all = drawing ? [...strokes, drawing] : strokes;
+  svg.innerHTML = all.map((s) => renderStrokeSvg(s)).join("");
+}
+
+let _annRafQueued = false;
+function requestAnnRepaint() {
+  if (_annRafQueued) return;
+  _annRafQueued = true;
+  requestAnimationFrame(() => { _annRafQueued = false; repaintAnnotationSvg(); });
+}
+
 window.__annPtr = function (phase, ev) {
   if (!state.annotationMode) return;
   const svg = ev.currentTarget;
@@ -1042,19 +1160,19 @@ window.__annPtr = function (phase, ev) {
   if (phase === "down") {
     state.annotationDrawing = { tool: state.annotationTool, color: state.annotationColor, points: [[x, y]] };
     try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
-    render();
+    requestAnnRepaint();
   } else if (phase === "move" && state.annotationDrawing) {
     const pts = state.annotationDrawing.points;
-    // throttle: only push if moved enough
     const last = pts[pts.length - 1];
     if (Math.hypot(x - last[0], y - last[1]) < 0.002) return;
     pts.push([x, y]);
     if (pts.length > 256) pts.splice(0, pts.length - 256);
-    render();
+    requestAnnRepaint();
   } else if (phase === "up" && state.annotationDrawing) {
     state.annotationStrokes = [...(state.annotationStrokes || []), state.annotationDrawing];
     state.annotationDrawing = null;
     if (state.annotationStrokes.length > 50) state.annotationStrokes = state.annotationStrokes.slice(-50);
+    // Full render only on commit so the toolbar's "N nét" counter updates.
     render();
   }
 };
@@ -1258,10 +1376,7 @@ function review(vals) {
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;"></div>
           <div style="position:absolute;left:0;right:0;bottom:0;height:7.5%;background:#000;"></div>
-          ${state.showSafe ? `
-            <div style="position:absolute;inset:10%;border:1px solid rgba(255,255,255,0.4);pointer-events:none;"></div>
-            <div style="position:absolute;inset:5%;border:1px solid rgba(255,255,255,0.2);pointer-events:none;"></div>
-          ` : ""}
+          ${safeAreaOverlay(state.safeAspect)}
           <div id="reviewTcCurrent" style="position:absolute;left:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:rgba(255,255,255,0.92);text-shadow:0 1px 3px rgba(0,0,0,0.8);letter-spacing:0.02em;">${vals.tcCurrent}</div>
           <div id="reviewFrameNumber" style="position:absolute;right:14px;top:calc(7.5% + 12px);font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-shadow:0 1px 3px rgba(0,0,0,0.8);">F ${vals.frameNumber}</div>
           <div style="position:absolute;left:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:8px;">
@@ -1308,7 +1423,7 @@ function review(vals) {
           <div style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--co-text);"><span id="reviewTcCurrentInline">${vals.tcCurrent}</span> <span style="color:var(--co-faint);font-weight:600;">/ <span id="reviewTcDuration">${vals.tcDuration}</span></span></div>
           <div style="display:flex;align-items:center;gap:8px;color:var(--co-muted);">${ICON.vol}<div style="width:70px;height:4px;border-radius:999px;background:var(--co-border-2);"><div style="width:72%;height:100%;border-radius:999px;background:var(--co-text-2);"></div></div></div>
           <div style="flex:1"></div>
-          <button data-act="toggleSafe" title="Khung an toàn" style="display:inline-flex;align-items:center;gap:7px;background:${vals.safeBg};border:1px solid var(--co-border-2);color:${vals.safeColor};font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">${ICON.safe}Safe</button>
+          <button data-act="cycleSafe" title="Khung an toàn — bấm để đổi 16:9 / 9:16 / 1:1" style="display:inline-flex;align-items:center;gap:7px;background:${vals.safeBg};border:1px solid var(--co-border-2);color:${vals.safeColor};font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">${ICON.safe}${vals.safeLabel}</button>
           <div style="position:relative;">
             <button data-act="toggleQualityMenu" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12.5px;padding:8px 12px;border-radius:8px;cursor:pointer;">
               <span style="width:7px;height:7px;border-radius:50%;background:#2da8e2;"></span>${esc(vals.activeQualityLabel)} · ${esc(vals.activeQualityBitrate)}${ICON.chevDown}
@@ -1326,7 +1441,7 @@ function review(vals) {
 function qualityMenu(vals) {
   return `
     <div style="position:absolute;right:0;bottom:calc(100% + 8px);width:290px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:12px;padding:7px;box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:50;">
-      <div style="padding:8px 10px 4px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Chất lượng phát (proxy)</div>
+      <div style="padding:8px 10px 4px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Chất lượng phát</div>
       <div style="padding:0 10px 8px;font-size:11px;font-weight:600;color:var(--co-muted);">Đường truyền <span style="color:${vals.speedColor};font-weight:700;">${vals.speedFmt.value} ${vals.speedFmt.unit}</span> → nên dùng <span style="color:#2da8e2;font-weight:700;">${vals.speedRec}</span></div>
       ${vals.qualities.map((q) => `
         <div data-act="setQuality" data-arg="${q.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:9px;cursor:pointer;background:${q.rowBg};">
@@ -1453,6 +1568,73 @@ function transcodeModal(vals) {
     </div>
   </div>`;
 }
+
+function createProjectModal() {
+  const s = state;
+  const name = s.createProjectName || "";
+  const client = s.createProjectClient || "";
+  const thumb = s.createProjectThumbDataUrl || "";
+  const canSubmit = !!name.trim() && !s.createProjectBusy;
+  return `
+  <div data-act="closeCreateProject" style="position:fixed;inset:0;background:rgba(4,6,10,0.7);backdrop-filter:blur(3px);z-index:95;display:grid;place-items:center;padding:24px;">
+    <div data-stop="1" style="width:100%;max-width:520px;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.6);overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:20px 22px 16px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Project mới</div>
+          <h3 style="margin:6px 0 0;font-size:19px;font-weight:800;">Tạo project cho client</h3>
+          <div style="margin-top:6px;color:var(--co-muted);font-size:12px;font-weight:600;">Tên project + tên client là bắt buộc. Ảnh đại diện có thể bổ sung sau ở phần Cài đặt project.</div>
+        </div>
+        <button data-act="closeCreateProject" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
+      </div>
+      <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px;">
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Tên project</span>
+          <input id="createProjectNameInput" type="text" value="${esc(name)}" placeholder="VD: Hồ Sơ Năng Lực 2026"
+                 oninput="state.createProjectName=this.value;state.createProjectError='';"
+                 style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Client</span>
+          <input type="text" value="${esc(client)}" placeholder="VD: Công ty ABC"
+                 oninput="state.createProjectClient=this.value"
+                 style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
+        </label>
+        <div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);margin-bottom:6px;">Ảnh thumbnail (tùy chọn)</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:96px;height:54px;border-radius:8px;background:${thumb ? `center/cover no-repeat url(${esc(thumb)})` : "var(--co-panel-2)"};border:1px solid var(--co-border-2);display:grid;place-items:center;flex:0 0 96px;">
+              ${thumb ? "" : `<span style="color:var(--co-faint);font-size:10px;font-weight:700;">CHƯA CHỌN</span>`}
+            </div>
+            <label class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:9px;padding:9px 12px;color:var(--co-text);font-weight:700;font-size:12px;cursor:pointer;">
+              <input type="file" accept="image/*" style="display:none;" onchange="window.__readCreateProjectThumb&&window.__readCreateProjectThumb(this)" />
+              ${thumb ? "Đổi ảnh" : "Tải ảnh lên"}
+            </label>
+            ${thumb ? `<button data-act="clearCreateProjectThumb" style="background:transparent;border:none;color:#ef4d57;font-weight:700;font-size:12px;cursor:pointer;">Xóa</button>` : ""}
+          </div>
+        </div>
+        ${s.createProjectError ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(s.createProjectError)}</div>` : ""}
+      </div>
+      <div style="padding:14px 22px 18px;border-top:1px solid var(--co-border);display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+        <button data-act="closeCreateProject" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:pointer;">Hủy</button>
+        <button data-act="submitCreateProject" ${canSubmit ? "" : "disabled"}
+                style="background:${canSubmit ? "#2da8e2" : "var(--co-panel-2)"};color:${canSubmit ? "#07111a" : "var(--co-faint)"};border:none;font-weight:800;font-size:13px;padding:9px 18px;border-radius:9px;cursor:${canSubmit ? "pointer" : "not-allowed"};">
+          ${s.createProjectBusy ? "Đang tạo…" : "Tạo project"}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+window.__readCreateProjectThumb = function (input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.createProjectThumbDataUrl = String(ev.target.result || "");
+    render();
+  };
+  reader.readAsDataURL(file);
+};
 
 function importModal(vals) {
   return `
@@ -1624,7 +1806,9 @@ function computeVals() {
       bg: "linear-gradient(150deg," + src.a + "," + src.b + ")",
       durLabel: fmtDur(src.dur),
       meta: metaParts.join(" · "),
-      statusLabel: src.status === "processing" ? ((src.progress || 0) > 0 ? ("Transcode " + (src.progress || 0) + "%") : "Đang chờ worker") : st.label,
+      // Even while proxy is being transcoded, the original is playable via
+      // /assets/:id/source — say so instead of the alarming "đang chờ worker".
+      statusLabel: src.status === "processing" ? ((src.progress || 0) > 0 ? ("Proxy " + (src.progress || 0) + "% · bản gốc sẵn sàng") : "Đang tạo proxy · bản gốc sẵn sàng") : st.label,
       statusColor: st.color, statusBg: st.bg, comments: src.comments,
       dragOpacity: s.dragId === src.id ? 0.4 : 1,
       rowBorder: s.dragId === src.id ? "rgba(45,168,226,0.6)" : "var(--co-border)",
@@ -1639,7 +1823,13 @@ function computeVals() {
     rowBg: k === projStatus ? "rgba(45,168,226,0.1)" : "transparent",
   }));
 
-  const activeQ = s.qualities.find((q) => q.id === s.quality) || s.qualities[1];
+  // "source" = play the original NAS file directly (no transcode). This is the
+  // default playback URL — we surface it in the quality menu so the user can
+  // see what is playing and explicitly pin to it when they want full quality
+  // (e.g. 4K) instead of a proxy.
+  const SOURCE_QUALITY = { id: "source", label: "Bản gốc", res: "Original", bitrate: "Full quality", sub: "Phát trực tiếp file NAS · không chờ proxy", status: "ready" };
+  const qualityList = [SOURCE_QUALITY, ...s.qualities];
+  const activeQ = qualityList.find((q) => q.id === s.quality) || qualityList[0];
   const selectedSrc = selSrc || selectedSource();
   const sourceResLabel = selectedSrc && selectedSrc.resolutionLabel
     ? selectedSrc.resolutionLabel
@@ -1647,10 +1837,11 @@ function computeVals() {
   const sourceResText = selectedSrc && selectedSrc.width && selectedSrc.height
     ? (selectedSrc.width + "×" + selectedSrc.height)
     : "Nguồn gốc";
-  const qualities = s.qualities.map((q) => {
+  const qualities = qualityList.map((q) => {
     const isActive = q.id === s.quality;
     let tag = "Sẵn sàng", tagColor = "#35c389", tagBg = "rgba(53,195,137,0.14)";
-    if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang chờ"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; }
+    if (q.id === "source") { tag = "Bản gốc"; tagColor = "#ef4d57"; tagBg = "rgba(239,77,87,0.16)"; }
+    else if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang tạo proxy"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; }
     else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#2da8e2"; tagBg = "rgba(45,168,226,0.14)"; }
     return { ...q, isActive, labelColor: isActive ? "#2da8e2" : "var(--co-text)",
       rowBg: isActive ? "rgba(45,168,226,0.1)" : "transparent", tag, tagColor, tagBg };
@@ -1788,11 +1979,16 @@ function computeVals() {
     versions,
     playPct: (s.currentMs / s.duration) * 100, bufferedPct: Math.min(100, (s.currentMs / s.duration) * 100 + 16),
     tcCurrent: fmtTc(s.currentMs), tcDuration: fmtTc(s.duration), frameNumber: Math.round((s.currentMs / 1000) * s.fps),
-    playbackUrl: selectedSrc && selectedSrc.playbackUrl ? selectedSrc.playbackUrl : "",
+    // Default playback is the raw original (/assets/:id/source). When the user
+    // pins to a proxy rung in the quality menu AND that rendition is "ready",
+    // swap to the HLS master so they actually get the smaller stream.
+    playbackUrl: pickPlaybackUrl(selectedSrc, s.quality),
     posterUrl: selectedSrc && selectedSrc.posterUrl ? selectedSrc.posterUrl : "",
     sceneLabel: selSrc ? selSrc.title : "Video",
     sceneSub: [selectedSrc && selectedSrc.codec, selectedSrc && selectedSrc.resolutionLabel, selectedSrc && selectedSrc.size].filter(Boolean).join(" · "),
-    safeBg: s.showSafe ? "rgba(45,168,226,0.16)" : "var(--co-panel-2)", safeColor: s.showSafe ? "#2da8e2" : "var(--co-text-2)",
+    safeBg: s.safeAspect !== "off" ? "rgba(45,168,226,0.16)" : "var(--co-panel-2)",
+    safeColor: s.safeAspect !== "off" ? "#2da8e2" : "var(--co-text-2)",
+    safeLabel: s.safeAspect === "off" ? "Safe" : ("Safe " + s.safeAspect),
     thumbs, markers,
     activeQualityLabel: activeQ.label, activeQualityBitrate: activeQ.bitrate, qualities,
     ladder,
@@ -1867,6 +2063,7 @@ function render() {
     ${state.showTranscode ? transcodeModal(vals) : ""}
     ${state.showImport ? importModal(vals) : ""}
     ${state.showUpdateModal ? updateModal(vals) : ""}
+    ${state.showCreateProject ? createProjectModal() : ""}
     ${state.showVersionMenu ? versionMenu(vals) : ""}
   `;
 
@@ -1962,7 +2159,12 @@ function handleAct(act, arg, e, node) {
     case "frameFwd": return frameFwd();
     case "seekFromEvent": return seekFromEvent(e);
     case "jumpTo": return jumpTo(parseFloat(arg));
-    case "toggleSafe": return setState({ showSafe: !state.showSafe });
+    case "cycleSafe": {
+      const seq = ["off", "16:9", "9:16", "1:1"];
+      const next = seq[(seq.indexOf(state.safeAspect) + 1) % seq.length];
+      return setState({ safeAspect: next });
+    }
+    case "toggleSafe": return setState({ safeAspect: state.safeAspect === "off" ? "16:9" : "off" });
     case "toggleQualityMenu": return setState({ showQualityMenu: !state.showQualityMenu });
     case "setQuality": return setQuality(arg);
     case "openTranscode": return setState({ showTranscode: true, showQualityMenu: false });
@@ -2078,6 +2280,23 @@ const API_BASE = (function () {
 
 function apiMediaUrl(path) {
   return API_BASE + path;
+}
+
+// Decide the <video src=…> URL: "source" (default) → raw NAS file, otherwise
+// look for an HLS master from the picked rendition. Falls back to source if
+// the chosen proxy isn't ready yet (so the player never goes blank).
+function pickPlaybackUrl(src, quality) {
+  if (!src || !src.playbackUrl) return "";
+  if (!quality || quality === "source") return src.playbackUrl;
+  const versionId = state._currentVersionId;
+  const rends = (versionId && REMOTE_RENDITIONS && REMOTE_RENDITIONS[versionId]) || [];
+  const targetH = quality === "540p" ? 540 : quality === "720p" ? 720 : quality === "1080p" ? 1080 : 0;
+  const r = rends.find((x) => x.height === targetH);
+  if (r && r.status === "ready" && r.hlsMasterUrl) {
+    // hlsMasterUrl is "/hls/<rid>/master.m3u8" — proxied through the API.
+    return apiMediaUrl(r.hlsMasterUrl);
+  }
+  return src.playbackUrl;
 }
 
 const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true }, updateStatus: null };
@@ -2856,22 +3075,56 @@ async function doLogout() {
   remote.me = null; remote.presence = []; render();
 }
 
-async function createNewProject() {
+function createNewProject() {
   if (!remote.me) return;
-  const name = window.prompt("Tên project mới:");
-  if (!name || !name.trim()) return;
-  const client = window.prompt("Tên client (có thể bỏ trống):") || "";
+  // Open the proper form modal instead of the old two-step window.prompt().
+  setState({
+    showCreateProject: true,
+    createProjectName: "",
+    createProjectClient: "",
+    createProjectThumbDataUrl: "",
+    createProjectBusy: false,
+    createProjectError: "",
+  });
+  // Focus the name input after the modal mounts.
+  setTimeout(() => { const el = document.getElementById("createProjectNameInput"); if (el) el.focus(); }, 0);
+}
+
+function closeCreateProjectModal() {
+  setState({ showCreateProject: false, createProjectBusy: false, createProjectError: "" });
+}
+
+async function submitCreateProject() {
+  const name = (state.createProjectName || "").trim();
+  if (!name) { state.createProjectError = "Cần nhập tên project"; render(); return; }
+  state.createProjectBusy = true;
+  state.createProjectError = "";
+  render();
   try {
-    const proj = await api("/projects", { method: "POST", body: { name: name.trim(), client: client.trim() } });
-    // Refresh list + jump straight into the new project's detail view.
+    const client = (state.createProjectClient || "").trim();
+    const proj = await api("/projects", { method: "POST", body: { name, client } });
+    // Thumbnail upload: backend doesn't accept it yet on POST, so PATCH with
+    // the data-URL into the (forward-compatible) thumbDataUrl field. Backend
+    // ignores unknown fields today; when the column lands the upload is
+    // already wired.
+    if (state.createProjectThumbDataUrl) {
+      try { await api("/projects/" + proj.id, { method: "PATCH", body: { thumbDataUrl: state.createProjectThumbDataUrl } }); } catch (_) {}
+    }
     REMOTE_PROJECTS = await api("/projects");
     state.selectedProjectId = proj.id;
     state.view = "project";
+    state.showCreateProject = false;
+    state.createProjectBusy = false;
+    state.createProjectName = "";
+    state.createProjectClient = "";
+    state.createProjectThumbDataUrl = "";
     await refreshProjectSources(proj.id);
     await refreshProjectMembers(proj.id);
     render();
   } catch (err) {
-    window.alert("Tạo project thất bại: " + (err && err.message || "lỗi không xác định"));
+    state.createProjectBusy = false;
+    state.createProjectError = "Tạo project thất bại: " + ((err && err.message) || "lỗi không xác định");
+    render();
   }
 }
 
@@ -2983,6 +3236,9 @@ handleAct = function (act, arg, e, node) {
     case "cancelOtp": auth.needsOtp = false; auth.error = ""; auth.otp = ""; return render();
     case "doLogout": return doLogout();
     case "createProject": return createNewProject();
+    case "closeCreateProject": return closeCreateProjectModal();
+    case "submitCreateProject": return submitCreateProject();
+    case "clearCreateProjectThumb": state.createProjectThumbDataUrl = ""; return render();
     case "retryBoot":
       // Force immediate retry (skip the 5s timer) — used by the "Thử lại ngay" button on the offline banner.
       if (_bootRetryTimer) { clearTimeout(_bootRetryTimer); _bootRetryTimer = null; }
