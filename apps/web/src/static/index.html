@@ -80,7 +80,18 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+  <!-- Boot loading state: rendered immediately so the page is never blank while bootstrap fetches /setup/status + /me.
+       Replaced by render() once bootstrap completes. Without this, slow API startup (postgres healthcheck, cold container)
+       leaves users staring at a black screen for 20-40s and they think the app crashed. -->
+  <div style="position:fixed;inset:0;background:#07090e;display:grid;place-items:center;color:#8896ab;font-family:system-ui,-apple-system,sans-serif;">
+    <div style="text-align:center;max-width:320px;padding:24px;">
+      <div style="width:48px;height:48px;border:3px solid #1c2536;border-top-color:#2da8e2;border-radius:50%;animation:coSpin 1s linear infinite;margin:0 auto 16px;"></div>
+      <div style="font-size:14px;font-weight:600;">Đang khởi động Coopeditor…</div>
+      <div id="bootHint" style="margin-top:10px;font-size:11px;color:#5d6b82;font-weight:500;">Kết nối tới máy chủ…</div>
+    </div>
+  </div>
+</div>
 <script>
 "use strict";
 
@@ -1891,9 +1902,13 @@ async function fetchWithTimeout(url, opts) {
 }
 
 async function bootstrap() {
+  // Update the boot loading hint so user sees progress instead of staring at a static spinner.
+  const setHint = (msg) => { const el = document.getElementById("bootHint"); if (el) el.textContent = msg; };
+  setHint("Kiểm tra cấu hình máy chủ…");
   try {
     const status = await apiPublic("/setup/status");
     remote.setup = status || { configured: true };
+    remote.connected = true; // setup/status succeeded → API reachable
     if (status && status.configured === false) {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
       render();
@@ -1901,17 +1916,52 @@ async function bootstrap() {
     }
   } catch (err) {
     remote.error = err.message;
+    remote.connected = false;
   }
-  // 1. Probe /me. If reachable + authed → load from API. If 401 → show login. If unreachable → offline seed mode.
+  // 1. Probe /me. If reachable + authed → load from API. If 401 → show login. If unreachable → connection-error overlay (NOT mockup).
+  setHint("Xác thực phiên…");
   try {
     const r = await api("/me");
     remote.connected = true; remote.me = r.user;
+    setHint("Tải dữ liệu…");
     await loadRemote();
   } catch (err) {
     if (err.status === 401) { remote.connected = true; remote.me = null; }
     else { remote.connected = false; remote.error = err.message; }
   }
   render();
+  // Auto-retry connection in background when offline so user doesn't have to refresh manually
+  // after a transient outage or while api/postgres are still warming up post-deploy.
+  if (!remote.connected) scheduleBootRetry();
+}
+
+let _bootRetryTimer = null;
+async function tryBootProbe() {
+  try {
+    const status = await apiPublic("/setup/status");
+    remote.setup = status || { configured: true };
+    remote.connected = true; remote.error = null;
+    if (status && status.configured === false) { render(); return; }
+    try {
+      const r = await api("/me");
+      remote.me = r.user;
+      await loadRemote();
+    } catch (e) {
+      if (e.status === 401) { remote.me = null; }
+      else { remote.connected = false; remote.error = e.message; }
+    }
+    render();
+    if (!remote.connected) scheduleBootRetry();
+  } catch (e) {
+    remote.error = e.message;
+    remote.connected = false;
+    render();
+    scheduleBootRetry();
+  }
+}
+function scheduleBootRetry() {
+  if (_bootRetryTimer) return;
+  _bootRetryTimer = setTimeout(() => { _bootRetryTimer = null; tryBootProbe(); }, 5000);
 }
 
 async function loadRemote() {
@@ -2339,8 +2389,9 @@ function loginOverlay() {
         <label style="display:block;font-size:11px;font-weight:700;color:#c5d0e0;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Mã OTP</label>
         <input id="loginOtp" autofocus value="${esc(auth.otp)}" placeholder="6 chữ số" inputmode="numeric" style="width:100%;background:#1b2130;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 13px;color:#e9eef6;font-size:14px;outline:none;margin-bottom:14px;letter-spacing:0.3em;text-align:center;font-variant-numeric:tabular-nums;" />
       `}
+      ${!remote.connected ? `<div style="background:rgba(255,180,60,0.1);border:1px solid rgba(255,180,60,0.35);color:#ffb43c;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;line-height:1.5;">Không kết nối được tới máy chủ${remote.error ? ` (${esc(remote.error)})` : ""}. Đang thử lại tự động… <span style="display:block;margin-top:4px;font-weight:500;color:#c89345;">Nếu vừa cài lại stack, đợi 30-60s cho postgres khởi động xong.</span><button data-act="retryBoot" style="margin-top:8px;background:transparent;border:1px solid rgba(255,180,60,0.5);color:#ffb43c;font-weight:700;font-size:11px;padding:6px 10px;border-radius:7px;cursor:pointer;">Thử lại ngay</button></div>` : ""}
       ${auth.error ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;">${esc(auth.error)}</div>` : ""}
-      <button data-act="doLogin" ${auth.busy ? "disabled" : ""} style="width:100%;background:${auth.busy ? "rgba(45,168,226,0.6)" : "#2da8e2"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : "pointer"};box-shadow:0 4px 14px rgba(45,168,226,0.3);">${auth.busy ? "Đang xác thực…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập")}</button>
+      <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(45,168,226,0.4)" : "#2da8e2"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(45,168,226,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
       ${auth.needsOtp ? `<button data-act="cancelOtp" style="margin-top:10px;width:100%;background:transparent;color:#8896ab;font-weight:700;font-size:12px;padding:8px;border:1px solid rgba(255,255,255,0.1);border-radius:9px;cursor:pointer;">Huỷ — đăng nhập lại</button>` : ""}
       <div style="margin-top:14px;color:#5d6b82;font-size:11px;font-weight:600;line-height:1.5;text-align:center;">DSM session lưu cookie httpOnly · không bao giờ lộ ra client.</div>
     </div>
@@ -2428,6 +2479,11 @@ handleAct = function (act, arg, e, node) {
     case "doLogin": return doLogin();
     case "cancelOtp": auth.needsOtp = false; auth.error = ""; auth.otp = ""; return render();
     case "doLogout": return doLogout();
+    case "retryBoot":
+      // Force immediate retry (skip the 5s timer) — used by the "Thử lại ngay" button on the offline banner.
+      if (_bootRetryTimer) { clearTimeout(_bootRetryTimer); _bootRetryTimer = null; }
+      remote.error = "Đang thử lại…"; render();
+      return tryBootProbe();
   }
   return _origHandleAct(act, arg, e, node);
 };
@@ -2442,13 +2498,14 @@ render = function () {
     app.innerHTML = setupOverlay();
     return;
   }
-  // when connected but not logged in, just show the login overlay
-  if (remote.connected && !remote.me) {
+  // Show login (or connection-error) overlay whenever user isn't authenticated.
+  // Previously this only triggered when `remote.connected===true`, so an offline API
+  // would fall through to the seed mockup → app felt fake and backend-dependent clicks did nothing.
+  if (!remote.me) {
     const app = document.getElementById("app");
     document.documentElement.setAttribute("data-theme", state.theme);
     app.setAttribute("data-theme", state.theme);
     app.innerHTML = loginOverlay();
-    // focus the right field
     setTimeout(() => {
       const f = document.getElementById(auth.needsOtp ? "loginOtp" : "loginAccount");
       if (f) f.focus();
