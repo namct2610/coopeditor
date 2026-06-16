@@ -1142,7 +1142,9 @@ function updateModal(vals) {
   const localVersion = local && local.version ? local.version : "không rõ";
   const localSummary = local && local.summary ? local.summary : "Chưa đọc được metadata bản đang chạy.";
   const remoteVersion = remoteMeta && remoteMeta.version ? remoteMeta.version : "chưa có";
-  const remoteSummary = remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chưa tìm thấy bản mới hơn." : "Update feed chưa sẵn sàng.");
+  const remoteSummary = status && status.error
+    ? ("Lỗi update feed: " + status.error)
+    : (remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chưa tìm thấy bản mới hơn." : "Update feed chưa sẵn sàng."));
   const changeItems = remoteMeta && remoteMeta.changes && remoteMeta.changes.length ? remoteMeta.changes : (local && local.changes) || [];
   const statusTone = state.updateError ? "#ef4d57" : (status && status.updateAvailable ? "#f5a623" : "#35c389");
   const pollLabel = status && status.pollIntervalSeconds ? ("Auto poll mỗi " + Math.max(1, Math.round(status.pollIntervalSeconds / 60)) + " phút") : "Auto poll đang bật";
@@ -1174,10 +1176,11 @@ function updateModal(vals) {
             <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(245,166,35,0.14)" : "rgba(53,195,137,0.14)"};color:${status && status.updateAvailable ? "#f5a623" : "#35c389"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Cần cập nhật" : "Đang mới nhất"}</span>
           </div>
           <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(remoteVersion)}</div>
-          <div style="margin-top:6px;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">${esc(remoteSummary)}</div>
+          <div style="margin-top:6px;color:${status && status.error ? "#ef4d57" : "var(--co-text-2)"};font-size:13px;font-weight:600;line-height:1.6;">${esc(remoteSummary)}</div>
           <div style="margin-top:12px;color:var(--co-faint);font-size:11.5px;font-weight:700;line-height:1.7;">
             <div>SHA: ${esc(remoteMeta && remoteMeta.sha ? remoteMeta.sha.slice(0, 12) : "không rõ")}</div>
             <div>Published: ${esc(remoteMeta && remoteMeta.publishedAt ? remoteMeta.publishedAt : "không rõ")}</div>
+            ${status && status.feedUrl ? `<div>Feed: ${esc(status.feedUrl)}</div>` : ""}
             <div>${esc(pollLabel)}</div>
           </div>
         </div>
@@ -2267,7 +2270,9 @@ async function fetchUpdateStatus(force) {
     const status = normalizeUpdateStatusPayload(await api("/admin/update-status" + (force ? "?refresh=1" : "")));
     remote.updateStatus = status;
     state.updateStatus = status;
-    state.updateMessage = !status.checkAvailable
+    state.updateMessage = status.error
+      ? ("Update feed lỗi: " + status.error)
+      : !status.checkAvailable
       ? "Update feed chưa sẵn sàng."
       : status.updateAvailable
         ? ("Đã tìm thấy bản mới: " + ((status.remote && status.remote.version) || "không rõ"))

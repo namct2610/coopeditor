@@ -6,6 +6,8 @@ const CONFIG_PATH = process.env.APP_CONFIG_PATH || join(APP_DATA_DIR, "system", 
 const DEFAULT_UPDATE_FEED_URL = "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json";
 const DEFAULT_UPDATE_TRIGGER_URL = "http://watchtower:8080/v1/update";
 
+export { DEFAULT_UPDATE_FEED_URL, DEFAULT_UPDATE_TRIGGER_URL };
+
 function ensureDir(path) {
   mkdirSync(dirname(path), { recursive: true });
 }

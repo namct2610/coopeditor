@@ -29,7 +29,7 @@ import * as webhooks from "./webhooks.js";
 import * as shareLinks from "./share-links.js";
 import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
-import { publicRuntimeSummary } from "./runtime-config.js";
+import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig } from "./runtime-config.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 
 // ---------- helpers ----------
@@ -839,7 +839,9 @@ async function handleOidcCallback(req, res, url) {
 let _updateCache = null;
 async function checkUpdateStatus({ force = false } = {}) {
   const local = buildLocalReleaseMeta();
-  const feed = process.env.UPDATE_FEED_URL || "";
+  const runtimeConfig = readRuntimeConfig();
+  const configuredFeed = (runtimeConfig && runtimeConfig.updater && runtimeConfig.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL;
+  const feed = String(configuredFeed || "").trim();
   const base = {
     local,
     remote: null,
@@ -852,15 +854,40 @@ async function checkUpdateStatus({ force = false } = {}) {
 
   if (!force && _updateCache && Date.now() - _updateCache.at < 300_000) return { ...base, ..._updateCache.data };
 
+  const candidates = [...new Set([
+    feed,
+    DEFAULT_UPDATE_FEED_URL,
+    "https://cdn.jsdelivr.net/gh/namct2610/coopeditor@main/release.json",
+  ].filter(Boolean))];
+
   try {
-    const r = await fetch(feed, { headers: { "user-agent": "coopeditor-updater", accept: "application/json" }, signal: AbortSignal.timeout?.(8000) });
-    if (!r.ok) return { ...base, error: "remote HTTP " + r.status };
-    const body = await r.json();
-    const remote = normalizeRemoteReleaseMeta(body);
+    let remote = null;
+    let lastError = "";
+    let resolvedFeed = feed;
+    for (const candidate of candidates) {
+      resolvedFeed = candidate;
+      try {
+        const r = await fetch(candidate, { headers: { "user-agent": "coopeditor-updater", accept: "application/json, text/plain;q=0.9, */*;q=0.8" }, signal: AbortSignal.timeout?.(8000) });
+        if (!r.ok) {
+          lastError = "remote HTTP " + r.status;
+          continue;
+        }
+        const raw = await r.text();
+        let body = null;
+        try { body = raw ? JSON.parse(raw) : null; } catch (_) {}
+        remote = normalizeRemoteReleaseMeta(body);
+        if (remote) break;
+        lastError = "Khong parse duoc release metadata tu update feed";
+      } catch (err) {
+        lastError = err && err.message ? err.message : "Update feed request failed";
+      }
+    }
+    if (!remote) return { ...base, checkAvailable: true, error: lastError || "Khong doc duoc remote release metadata", feedUrl: resolvedFeed };
     const data = {
       remote,
       updateAvailable: hasRemoteUpdate(local, remote),
       checkAvailable: true,
+      feedUrl: resolvedFeed,
       checkedAt: new Date().toISOString(),
     };
     _updateCache = { at: Date.now(), data };

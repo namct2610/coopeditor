@@ -1,10 +1,10 @@
 {
-  "version": "0.2.5",
-  "summary": "Sửa đường dẫn thumbnail/poster/video để hoạt động đúng sau gateway /api trên NAS.",
+  "version": "0.2.6",
+  "summary": "Sửa Update Center để đọc đúng feed runtime config và báo lỗi rõ nếu không lấy được metadata bản mới.",
   "changes": [
-    "Thumbnail trong modal import NAS giờ gọi đúng route API qua API_BASE thay vì trỏ nhầm vào web tĩnh.",
-    "Poster và source video trong review cũng đi qua API_BASE để tương thích với deploy dùng Caddy /api.",
-    "Khắc phục lỗi media nội bộ không hiện khi app chạy sau reverse proxy trên NAS."
+    "Backend check update giờ đọc feed URL từ runtime config của NAS và có fallback sang nhiều nguồn release manifest.",
+    "Nếu update feed lỗi hoặc parse metadata thất bại, UI sẽ hiện lỗi cụ thể thay vì báo nhầm đang chạy bản mới nhất.",
+    "Hiển thị luôn feed URL đang dùng trong Update Center để dễ debug cấu hình updater trên NAS."
   ],
   "publishedAt": "2026-06-16T00:00:00.000Z"
 }
