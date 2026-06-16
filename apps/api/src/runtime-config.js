@@ -39,7 +39,7 @@ export function publicRuntimeSummary() {
     configPath: CONFIG_PATH,
     publicUrl: cfg.publicUrl || "",
     dsmHost: cfg.dsmHost || "",
-    dsmMountRoot: cfg.dsmMountRoot || "",
+    dsmMountRoot: cfg.dsmMountRoot || "/nas",
     dsmDevLogin: !!cfg.dsmDevLogin,
     dsmInsecure: !!cfg.dsmInsecure,
     oidcEnabled: !!(cfg.oidc && cfg.oidc.issuerUrl && cfg.oidc.clientId && cfg.oidc.clientSecret && cfg.oidc.redirectUri),
@@ -57,7 +57,7 @@ export function publicRuntimeSummary() {
 export function normalizeRuntimeConfig(input) {
   const publicUrl = String(input.publicUrl || "").trim().replace(/\/+$/, "");
   const dsmHost = String(input.dsmHost || "").trim().replace(/\/+$/, "");
-  const dsmMountRoot = String(input.dsmMountRoot || "").trim().replace(/\/+$/, "");
+  const dsmMountRoot = String(input.dsmMountRoot || "/nas").trim().replace(/\/+$/, "");
   const oidc = input.oidc && typeof input.oidc === "object" ? input.oidc : {};
   const smtp = input.smtp && typeof input.smtp === "object" ? input.smtp : {};
   const webhooks = input.webhooks && typeof input.webhooks === "object" ? input.webhooks : {};
@@ -135,7 +135,7 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.PUBLIC_URL = config.publicUrl;
   process.env.ALLOWED_ORIGINS = config.publicUrl;
   process.env.DSM_HOST = config.dsmHost || "";
-  process.env.DSM_MOUNT_ROOT = config.dsmMountRoot || "";
+  process.env.DSM_MOUNT_ROOT = config.dsmMountRoot || "/nas";
   process.env.DSM_DEV_LOGIN = config.dsmDevLogin ? "1" : "";
   process.env.DSM_INSECURE = config.dsmInsecure ? "1" : "";
   process.env.COOKIE_SECURE = config.scheme === "https" ? "1" : "";
