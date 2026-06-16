@@ -3,7 +3,13 @@
 # For NVENC, build from nvidia/cuda base instead and set FFMPEG_HWACCEL=nvenc.
 FROM node:22-alpine
 
-RUN apk add --no-cache ffmpeg
+# ffmpeg = encoder/decoder, intel-media-driver = iHD VA driver cho Gen8+
+# iGPU (Coffee Lake / UHD 630 và mới hơn — chip Intel phổ biến trên NAS DIY).
+# Không có driver này thì libva mở /dev/dri thành công nhưng vaInitialize
+# fail → mọi hwaccel (qsv, vaapi) đều chết với "exit 187/254" dù device đã
+# mount vào container.
+# libva-utils gồm vainfo — debug nhanh: `docker exec ... vainfo`.
+RUN apk add --no-cache ffmpeg intel-media-driver libva-utils mesa-va-gallium
 
 WORKDIR /app
 
