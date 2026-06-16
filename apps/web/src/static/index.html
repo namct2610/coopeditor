@@ -2371,7 +2371,66 @@ async function fetchWithTimeout(url, opts) {
   }
 }
 
+// ---- live version watchdog -------------------------------------------------
+// Tab kept open across deploys is the #1 cache pain: the browser respects our
+// no-store headers for index.html, but the *already-loaded* JS keeps running
+// indefinitely. So on every deploy we want the live tab to detect "running
+// SHA != server SHA" and reload itself with a cache-busting query string.
+//
+// Two anchors:
+//   - window.__BUILD_SHA: stamped by dev-server.js at request time. This is
+//     what the *currently running* JS was served with.
+//   - /api/version .sha: the API container's BUILD_SHA, refreshed each pull.
+// If the two diverge we reload.
+const BOOT_SHA = (window.__BUILD_SHA || "unknown");
+let _versionPollTimer = null;
+let _reloadingForUpdate = false;
+async function checkServerVersion() {
+  if (_reloadingForUpdate) return;
+  try {
+    const meta = await apiPublic("/version");
+    const remoteSha = meta && meta.sha ? String(meta.sha) : "";
+    // Ignore the "unknown" sentinel — happens locally / on first build before
+    // CI args land. Only act when both sides report a real hash and they
+    // disagree.
+    if (!remoteSha || remoteSha === "unknown" || BOOT_SHA === "unknown") return;
+    if (remoteSha.slice(0, 12) === BOOT_SHA.slice(0, 12)) return;
+    _reloadingForUpdate = true;
+    showUpdateReloadBanner(remoteSha);
+    // Give the user 4s to see the banner, then hard-reload with a cache-bust
+    // query string so even an aggressive intermediary doesn't replay the old
+    // HTML. Using location.replace + ?v=… is the most reliable cross-browser
+    // way to bypass bfcache + disk cache.
+    setTimeout(() => {
+      try { localStorage.removeItem("co-stale"); } catch (_) {}
+      const u = new URL(window.location.href);
+      u.searchParams.set("v", remoteSha.slice(0, 12));
+      window.location.replace(u.toString());
+    }, 4000);
+  } catch (_) { /* ignore — try again next tick */ }
+}
+function showUpdateReloadBanner(remoteSha) {
+  if (document.getElementById("coopUpdateBanner")) return;
+  const el = document.createElement("div");
+  el.id = "coopUpdateBanner";
+  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;background:#2da8e2;color:#07111a;font-weight:800;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(45,168,226,0.45);display:flex;align-items:center;gap:10px;";
+  el.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#07111a;"></span>Có bản cập nhật mới — đang tải lại trong giây lát…';
+  document.body.appendChild(el);
+}
+function startVersionWatchdog() {
+  if (_versionPollTimer) return;
+  // First check on next tick (so /me resolves first), then every 60s. Also
+  // re-check whenever the tab becomes visible again — common case: user
+  // leaves a tab open overnight, NAS auto-updates, user comes back.
+  setTimeout(checkServerVersion, 1500);
+  _versionPollTimer = setInterval(checkServerVersion, 60_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkServerVersion();
+  });
+}
+
 async function bootstrap() {
+  startVersionWatchdog();
   // Update the boot loading hint so user sees progress instead of staring at a static spinner.
   const setHint = (msg) => { const el = document.getElementById("bootHint"); if (el) el.textContent = msg; };
   setHint("Kiểm tra cấu hình máy chủ…");

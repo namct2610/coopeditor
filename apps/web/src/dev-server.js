@@ -4,7 +4,22 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(__dirname, "static", "index.html"), "utf8");
+const RAW_HTML = readFileSync(join(__dirname, "static", "index.html"), "utf8");
+
+// Inject the build SHA + built-at into the HTML so the live page knows what
+// version it actually loaded. Combined with /api/version polling on the FE,
+// this lets us detect when a deploy ships and force the browser to reload
+// instead of running stale JS from a kept-alive tab.
+const BUILD_SHA = String(process.env.BUILD_SHA || "unknown");
+const BUILT_AT = String(process.env.BUILT_AT || "unknown");
+function renderHtml() {
+  // window.__BUILD_SHA / __BUILT_AT are read by the FE on boot. We also stamp
+  // a <meta> tag for tooling/debugging that wants the value before JS runs.
+  const inject = `<meta name="coopeditor-build" content="${BUILD_SHA}">\n<script>window.__BUILD_SHA=${JSON.stringify(BUILD_SHA)};window.__BUILT_AT=${JSON.stringify(BUILT_AT)};</script>\n`;
+  if (RAW_HTML.includes("</head>")) return RAW_HTML.replace("</head>", inject + "</head>");
+  return inject + RAW_HTML;
+}
+const HTML = renderHtml();
 
 const server = createServer((_, res) => {
   res.setHeader("content-type", "text/html; charset=utf-8");
@@ -24,7 +39,7 @@ const server = createServer((_, res) => {
       "font-src 'self' https://fonts.gstatic.com data:; " +
       "base-uri 'self'; frame-ancestors 'none'",
   );
-  res.end(html);
+  res.end(HTML);
 });
 
 const port = Number(process.env.PORT ?? 3000);
