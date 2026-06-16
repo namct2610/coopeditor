@@ -39,11 +39,12 @@ const scalingPolicy = createScalingPolicy(process.env);
 const BASE_CONCURRENCY = scalingPolicy.baseConcurrency;
 const RUNG_BITRATE = { 540: "1800k", 720: "3500k", 1080: "8000k" };
 
-// "nvenc" → use NVIDIA GPU. "qsv" → Intel QuickSync. Anything else → CPU.
-// We probe the encoder at startup with a 0.1s lavfi color clip. If the probe
-// fails (no /dev/dri mounted, no Intel iGPU, NVENC libs missing, etc.) we
-// silently fall back to CPU encoding instead of retrying every job 5x and
-// burning the queue with `ffmpeg exit 187` errors.
+// "nvenc" → NVIDIA. "qsv" → Intel QuickSync (libmfx). "vaapi" → generic Linux
+// VAAPI (works with Intel iGPU on Alpine where libmfx is missing). "" → CPU.
+// We probe at startup with a 0.1s lavfi color clip; failed probes silently
+// fall back. We also auto-escalate qsv→vaapi when qsv fails but /dev/dri
+// exists — most Alpine ffmpeg builds ship VAAPI but not libmfx, so for Intel
+// boxes VAAPI is the path that actually works.
 let HW = (process.env.FFMPEG_HWACCEL || "").toLowerCase();
 // "h264" (default) — all rungs use h264. "h265" — all rungs h265. "mixed" — 540p/720p h264, 1080p h265.
 const CODEC_LADDER = (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase();
@@ -55,10 +56,21 @@ function codecForHeight(h) {
 
 async function probeHwEncoder(hw) {
   if (!FFMPEG_PATH || !hw) return false;
-  const enc = hw === "nvenc" ? "h264_nvenc" : hw === "qsv" ? "h264_qsv" : null;
+  const enc = hw === "nvenc" ? "h264_nvenc" : hw === "qsv" ? "h264_qsv" : hw === "vaapi" ? "h264_vaapi" : null;
   if (!enc) return false;
-  const pre = hw === "nvenc" ? ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"] : hw === "qsv" ? ["-hwaccel", "qsv"] : [];
-  const scaleFilter = hw === "nvenc" ? "scale_cuda=-2:240" : hw === "qsv" ? "scale_qsv=-2:240" : "scale=-2:240";
+  let pre, scaleFilter;
+  if (hw === "nvenc") {
+    pre = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"];
+    scaleFilter = "scale_cuda=-2:240";
+  } else if (hw === "qsv") {
+    pre = ["-hwaccel", "qsv"];
+    scaleFilter = "scale_qsv=-2:240";
+  } else { // vaapi
+    pre = ["-hwaccel", "vaapi", "-hwaccel_device", "/dev/dri/renderD128", "-hwaccel_output_format", "vaapi"];
+    // VAAPI needs the frames uploaded explicitly via hwupload when input is sw.
+    // For the lavfi color probe (sw input), use format+hwupload+scale_vaapi.
+    scaleFilter = "format=nv12,hwupload,scale_vaapi=-2:240";
+  }
   const args = [
     "-hide_banner", "-loglevel", "error", "-y",
     ...pre,
@@ -76,11 +88,21 @@ async function probeHwEncoder(hw) {
 }
 
 if (HW && FFMPEG_PATH) {
-  const ok = await probeHwEncoder(HW);
+  let ok = await probeHwEncoder(HW);
+  // Intel-on-Alpine: libmfx (h264_qsv) is rarely shipped, but VAAPI usually
+  // is — auto-promote a failed qsv probe to vaapi before giving up.
+  if (!ok && HW === "qsv") {
+    console.log("[worker] hwaccel='qsv' probe failed — trying vaapi as fallback (Alpine ffmpeg usually ships VAAPI but not libmfx)…");
+    if (await probeHwEncoder("vaapi")) {
+      HW = "vaapi";
+      ok = true;
+      console.log("[worker] hwaccel switched to 'vaapi' — Intel iGPU will be used via VAAPI");
+    }
+  }
   if (!ok) {
     console.warn("[worker] hwaccel='" + HW + "' probe FAILED — encoder not usable (missing /dev/dri, wrong CPU, or codec libs absent). Falling back to CPU libx264. To silence this warning, unset FFMPEG_HWACCEL.");
     HW = "";
-  } else {
+  } else if (HW === process.env.FFMPEG_HWACCEL) {
     console.log("[worker] hwaccel='" + HW + "' probe ok");
   }
 }
@@ -273,6 +295,13 @@ async function runFfmpeg(rendition) {
     pre.push("-hwaccel", "qsv");
     const enc = codec === "h265" ? "hevc_qsv" : "h264_qsv";
     videoArgs = ["-vf", "scale_qsv=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate];
+    if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
+  } else if (HW === "vaapi") {
+    // VAAPI on Intel iGPU: software-decode the input, upload frames to GPU,
+    // scale + encode in hardware. -vaapi_device wires up /dev/dri/renderD128.
+    pre.push("-vaapi_device", "/dev/dri/renderD128");
+    const enc = codec === "h265" ? "hevc_vaapi" : "h264_vaapi";
+    videoArgs = ["-vf", "format=nv12,hwupload,scale_vaapi=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else {
     const enc = codec === "h265" ? "libx265" : "libx264";
