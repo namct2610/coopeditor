@@ -43,6 +43,51 @@ async function s3Get(key) {
     return { ok: false, status: err.$metadata && err.$metadata.httpStatusCode || 502, err };
   }
 }
+
+// List all objects under a prefix + compute total size. Used by the proxy
+// storage manager UI so the user can see how much disk each rendition eats.
+export async function s3ListPrefix(prefix) {
+  const { ListObjectsV2Command } = await import("@aws-sdk/client-s3");
+  const s3 = await getS3();
+  const items = [];
+  let cont = undefined;
+  do {
+    const out = await s3.send(new ListObjectsV2Command({
+      Bucket: MINIO_BUCKET,
+      Prefix: prefix,
+      ContinuationToken: cont,
+    }));
+    for (const it of (out.Contents || [])) items.push({ key: it.Key, size: it.Size || 0 });
+    cont = out.IsTruncated ? out.NextContinuationToken : undefined;
+  } while (cont);
+  return items;
+}
+
+// Delete every object under a prefix in batches of 1000 (S3 API max).
+export async function s3DeletePrefix(prefix) {
+  const { DeleteObjectsCommand } = await import("@aws-sdk/client-s3");
+  const s3 = await getS3();
+  const items = await s3ListPrefix(prefix);
+  if (!items.length) return { deleted: 0 };
+  let deleted = 0;
+  for (let i = 0; i < items.length; i += 1000) {
+    const batch = items.slice(i, i + 1000);
+    await s3.send(new DeleteObjectsCommand({
+      Bucket: MINIO_BUCKET,
+      Delete: { Objects: batch.map((it) => ({ Key: it.key })) },
+    }));
+    deleted += batch.length;
+  }
+  return { deleted, bytes: items.reduce((s, x) => s + x.size, 0) };
+}
+
+export function hlsBackendInfo() {
+  return {
+    backend: MINIO_ENDPOINT ? "minio" : (process.env.OUTPUT_DIR ? "filesystem" : "sim"),
+    bucket: MINIO_BUCKET,
+    endpoint: MINIO_ENDPOINT,
+  };
+}
 const HLS_CDN_PUBLIC_URL = (process.env.HLS_CDN_PUBLIC_URL || "").replace(/\/+$/, "");
 const HLS_CDN_SIGNING_SECRET = process.env.HLS_CDN_SIGNING_SECRET || "";
 const HLS_CDN_TOKEN_TTL_SECONDS = Math.max(30, Number.parseInt(process.env.HLS_CDN_TOKEN_TTL_SECONDS || "300", 10) || 300);

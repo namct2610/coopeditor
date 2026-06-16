@@ -14,7 +14,7 @@ import * as dsm from "./dsm.js";
 import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./events.js";
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
-import { hasValidSignedPlaybackToken, serveHls } from "./hls-proxy.js";
+import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
 import { applyCors, loginMetrics, loginRateLimit, loginSuccess } from "./security.js";
 import * as presence from "./presence.js";
 import {
@@ -731,6 +731,75 @@ async function handle(req, res, url) {
   if (p === "/admin/update-trigger" && m === "POST") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
     return send(res, 200, await triggerUpdateRun());
+  }
+
+  if (p === "/admin/proxy-storage" && m === "GET") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    const info = hlsBackendInfo();
+    if (info.backend !== "minio") {
+      return send(res, 200, { backend: info.backend, renditions: [], totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." });
+    }
+    // Group MinIO objects by rendition prefix and join with DB metadata so the
+    // UI can show "project / asset / rendition" for each chunk of bytes.
+    try {
+      const items = await s3ListPrefix("");
+      const bySplit = {};
+      for (const it of items) {
+        const slash = it.key.indexOf("/");
+        if (slash < 0) continue;
+        const rid = it.key.slice(0, slash);
+        if (!bySplit[rid]) bySplit[rid] = { renditionId: rid, bytes: 0, fileCount: 0 };
+        bySplit[rid].bytes += it.size;
+        bySplit[rid].fileCount += 1;
+      }
+      const renditionIds = Object.keys(bySplit);
+      // Look up project + asset metadata in one go. Skip orphans (proxy bytes
+      // for renditions that no longer exist in the DB) — but include them in
+      // a separate bucket so the user can sweep them.
+      const meta = await Promise.all(renditionIds.map(async (rid) => {
+        const r = await store.getRendition(rid).catch(() => null);
+        if (!r) return { renditionId: rid, orphan: true };
+        const version = await store.getVersion(r.assetVersionId).catch(() => null);
+        const asset = version ? await store.getAsset(version.assetId).catch(() => null) : null;
+        const projectId = asset ? asset.projectId : null;
+        const project = projectId ? await store.getProject(projectId).catch(() => null) : null;
+        return {
+          renditionId: rid,
+          orphan: false,
+          height: r.height,
+          label: r.label,
+          status: r.status,
+          assetId: asset ? asset.id : null,
+          assetTitle: asset ? asset.title : null,
+          projectId,
+          projectName: project ? project.name : null,
+        };
+      }));
+      const renditions = meta.map((m) => ({ ...m, bytes: bySplit[m.renditionId].bytes, fileCount: bySplit[m.renditionId].fileCount }))
+        .sort((a, b) => b.bytes - a.bytes);
+      const totalBytes = renditions.reduce((s, x) => s + x.bytes, 0);
+      return send(res, 200, { backend: "minio", bucket: info.bucket, totalBytes, renditions });
+    } catch (err) {
+      req.log.error({ err: err.message }, "proxy-storage list failed");
+      return bad(res, "Không đọc được danh sách MinIO: " + err.message, 502);
+    }
+  }
+
+  if ((mat = p.match(/^\/renditions\/([^/]+)\/proxy$/)) && m === "DELETE") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    const rid = mat[1];
+    // Wipe MinIO objects under <rid>/ prefix and reset rendition row so the FE
+    // shows it as "Tạo proxy" again. Worker won't auto-retranscode unless the
+    // user explicitly requests it from the quality menu.
+    try {
+      const wipe = await s3DeletePrefix(rid + "/");
+      await store.setRenditionStatus(rid, { status: "pending", progress: 0, hlsMasterUrl: null }).catch(() => {});
+      await audit.record({ actorUserId: sess.userId, action: "rendition.proxy_deleted", resourceType: "rendition", resourceId: rid, payload: { deleted: wipe.deleted, bytes: wipe.bytes } });
+      return send(res, 200, { ok: true, ...wipe });
+    } catch (err) {
+      req.log.error({ err: err.message, rid }, "delete-rendition-proxy failed");
+      return bad(res, "Không xóa được proxy: " + err.message, 502);
+    }
   }
 
   if ((mat = p.match(/^\/projects\/([^/]+)\/shares$/))) {

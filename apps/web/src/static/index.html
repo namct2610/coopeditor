@@ -172,6 +172,12 @@ const state = {
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
+  // Proxy storage management state — list of {renditionId, bytes, projectName, ...}
+  showProxyStorage: false,
+  proxyStorage: null,
+  proxyStorageLoading: false,
+  proxyStorageError: "",
+  proxyDeletingId: "",
   // Create-project modal (replaces the old window.prompt pair). Thumbnail is
   // optional — user can skip and add later from the project detail page.
   showCreateProject: false,
@@ -1297,6 +1303,90 @@ function auditModal(vals) {
   </div>`;
 }
 
+function fmtBytes(n) {
+  if (!n) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0; let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return v.toFixed(v < 10 && i > 0 ? 1 : 0) + " " + units[i];
+}
+
+function proxyStorageModal() {
+  const ps = state.proxyStorage;
+  const loading = state.proxyStorageLoading;
+  const err = state.proxyStorageError;
+  const deletingId = state.proxyDeletingId;
+  return `
+  <div data-act="closeProxyStorage" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:93;display:grid;place-items:center;padding:24px;">
+    <div data-stop="1" style="width:min(880px,100%);max-height:min(85vh,960px);overflow:hidden;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.45);display:flex;flex-direction:column;">
+      <div style="padding:22px 22px 14px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:16px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Proxy Storage</div>
+          <div style="margin-top:4px;font-size:20px;font-weight:800;color:var(--co-text);">Quản lý dung lượng proxy</div>
+          <div style="margin-top:4px;color:var(--co-muted);font-size:12.5px;font-weight:600;line-height:1.5;">
+            Mỗi rendition (540p/720p/1080p) lưu HLS playlist + segment trên MinIO.
+            Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động.
+            Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu.
+          </div>
+        </div>
+        <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
+        <button data-act="closeProxyStorage" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
+      </div>
+      ${err ? `<div style="margin:14px 22px 0;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(err)}</div>` : ""}
+      ${ps ? `
+        <div style="padding:14px 22px;border-bottom:1px solid var(--co-border);display:flex;gap:24px;align-items:center;">
+          <div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Tổng dung lượng</div>
+            <div style="font-size:22px;font-weight:800;color:var(--co-text);">${esc(fmtBytes(ps.totalBytes || 0))}</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Backend</div>
+            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${esc(ps.backend || "—")}${ps.bucket ? ` · <span style="color:var(--co-muted);">${esc(ps.bucket)}</span>` : ""}</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Số rendition</div>
+            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${(ps.renditions || []).length}</div>
+          </div>
+        </div>
+      ` : ""}
+      <div style="flex:1;overflow-y:auto;padding:4px 22px 18px;">
+        ${ps && ps.note ? `<div style="color:var(--co-muted);font-size:12px;font-weight:600;padding:14px 0;">${esc(ps.note)}</div>` : ""}
+        ${ps && (ps.renditions || []).length > 0 ? `
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+              <tr style="text-align:left;color:var(--co-faint);font-weight:800;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;">
+                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);">Project / Asset</th>
+                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);">Rendition</th>
+                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);">Status</th>
+                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);text-align:right;">Dung lượng</th>
+                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ps.renditions.map((r) => `
+                <tr style="border-bottom:1px solid var(--co-border);">
+                  <td style="padding:9px 8px;color:var(--co-text);font-weight:600;">
+                    ${r.orphan
+                      ? `<span style="color:#ef4d57;font-weight:700;">⚠ Orphan</span> <span style="color:var(--co-muted);font-size:11px;">(không còn DB row)</span>`
+                      : `<div>${esc(r.projectName || "—")}</div><div style="color:var(--co-muted);font-size:11px;font-weight:500;">${esc(r.assetTitle || r.assetId || "—")}</div>`}
+                  </td>
+                  <td style="padding:9px 8px;color:var(--co-text-2);font-weight:700;font-family:ui-monospace,monospace;font-size:11.5px;">${esc(r.label || (r.height ? r.height + "p" : r.renditionId))}</td>
+                  <td style="padding:9px 8px;color:var(--co-muted);font-weight:600;">${esc(r.status || (r.orphan ? "orphan" : "—"))}</td>
+                  <td style="padding:9px 8px;color:var(--co-text);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtBytes(r.bytes))}<div style="color:var(--co-faint);font-size:10.5px;font-weight:600;">${r.fileCount} files</div></td>
+                  <td style="padding:9px 8px;text-align:right;">
+                    <button data-act="deleteProxy" data-arg="${esc(r.renditionId)}" ${deletingId === r.renditionId ? "disabled" : ""} style="background:${deletingId === r.renditionId ? "var(--co-panel-2)" : "rgba(239,77,87,0.12)"};border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-weight:700;font-size:11px;padding:6px 12px;border-radius:8px;cursor:${deletingId === r.renditionId ? "wait" : "pointer"};">${deletingId === r.renditionId ? "Đang xoá…" : "Xoá"}</button>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        ` : (!loading && !err ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Chưa có proxy nào trên MinIO.</div>` : "")}
+        ${loading && !ps ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Đang đọc danh sách MinIO…</div>` : ""}
+      </div>
+    </div>
+  </div>`;
+}
+
 function updateModal(vals) {
   const status = vals.updateStatus || null;
   const local = status && status.local ? status.local : null;
@@ -1364,6 +1454,7 @@ function updateModal(vals) {
           </div>
         </div>
         <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner có thể trigger update thủ công. Nếu updater không hỗ trợ trigger, hệ thống vẫn tiếp tục auto-poll image mới theo lịch." : "Chỉ owner mới có quyền trigger update thủ công."}</div>
+        ${vals.canManageUpdates ? `<div style="margin-top:10px;display:flex;justify-content:flex-end;"><button data-act="openProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 14px;border-radius:9px;cursor:pointer;">📦 Quản lý dung lượng proxy</button></div>` : ""}
       </div>
       <div style="margin-top:16px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
         <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Release notes</div>
@@ -2112,6 +2203,7 @@ function render() {
     ${state.showTranscode ? transcodeModal(vals) : ""}
     ${state.showImport ? importModal(vals) : ""}
     ${state.showUpdateModal ? updateModal(vals) : ""}
+    ${state.showProxyStorage ? proxyStorageModal() : ""}
     ${state.showCreateProject ? createProjectModal() : ""}
     ${state.showVersionMenu ? versionMenu(vals) : ""}
   `;
@@ -2151,6 +2243,10 @@ function handleAct(act, arg, e, node) {
     case "toggleTheme": return toggleTheme();
     case "toggleUpdateModal": return openUpdateModal();
     case "closeUpdateModal": return setState({ showUpdateModal: false, updateError: "" });
+    case "openProxyStorage": return openProxyStorage();
+    case "closeProxyStorage": return setState({ showProxyStorage: false, proxyStorageError: "" });
+    case "refreshProxyStorage": return refreshProxyStorage();
+    case "deleteProxy": return deleteProxyRendition(arg);
     case "checkUpdateNow": return fetchUpdateStatus(true);
     case "triggerUpdateNow": return triggerUpdateNow();
     case "toggleSpeedPanel": return setState({ showSpeedPanel: !state.showSpeedPanel });
@@ -2584,6 +2680,47 @@ async function openUpdateModal() {
   setState({ showUpdateModal: true, updateError: "", updateMessage: "" });
   if (!remote.updateStatus) {
     fetchUpdateStatus(false).catch(() => {});
+  }
+}
+
+// ---- Proxy storage management ----
+async function openProxyStorage() {
+  setState({ showProxyStorage: true, proxyStorageError: "" });
+  await refreshProxyStorage();
+}
+
+async function refreshProxyStorage() {
+  state.proxyStorageLoading = true;
+  state.proxyStorageError = "";
+  render();
+  try {
+    state.proxyStorage = await api("/admin/proxy-storage");
+  } catch (err) {
+    state.proxyStorageError = (err && err.message) || "Không tải được danh sách";
+  } finally {
+    state.proxyStorageLoading = false;
+    render();
+  }
+}
+
+async function deleteProxyRendition(renditionId) {
+  if (!renditionId) return;
+  if (!window.confirm("Xoá proxy của rendition này khỏi MinIO? File bản gốc trên NAS không bị động.\n\nWorker sẽ tạo lại khi user chọn chất lượng này.")) return;
+  state.proxyDeletingId = renditionId;
+  render();
+  try {
+    await api("/renditions/" + encodeURIComponent(renditionId) + "/proxy", { method: "DELETE" });
+    // Remove from local view immediately (optimistic), then refresh from server
+    if (state.proxyStorage && Array.isArray(state.proxyStorage.renditions)) {
+      const before = state.proxyStorage.renditions.find((r) => r.renditionId === renditionId);
+      state.proxyStorage.renditions = state.proxyStorage.renditions.filter((r) => r.renditionId !== renditionId);
+      if (before) state.proxyStorage.totalBytes = Math.max(0, (state.proxyStorage.totalBytes || 0) - (before.bytes || 0));
+    }
+  } catch (err) {
+    state.proxyStorageError = "Xoá thất bại: " + ((err && err.message) || "lỗi không xác định");
+  } finally {
+    state.proxyDeletingId = "";
+    render();
   }
 }
 
