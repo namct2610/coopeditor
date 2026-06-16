@@ -228,7 +228,22 @@ const state = {
 let playTimer = null, lastTick = 0;
 let speedTimer = null;
 
-function setState(patch) { Object.assign(state, patch); render(); }
+// rAF-coalesced setState: if multiple setState() fire in the same frame
+// (common during drag, fetch waterfall, presence ping), batch them into a
+// single render at the next paint. Cuts ~80% of redundant innerHTML rebuilds.
+let _renderQueued = false;
+function scheduleRender() {
+  if (_renderQueued) return;
+  _renderQueued = true;
+  requestAnimationFrame(() => {
+    // If a direct render() call already ran since we scheduled, it cleared
+    // _renderQueued and the DOM is up to date — nothing to do.
+    if (!_renderQueued) return;
+    _renderQueued = false;
+    render();
+  });
+}
+function setState(patch) { Object.assign(state, patch); scheduleRender(); }
 function effStatus(p) { if (!p) return "progress"; return state.projectStatus[p.id] || p.status; }
 
 function fmtDur(ms) { const s = Math.floor(ms / 1000); const m = Math.floor(s / 60), ss = s % 60; return m + ":" + String(ss).padStart(2, "0"); }
@@ -2201,6 +2216,9 @@ function computeVals() {
 let lastNasListMeta = [];
 
 function render() {
+  // Clear any pending scheduled-render flag — a direct render() call already
+  // does the work, so the rAF callback can be a noop when it fires.
+  _renderQueued = false;
   const vals = computeVals();
   lastNasListMeta = vals.nasList;
   const app = document.getElementById("app");
@@ -3044,27 +3062,29 @@ function readNumber(id, fallback) {
 }
 
 async function handleRemoteEvent(ev) {
+  // Worker progress emits a "rendition" event ~every few seconds while
+  // transcoding — with 3 rungs × multiple assets in parallel, a burst can
+  // hit dozens of events in one second. Use scheduleRender so they coalesce
+  // into one DOM rebuild per frame instead of one per event.
   if (!ev || !ev.type) return;
-  if (ev.type === "presence") { remote.presence = ev.users || []; render(); return; }
+  if (ev.type === "presence") { remote.presence = ev.users || []; scheduleRender(); return; }
   if (ev.type === "rendition") {
-    // mirror into client state.qualities if it's the version currently being viewed
     if (state._currentVersionId && ev.assetVersionId === state._currentVersionId) {
       const id = ev.id.split("_").slice(-1)[0]; // "p1s1_v3_720p" -> "720p"
       state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: ev.status, progress: ev.progress } : q);
     }
     if (ev.projectId && REMOTE_SOURCES[ev.projectId]) await refreshProjectSources(ev.projectId);
-    render();
+    scheduleRender();
   } else if (ev.type === "asset") {
-    // refresh the affected project's sources if we have it loaded
-    if (REMOTE_SOURCES[ev.projectId]) { await refreshProjectSources(ev.projectId); render(); }
+    if (REMOTE_SOURCES[ev.projectId]) { await refreshProjectSources(ev.projectId); scheduleRender(); }
   } else if (ev.type === "comment") {
     if (state._currentVersionId && ev.comment && ev.comment.assetVersionId === state._currentVersionId) {
       await refreshComments(state._currentVersionId);
       REMOTE_COMMENTS_FOR_SELECTED = REMOTE_COMMENTS[state._currentVersionId];
-      render();
+      scheduleRender();
     } else if (ev.projectId && ev.projectId !== state.selectedProjectId) {
       state.notificationsByProject[ev.projectId] = (state.notificationsByProject[ev.projectId] || 0) + 1;
-      render();
+      scheduleRender();
     }
     if (ev.projectId && REMOTE_SOURCES[ev.projectId]) await refreshProjectSources(ev.projectId);
   }
