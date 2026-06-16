@@ -4,11 +4,8 @@
 # Usage: bash scripts/nas-setup-igpu.sh
 #
 # Tự dò /dev/dri/renderD128, đọc GID đúng, ghi/cập-nhật
-# docker-compose.override.yml để worker container có quyền dùng iGPU
-# (Intel QuickSync / VAAPI). Giữ nguyên các block khác (vd GHCR PAT) đã có
-# trong override.yml.
-#
-# Script idempotent: chạy lại nhiều lần OK, không nhân đôi cấu hình.
+# docker-compose.override.yml bằng pure bash (không cần PyYAML — DSM Python
+# 3 không có pip package sẵn). Idempotent: chạy lại OK, không duplicate.
 
 set -euo pipefail
 
@@ -28,75 +25,98 @@ GROUP_NAME="$(getent group "$GID" 2>/dev/null | cut -d: -f1 || true)"
 [ -z "$GROUP_NAME" ] && GROUP_NAME="$GID"
 log "Phát hiện /dev/dri/renderD128 (GID=$GID, group=$GROUP_NAME)"
 
-# 2. Chuẩn bị override.yml
+# 2. Quản lý docker-compose.override.yml bằng bash thuần.
+# Strategy: bỏ khối có marker cũ (nếu có) + dòng "services: {}" rỗng, rồi
+# append khối mới. Không đụng vào các block khác (vd GHCR PAT).
 OVERRIDE="$ROOT/docker-compose.override.yml"
-[ -f "$OVERRIDE" ] || { log "Tạo mới $OVERRIDE"; echo "services: {}" > "$OVERRIDE"; }
+MARKER_BEGIN="# >>> coopeditor-igpu-auto (do nas-setup-igpu.sh tạo, đừng sửa tay) <<<"
+MARKER_END="# <<< coopeditor-igpu-auto >>>"
 
-# 3. Ghi block worker iGPU bằng Python YAML (an toàn hơn sed). Python có sẵn trên DSM.
-python3 - "$OVERRIDE" "$GID" "$GROUP_NAME" <<'PY'
-import sys, os
-override_path, gid, group_name = sys.argv[1], sys.argv[2], sys.argv[3]
+if [ -f "$OVERRIDE" ]; then
+  # Xóa khối cũ giữa 2 marker (idempotent re-run)
+  awk -v b="$MARKER_BEGIN" -v e="$MARKER_END" '
+    $0 == b { skip=1; next }
+    $0 == e { skip=0; next }
+    skip != 1 { print }
+  ' "$OVERRIDE" > "$OVERRIDE.tmp"
+  # Xóa "services: {}" rỗng (placeholder)
+  sed -i.bak '/^services: {}\s*$/d' "$OVERRIDE.tmp"
+  rm -f "$OVERRIDE.tmp.bak"
+  mv "$OVERRIDE.tmp" "$OVERRIDE"
+else
+  : > "$OVERRIDE"
+fi
 
-try:
-    import yaml
-except ImportError:
-    # Fallback: pip install pyyaml — DSM Python 3 thường có sẵn yaml. Nếu
-    # không, dùng trình ghi thủ công đơn giản.
-    yaml = None
+# Nếu file đã có "services:" key ở top-level, ta CHỈ thêm worker dưới nó.
+# Nếu chưa có, ta thêm cả "services:" + "worker:".
+HAS_SERVICES=0
+grep -qE '^services:[[:space:]]*$' "$OVERRIDE" && HAS_SERVICES=1
 
-if yaml is None:
-    print("[igpu-setup] PyYAML không có — fallback append text. Vui lòng tự rà cẩn thận.")
-    block = f"""
-# >>> coopeditor-igpu-auto (do nas-setup-igpu.sh tạo, đừng sửa tay) <<<
+if [ "$HAS_SERVICES" = "1" ]; then
+  # Có sẵn `services:` (vd block GHCR PAT cũng dưới services:). Chèn block
+  # worker iGPU ngay sau dòng "services:" ở top-level.
+  cat >> "$OVERRIDE" <<EOF
+
+$MARKER_BEGIN
+# Khối này chèn dưới services: đã có. Nếu services: đã có 'worker:' với
+# devices/group_add khác, hãy merge tay — Docker Compose chỉ accept 1
+# worker: key dưới services:.
+#   worker:
+#     devices: ["/dev/dri:/dev/dri"]
+#     group_add: ["$GROUP_NAME"]
+#     environment: { FFMPEG_HWACCEL: qsv }
+$MARKER_END
+EOF
+  # Thực sự inject worker block (sau dòng services:)
+  awk -v group="$GROUP_NAME" '
+    /^services:[[:space:]]*$/ && !done {
+      print
+      print "  worker:"
+      print "    devices:"
+      print "      - /dev/dri:/dev/dri"
+      print "    group_add:"
+      print "      - \"" group "\""
+      print "    environment:"
+      print "      FFMPEG_HWACCEL: qsv"
+      done=1
+      next
+    }
+    { print }
+  ' "$OVERRIDE" > "$OVERRIDE.tmp" && mv "$OVERRIDE.tmp" "$OVERRIDE"
+else
+  # Chưa có services: → thêm cả 2 cùng marker
+  cat >> "$OVERRIDE" <<EOF
+$MARKER_BEGIN
 services:
   worker:
     devices:
       - /dev/dri:/dev/dri
     group_add:
-      - "{group_name}"
+      - "$GROUP_NAME"
     environment:
       FFMPEG_HWACCEL: qsv
-# <<< coopeditor-igpu-auto >>>
-"""
-    with open(override_path, "a") as f:
-        f.write(block)
-    sys.exit(0)
+$MARKER_END
+EOF
+fi
 
-with open(override_path) as f:
-    doc = yaml.safe_load(f) or {}
+log "Đã ghi cấu hình iGPU vào $OVERRIDE"
 
-if "services" not in doc or doc["services"] is None:
-    doc["services"] = {}
-worker = doc["services"].get("worker") or {}
+# 3. Validate YAML qua docker compose config (lỗi sớm còn hơn lỗi runtime)
+if ! docker compose -f docker-compose.nas-auto.yml -f "$OVERRIDE" config >/dev/null 2>&1; then
+  echo "---" >&2
+  docker compose -f docker-compose.nas-auto.yml -f "$OVERRIDE" config 2>&1 | head -10 >&2
+  fail "docker compose không parse được override.yml — xem lỗi phía trên. Sửa tay rồi chạy 'docker compose ... up -d worker'."
+fi
+log "YAML hợp lệ."
 
-worker["devices"] = ["/dev/dri:/dev/dri"]
-worker["group_add"] = [group_name]
-env = worker.get("environment") or {}
-if isinstance(env, list):
-    # convert list-form env to dict so we can merge cleanly
-    env_dict = {}
-    for entry in env:
-        if "=" in entry:
-            k, v = entry.split("=", 1)
-            env_dict[k] = v
-    env = env_dict
-env["FFMPEG_HWACCEL"] = "qsv"
-worker["environment"] = env
-doc["services"]["worker"] = worker
-
-with open(override_path, "w") as f:
-    yaml.dump(doc, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-print("[igpu-setup] Đã ghi cấu hình iGPU vào", override_path)
-PY
-
-# 4. Khởi động lại worker để áp dụng
+# 4. Khởi động lại worker
 log "Restart worker container..."
 docker compose -f docker-compose.nas-auto.yml up -d worker
 
-# 5. Probe — đợi worker khởi động xong rồi đọc log
+# 5. Đợi rồi check probe
 log "Đợi 8s rồi check hwaccel..."
 sleep 8
 docker compose -f docker-compose.nas-auto.yml logs worker --tail=30 | grep -iE "probe|hwaccel|starting" || true
 
 log "Xong. Nếu thấy 'probe ok' hoặc 'switched to vaapi' → iGPU đã hoạt động."
+log "Nếu thấy 'probe FAILED' → ffmpeg trong container không build với VAAPI; cần đổi base image worker."
