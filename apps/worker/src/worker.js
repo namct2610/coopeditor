@@ -66,9 +66,11 @@ async function probeHwEncoder(hw) {
     pre = ["-hwaccel", "qsv"];
     scaleFilter = "scale_qsv=-2:240";
   } else { // vaapi
-    pre = ["-hwaccel", "vaapi", "-hwaccel_device", "/dev/dri/renderD128", "-hwaccel_output_format", "vaapi"];
-    // VAAPI needs the frames uploaded explicitly via hwupload when input is sw.
-    // For the lavfi color probe (sw input), use format+hwupload+scale_vaapi.
+    // For an sw-source probe (lavfi color clip) you must NOT pass
+    // -hwaccel vaapi — that flag tells ffmpeg to use VAAPI for the decoder,
+    // and there is no decoder for lavfi. The correct minimal probe is
+    // just -vaapi_device + hwupload filter + the VAAPI encoder.
+    pre = ["-vaapi_device", "/dev/dri/renderD128"];
     scaleFilter = "format=nv12,hwupload,scale_vaapi=-2:240";
   }
   const args = [
