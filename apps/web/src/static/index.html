@@ -477,8 +477,13 @@ function jumpTo(ms) {
   pause();
   setState({ currentMs: ms });
 }
-function seekFromEvent(e) {
-  const r = e.currentTarget.getBoundingClientRect();
+// node = the bar element with data-act="seekFromEvent" (passed from the
+// delegated click dispatcher). e.currentTarget is `document` in delegated
+// handlers, so we must pin to `node` for rect math.
+function seekFromEvent(e, node) {
+  const bar = node || (e.target && e.target.closest && e.target.closest('[data-act="seekFromEvent"]'));
+  if (!bar) return;
+  const r = bar.getBoundingClientRect();
   let p = (e.clientX - r.left) / r.width;
   p = Math.max(0, Math.min(1, p));
   const video = document.getElementById("reviewVideo");
@@ -487,14 +492,13 @@ function seekFromEvent(e) {
   } else {
     setState({ currentMs: p * state.duration });
   }
-  startScrubFromEvent(e);
+  startScrubFromEvent(bar);
 }
 
 // Drag-to-scrub: while the mouse is held down on the seek bar we keep
-// updating video.currentTime. We re-resolve the bar's rect on each move
-// (in case the page re-rendered) but pin to the original bar via closure.
-function startScrubFromEvent(e) {
-  const bar = e.currentTarget && e.currentTarget.closest ? e.currentTarget.closest('[data-act="seekFromEvent"]') : null;
+// updating video.currentTime. The bar element is captured in closure so
+// re-rendering the DOM doesn't lose the reference.
+function startScrubFromEvent(bar) {
   if (!bar) return;
   let scrubbing = true;
   const move = (ev) => {
@@ -1177,7 +1181,10 @@ function annotationOverlay() {
 function renderStrokeSvg(s) {
   if (!s || !s.points || s.points.length < 1) return "";
   const c = s.color || "#ef4d57";
-  const sw = 0.004; // stroke width in normalized units (~ 4px on 1080p frame)
+  // vector-effect="non-scaling-stroke" treats stroke-width as CSS pixels
+  // (NOT normalized units), so 0.004 becomes 0.004px — invisible. Use a
+  // human-visible width in pixels.
+  const sw = 3;
   if (s.tool === "rect" && s.points.length >= 2) {
     const a = s.points[0], b = s.points[s.points.length - 1];
     const x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]);
@@ -2252,10 +2259,14 @@ function render() {
 }
 
 // ---- event delegation ----
+// Walks up from the clicked element looking for the nearest data-act handler.
+// data-stop terminates the walk — used by modal inner panels so a click inside
+// the panel doesn't bubble up to the backdrop's data-act="close…" and dismiss
+// the modal. Before this guard, clicking any input/button inside the create-
+// project, members, or update modal closed the whole thing.
 document.addEventListener("click", (e) => {
   let n = e.target;
   while (n && n !== document) {
-    if (n.dataset && n.dataset.stop) { /* allow inner clicks but stop bubbling further */ }
     if (n.dataset && n.dataset.act) {
       const act = n.dataset.act;
       const arg = n.dataset.arg;
@@ -2263,6 +2274,7 @@ document.addEventListener("click", (e) => {
       handleAct(act, arg, e, n);
       return;
     }
+    if (n.dataset && n.dataset.stop) return;
     n = n.parentNode;
   }
 });
@@ -2348,7 +2360,7 @@ function handleAct(act, arg, e, node) {
     case "togglePlay": return togglePlay();
     case "frameBack": return frameBack();
     case "frameFwd": return frameFwd();
-    case "seekFromEvent": return seekFromEvent(e);
+    case "seekFromEvent": return seekFromEvent(e, node);
     case "jumpTo": return jumpTo(parseFloat(arg));
     case "cycleSafe": {
       const seq = ["off", "16:9", "9:16", "1:1"];
