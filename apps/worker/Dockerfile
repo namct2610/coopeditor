@@ -9,7 +9,11 @@ FROM node:22-alpine
 # fail → mọi hwaccel (qsv, vaapi) đều chết với "exit 187/254" dù device đã
 # mount vào container.
 # libva-utils gồm vainfo — debug nhanh: `docker exec ... vainfo`.
-RUN apk add --no-cache ffmpeg intel-media-driver libva-utils mesa-va-gallium
+# (mesa-va-gallium đã bỏ vì tên package đã thay đổi giữa các bản Alpine và
+# Intel iGPU không cần fallback Mesa.)
+RUN apk add --no-cache ffmpeg && \
+    (apk add --no-cache intel-media-driver libva-utils || \
+     echo "[Dockerfile] WARN: intel-media-driver hoặc libva-utils không cài được — image vẫn build, worker sẽ tự fallback CPU encode.")
 
 WORKDIR /app
 
