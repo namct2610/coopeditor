@@ -1,6 +1,11 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 
+// Reusable random buffer for /speedtest/segment — generated once at startup and
+// written repeatedly. 256 KiB is small enough to fit in CPU cache yet large
+// enough that the per-chunk write overhead doesn't dominate at gigabit speeds.
+const SPEEDTEST_NOISE = randomBytes(256 * 1024);
+
 import * as store from "./store-index.js";
 import { db, initPg } from "./db.js";
 import * as dsm from "./dsm.js";
@@ -199,13 +204,30 @@ async function handle(req, res, url) {
   if (!sess) return;
 
   // Speedtest is auth-gated so it can't be abused as a DDoS amplifier.
+  // Cap raised to 128 MiB to support gigabit-class links: anything smaller
+  // finishes too fast to overcome TCP slow-start + HTTP overhead, masking the
+  // true throughput. Stream a reused 256 KiB random buffer instead of
+  // allocating one huge Buffer (would spike RSS on every request).
   if (p === "/speedtest/segment" && m === "GET") {
-    const sizeStr = url.searchParams.get("size") || "2097152";
-    const size = Math.min(Math.max(parseInt(sizeStr, 10) || 2097152, 64 * 1024), 8 * 1024 * 1024);
+    const sizeStr = url.searchParams.get("size") || "8388608";
+    const size = Math.min(Math.max(parseInt(sizeStr, 10) || 8388608, 64 * 1024), 128 * 1024 * 1024);
     res.statusCode = 200;
     res.setHeader("content-type", "application/octet-stream");
     res.setHeader("cache-control", "no-store");
-    res.end(randomBytes(size));
+    res.setHeader("content-length", String(size));
+    const CHUNK = SPEEDTEST_NOISE; // 256 KiB
+    let remaining = size;
+    const writeMore = () => {
+      while (remaining > 0) {
+        const n = Math.min(CHUNK.length, remaining);
+        const slice = n === CHUNK.length ? CHUNK : CHUNK.subarray(0, n);
+        const ok = res.write(slice);
+        remaining -= n;
+        if (!ok) { res.once("drain", writeMore); return; }
+      }
+      res.end();
+    };
+    writeMore();
     return;
   }
 
