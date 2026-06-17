@@ -283,6 +283,11 @@ async function finishJob(jobId, ok) {
     [ok ? "done" : "failed", jobId]);
 }
 
+function isPermanentTranscodeError(err) {
+  const text = String(err && err.message || err || "");
+  return /ENOENT|EACCES|not mounted|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg/i.test(text);
+}
+
 async function rescheduleJob(jobId, attempts, errorMsg) {
   // exponential backoff: 5s, 25s, 125s, ... capped at 10min
   const delaySec = Math.min(600, 5 * Math.pow(5, attempts - 1));
@@ -304,6 +309,17 @@ async function runSim(rid, assetVersionId) {
 
 async function runFfmpeg(rendition) {
   // Source path: rendition.nas_path. Mode "full" uploads to MinIO; "ffmpeg-only" writes locally.
+  try {
+    await fs.stat(rendition.nas_path);
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      throw new Error("Source path not mounted in worker: " + rendition.nas_path);
+    }
+    if (err && err.code === "EACCES") {
+      throw new Error("Worker cannot read source path: " + rendition.nas_path);
+    }
+    throw err;
+  }
   const outDir = mode === "full" ? await fs.mkdtemp(join(tmpdir(), "co-")) : (process.env.OUTPUT_DIR || join(tmpdir(), "co-out", rendition.id));
   await fs.mkdir(outDir, { recursive: true });
   const bitrate = RUNG_BITRATE[rendition.height] || "3500k";
@@ -387,6 +403,7 @@ async function workOnce() {
     if (!claimed) return false;
     const { job, rendition } = claimed;
     console.log("[worker] job", job.id, "rendition", rendition.id, "mode", mode);
+    await updateRendition(rendition.id, { status: "processing", progress: 0 });
     if (mode === "sim") await runSim(rendition.id, rendition.asset_version_id);
     else await runFfmpeg(rendition);
     await finishJob(job.id, true);
@@ -394,7 +411,7 @@ async function workOnce() {
   } catch (err) {
     const { job, rendition } = claimed;
     console.error("[worker] job", job.id, "attempt", job.attempts, "/", job.max_attempts, "failed:", err.message);
-    if (job.attempts < job.max_attempts) {
+    if (!isPermanentTranscodeError(err) && job.attempts < job.max_attempts) {
       // keep rendition in 'processing' so the FE shows "đang transcode", just at 0% until next attempt
       await updateRendition(rendition.id, { status: "processing", progress: 0 });
       await rescheduleJob(job.id, job.attempts, err.message);

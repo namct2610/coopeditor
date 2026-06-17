@@ -435,7 +435,15 @@ function aliasUserId(raw) {
 
 // --- transcode job queue (pg-only) ---
 export async function enqueueTranscode(renditionId) {
-  await q(`INSERT INTO transcode_jobs (rendition_id) VALUES ($1)`, [renditionId]);
+  await q(`
+    INSERT INTO transcode_jobs (rendition_id)
+    SELECT $1
+    WHERE NOT EXISTS (
+      SELECT 1
+        FROM transcode_jobs
+       WHERE rendition_id = $1
+         AND status IN ('queued', 'running')
+    )`, [renditionId]);
   // notify the worker(s) so they can wake up immediately
   await q(`SELECT pg_notify('coopeditor_jobs', $1)`, [renditionId]).catch(() => {});
 }

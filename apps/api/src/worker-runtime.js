@@ -12,12 +12,13 @@ export async function requestTranscode(rid) {
   const r = await store.getRendition(rid);
   if (!r) return;
   if (r.status === "ready" || r.status === "processing") return;
-  await store.setRenditionStatus(rid, { status: "processing", progress: r.progress || 0 });
 
   if (store.backend === "pg") {
+    await store.setRenditionStatus(rid, { status: "pending", progress: 0, hlsMasterUrl: null });
     await store.enqueueTranscode(rid);
     return;
   }
+  await store.setRenditionStatus(rid, { status: "processing", progress: r.progress || 0 });
   pendingRenditions.add(rid);
 }
 

@@ -765,7 +765,7 @@ function setQuality(id, opts) {
   else setState({ showQualityMenu: false, showTranscode: true });
 }
 function requestTranscode(id) {
-  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: q.progress || 0 } : q);
+  state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "pending", progress: 0 } : q);
   render();
 }
 
@@ -3652,7 +3652,9 @@ async function remoteImport(pid, nasPaths) {
 }
 async function remoteRequestTranscode(versionId, height) {
   if (!remote.me) return;
-  try { await api("/asset-versions/" + versionId + "/renditions", { method: "POST", body: { height } }); } catch (_) {}
+  await api("/asset-versions/" + versionId + "/renditions", { method: "POST", body: { height } });
+  await refreshRenditions(versionId);
+  render();
 }
 
 async function selectVersion(versionId) {
@@ -4132,7 +4134,10 @@ requestTranscode = function (id) {
   _origRequestTranscode(id);
   if (remote.me && state._currentVersionId) {
     const h = id === "720p" ? 720 : 1080;
-    remoteRequestTranscode(state._currentVersionId, h);
+    remoteRequestTranscode(state._currentVersionId, h).catch((err) => {
+      alert("Không tạo được proxy: " + ((err && err.message) || "lỗi không xác định"));
+      refreshRenditions(state._currentVersionId).then(render).catch(() => {});
+    });
   }
 };
 // patch project status writes

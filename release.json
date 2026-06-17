@@ -1,10 +1,10 @@
 {
-  "version": "0.2.11",
-  "summary": "Rút ladder proxy còn 1080p/720p, chuyển sang transcode thủ công, và thêm text annotation trong review.",
+  "version": "0.2.12",
+  "summary": "Sửa transcode proxy bị treo chờ: worker chỉ báo processing khi thật sự claim job và fail sớm nếu không đọc được source NAS.",
   "changes": [
-    "Pipeline proxy chỉ còn 2 mức 720p và 1080p; import source không tự động transcode nữa, thay vào đó owner có thể trigger thủ công từ menu chuột phải của video.",
-    "UI bỏ nút ba chấm trong card project/video, thay toàn bộ action chính bằng icon và context menu chuột phải để danh sách gọn hơn.",
-    "Annotation giờ hỗ trợ chèn text trực tiếp lên frame, lưu cùng timestamp của comment để review theo mốc thời gian chính xác hơn."
+    "API giờ chỉ enqueue job transcode thay vì đổi rendition sang processing ngay lập tức, nên UI không còn hiện trạng thái chạy ảo khi worker chưa thực sự bắt đầu.",
+    "Worker kiểm tra source path trước khi gọi FFmpeg; nếu thiếu mount hoặc không đủ quyền đọc NAS thì rendition chuyển sang failed sớm thay vì retry mù và treo ở Đang chờ.",
+    "Web không còn nuốt lỗi khi bấm Tạo proxy: nếu backend từ chối hoặc enqueue thất bại, UI sẽ báo lỗi ngay và refresh lại trạng thái rendition thực tế."
   ],
   "publishedAt": "2026-06-17T00:00:00.000Z"
 }
