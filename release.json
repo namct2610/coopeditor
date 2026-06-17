@@ -1,10 +1,10 @@
 {
-  "version": "0.2.9",
-  "summary": "Sửa review/import thumbnails: annotation hiện lại theo timecode, import tự enqueue proxy thật, và hiển thị thumbnail source/project đúng hơn.",
+  "version": "0.2.10",
+  "summary": "Thêm menu chuột phải cho project/video, trang quản lý proxy riêng, và route bền vững để reload không văng khỏi màn hình đang mở.",
   "changes": [
-    "Overlay annotation giờ repaint theo playback time nên khi tua/phát đến đúng mốc comment, các nét vẽ sẽ hiện lại trên khung hình.",
-    "Import từ NAS giờ đợi enqueue toàn bộ rendition xong trước khi trả response nên proxy tự vào hàng đợi ngay sau khi import.",
-    "Danh sách source và card project dùng thumbnail thật từ poster/project thumb thay vì chỉ gradient placeholder; custom project thumb cũng được lưu và serve lại."
+    "Project card và source list/grid card giờ hỗ trợ menu chuột phải để mở, sửa/đổi tên, archive hoặc xóa mà không nhồi nút tác vụ ngay trong danh sách.",
+    "Proxy storage được chuyển từ popup sang trang quản lý riêng trong workspace, đồng thời sidebar hiển thị dung lượng đang dùng và mở thẳng vào trang này.",
+    "App đồng bộ trạng thái điều hướng vào URL hash cho projects, review và proxy storage để F5 hoặc mở lại tab vẫn quay về đúng màn hình trước đó."
   ],
-  "publishedAt": "2026-06-16T00:00:00.000Z"
+  "publishedAt": "2026-06-17T00:00:00.000Z"
 }

@@ -200,6 +200,8 @@ const state = {
   commentMenuId: null,
   editingCommentId: null,
   editingCommentText: "",
+  projectContextMenu: null,
+  sourceContextMenu: null,
   notificationsByProject: {},
   nasPath: [],
   importSel: {},
@@ -380,16 +382,138 @@ function bindReviewVideo() {
 }
 
 // ---- navigation ----
-function goProjects() { pause(); setState({ view: "projects", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false }); }
-function openProject(pid) { pause(); setState({ view: "project", selectedProjectId: pid, showStatusMenu: false }); }
+function goProjects() { pause(); setState({ view: "projects", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
+function openProject(pid) { pause(); setState({ view: "project", selectedProjectId: pid, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function openSource(id) {
   pause();
   const pid = state.selectedProjectId;
   const src = ((state.sourcesByProject[pid] || []).find((item) => item.id === id)) || null;
-  setState({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false });
+  setState({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null });
 }
-function setStatusFilter(key) { setState({ statusFilter: key, view: "projects" }); }
+function setStatusFilter(key) { setState({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function toggleTheme() { const t = state.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("co-theme", t); } catch (_) {} setState({ theme: t }); }
+
+function clampMenuPos(x, y) {
+  const pad = 12;
+  const width = 220;
+  const height = 220;
+  return {
+    x: Math.max(pad, Math.min((window.innerWidth || 0) - width - pad, x)),
+    y: Math.max(pad, Math.min((window.innerHeight || 0) - height - pad, y)),
+  };
+}
+function closeContextMenus() {
+  if (!state.projectContextMenu && !state.sourceContextMenu) return;
+  setState({ projectContextMenu: null, sourceContextMenu: null });
+}
+function openProjectContextMenu(projectId, x, y) {
+  const project = REMOTE_PROJECTS.find((item) => item.id === projectId);
+  if (!project) return;
+  const pos = clampMenuPos(x, y);
+  setState({
+    projectContextMenu: {
+      projectId,
+      x: pos.x,
+      y: pos.y,
+      isOwner: (project.myRole === "owner") || !remote.me,
+      canManage: !remote.me || ["owner", "editor"].includes(project.myRole),
+      isArchived: !!project.archivedAt,
+      name: project.name || "",
+    },
+    sourceContextMenu: null,
+  });
+}
+function openSourceContextMenu(sourceId, x, y) {
+  const pid = state.selectedProjectId;
+  const project = REMOTE_PROJECTS.find((item) => item.id === pid);
+  const canManage = !remote.me || (project && ["owner", "editor"].includes(project.myRole));
+  const source = ((state.sourcesByProject[pid] || []).find((item) => item.id === sourceId)) || null;
+  if (!source || !canManage) return;
+  const pos = clampMenuPos(x, y);
+  setState({
+    sourceContextMenu: {
+      sourceId,
+      x: pos.x,
+      y: pos.y,
+      title: source.title || "",
+    },
+    projectContextMenu: null,
+  });
+}
+
+let _applyingHashRoute = false;
+function desiredHashFromState() {
+  if (state.view === "proxyStorage") return "#/proxy-storage";
+  if (state.view === "review" && state.selectedProjectId && state.selectedId) {
+    return "#/project/" + encodeURIComponent(state.selectedProjectId) + "/source/" + encodeURIComponent(state.selectedId);
+  }
+  if (state.view === "project" && state.selectedProjectId) {
+    return "#/project/" + encodeURIComponent(state.selectedProjectId);
+  }
+  return "#/projects";
+}
+function syncHashRoute() {
+  if (_applyingHashRoute) return;
+  if (!remote.me && window.location.hash) return;
+  const desired = desiredHashFromState();
+  if (window.location.hash !== desired) window.location.hash = desired;
+}
+function applyHashRoute() {
+  const hash = window.location.hash || "#/projects";
+  const reviewMatch = hash.match(/^#\/project\/([^/]+)\/source\/([^/]+)$/);
+  const projectMatch = hash.match(/^#\/project\/([^/]+)$/);
+  _applyingHashRoute = true;
+  try {
+    if (hash === "#/proxy-storage") {
+      state.view = "proxyStorage";
+      state.showProxyStorage = false;
+      state.projectContextMenu = null;
+      state.sourceContextMenu = null;
+      render();
+      if (!state.proxyStorage && !state.proxyStorageLoading) refreshProxyStorage().catch(() => {});
+      return;
+    }
+    if (reviewMatch) {
+      const pid = decodeURIComponent(reviewMatch[1]);
+      const sid = decodeURIComponent(reviewMatch[2]);
+      const projectExists = REMOTE_PROJECTS.some((project) => project.id === pid);
+      if (projectExists) {
+        state.selectedProjectId = pid;
+        state.selectedId = sid;
+        state.view = "review";
+        state.showProxyStorage = false;
+        state.projectContextMenu = null;
+        state.sourceContextMenu = null;
+        render();
+        if (!state.sourcesByProject[pid]) refreshProjectSources(pid).then(() => render()).catch(() => {});
+        refreshProjectMembers(pid).catch(() => {});
+        return;
+      }
+    }
+    if (projectMatch) {
+      const pid = decodeURIComponent(projectMatch[1]);
+      const projectExists = REMOTE_PROJECTS.some((project) => project.id === pid);
+      if (projectExists) {
+        state.selectedProjectId = pid;
+        state.view = "project";
+        state.showProxyStorage = false;
+        state.projectContextMenu = null;
+        state.sourceContextMenu = null;
+        render();
+        if (!state.sourcesByProject[pid]) refreshProjectSources(pid).then(() => render()).catch(() => {});
+        refreshProjectMembers(pid).catch(() => {});
+        return;
+      }
+    }
+    state.view = "projects";
+    state.showProxyStorage = false;
+    state.projectContextMenu = null;
+    state.sourceContextMenu = null;
+    render();
+  } finally {
+    _applyingHashRoute = false;
+  }
+}
 
 // ---- reorder ----
 function dragStart(id, e) { state.dragId = id; if (e && e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", id); } catch (_) {} } render(); }
@@ -949,6 +1073,7 @@ function speedPanel(vals) {
 }
 
 function sidebar(vals) {
+  const proxyActive = state.view === "proxyStorage";
   return `
     <aside style="width:248px;flex:0 0 248px;background:var(--co-chrome);border-right:1px solid var(--co-border);padding:18px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:22px;">
       <div>
@@ -978,10 +1103,14 @@ function sidebar(vals) {
         </div>
       </div>` : ""}
       ${vals.proxyCache ? `
-      <div style="margin-top:auto;background:linear-gradient(160deg,rgba(45,168,226,0.12),rgba(24,120,185,0.05));border:1px solid rgba(45,168,226,0.2);border-radius:12px;padding:13px;">
-        <div style="font-weight:700;font-size:12.5px;color:var(--co-text);">Bộ nhớ proxy (SSD cache)</div>
+      <div data-act="openProxyStorage" class="co-border-hover" style="margin-top:auto;background:${proxyActive ? "linear-gradient(160deg,rgba(45,168,226,0.2),rgba(24,120,185,0.08))" : "linear-gradient(160deg,rgba(45,168,226,0.12),rgba(24,120,185,0.05))"};border:1px solid ${proxyActive ? "rgba(45,168,226,0.42)" : "rgba(45,168,226,0.2)"};border-radius:12px;padding:13px;cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-weight:700;font-size:12.5px;color:var(--co-text);">Bộ nhớ proxy</div>
+          <div style="margin-left:auto;color:${proxyActive ? "var(--co-accent-ink)" : "var(--co-faint)"};">${ICON.chevRight}</div>
+        </div>
         <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#2da8e2,#4fade4);"></div></div>
         <div style="color:var(--co-muted);font-size:11px;font-weight:600;">${esc(vals.proxyCache.label)}</div>
+        <div style="margin-top:5px;color:var(--co-faint);font-size:10.5px;font-weight:700;">Nhấn để mở trang quản lý proxy</div>
       </div>` : ""}
     </aside>`;
 }
@@ -1025,12 +1154,13 @@ function projectsHub(vals) {
         ` : ""}
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;">
           ${g.projects.map((p) => `
-            <div data-act="openProject" data-arg="${p.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--co-shadow);transition:transform 250ms cubic-bezier(0.16,1,0.3,1),border-color 250ms;">
+            <div data-act="openProject" data-arg="${p.id}" data-project-menu-id="${p.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--co-shadow);transition:transform 250ms cubic-bezier(0.16,1,0.3,1),border-color 250ms;">
               <div style="position:relative;height:132px;background:${p.coverIsImage ? `center/cover no-repeat url(${esc(p.cover)})` : p.cover};">
                 <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.12),transparent 60%);"></div>
                 <div style="position:absolute;left:11px;top:11px;">
                   <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);color:${p.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;"><span style="width:7px;height:7px;border-radius:50%;background:${p.statusColor};"></span>${esc(p.statusLabel)}</span>
                 </div>
+                <div style="position:absolute;right:11px;top:11px;width:32px;height:32px;border-radius:10px;background:rgba(7,9,14,0.68);border:1px solid rgba(255,255,255,0.14);display:grid;place-items:center;color:rgba(255,255,255,0.72);backdrop-filter:blur(6px);">⋯</div>
                 <div style="position:absolute;left:11px;right:11px;bottom:11px;display:flex;gap:5px;height:30px;">
                   ${p.thumbs.map((t) => `<div style="flex:1;border-radius:5px;background:${/^https?:|^\//.test(t) ? `center/cover no-repeat url(${esc(t)})` : t};border:1px solid var(--co-border-2);"></div>`).join("")}
                 </div>
@@ -1099,7 +1229,6 @@ function projectDetail(vals) {
             : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#f5a623;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">📦 Archive</button>`
         ) : ""}
         ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">✎ Sửa project</button>` : ""}
-        ${vals.isOwner && !vals.isArchived ? `<button data-act="deleteProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);color:#ef4d57;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">🗑 Xóa project</button>` : ""}
         <div style="display:flex;gap:3px;background:var(--co-panel);padding:4px;border-radius:10px;border:1px solid var(--co-border);">
           <button data-act="setListView" title="Danh sách" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
           <button data-act="setGridView" title="Lưới album" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
@@ -1116,7 +1245,7 @@ function projectDetail(vals) {
 
 function sourceListView(vals) {
   return `<div style="display:flex;flex-direction:column;gap:8px;">${vals.sources.map((s) => `
-    <div draggable="true" data-drag-id="${s.id}" class="co-border-hover" style="display:flex;align-items:center;gap:14px;padding:11px 14px;background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:12px;opacity:${s.dragOpacity};box-shadow:var(--co-shadow);transition:border-color 200ms;">
+    <div draggable="true" data-drag-id="${s.id}" data-source-menu-id="${s.id}" class="co-border-hover" style="display:flex;align-items:center;gap:14px;padding:11px 14px;background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:12px;opacity:${s.dragOpacity};box-shadow:var(--co-shadow);transition:border-color 200ms;">
       <div style="display:flex;flex-direction:column;gap:2px;color:var(--co-faint);cursor:grab;">${ICON.drag}</div>
       <div style="font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;color:#2da8e2;width:28px;text-align:center;">${s.pos}</div>
       <div data-act="openSource" data-arg="${s.id}" style="position:relative;width:104px;height:58px;border-radius:8px;overflow:hidden;flex:0 0 104px;cursor:pointer;background:${s.thumbBg};">
@@ -1130,10 +1259,7 @@ function sourceListView(vals) {
       </div>
       <span style="display:inline-flex;align-items:center;gap:6px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
       <span style="display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11.5px;width:42px;">${ICON.msg}${s.comments}</span>
-      ${vals.canManageProject ? `<div style="display:flex;align-items:center;gap:6px;">
-        <button data-act="editSource" data-arg="${s.id}" class="co-border-hover" style="height:28px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:8px;color:var(--co-text);font-weight:700;font-size:11px;padding:0 10px;cursor:pointer;">Sửa</button>
-        <button data-act="deleteSource" data-arg="${s.id}" class="co-border-hover" style="height:28px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);border-radius:8px;color:#ef4d57;font-weight:700;font-size:11px;padding:0 10px;cursor:pointer;">Xóa</button>
-      </div>` : ""}
+      ${vals.canManageProject ? `<div style="width:32px;height:32px;border-radius:9px;background:var(--co-panel-2);border:1px solid var(--co-border-2);display:grid;place-items:center;color:var(--co-faint);font-size:17px;">⋯</div>` : ""}
       <div style="display:flex;flex-direction:column;gap:3px;">
         <button data-act="moveUp" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevUp}</button>
         <button data-act="moveDown" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevDownSmall}</button>
@@ -1144,7 +1270,7 @@ function sourceListView(vals) {
 
 function sourceGridView(vals) {
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:16px;">${vals.sources.map((s) => `
-    <div draggable="true" data-drag-id="${s.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:13px;overflow:hidden;opacity:${s.dragOpacity};cursor:grab;box-shadow:var(--co-shadow);transition:border-color 200ms,transform 200ms;">
+    <div draggable="true" data-drag-id="${s.id}" data-source-menu-id="${s.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:13px;overflow:hidden;opacity:${s.dragOpacity};cursor:grab;box-shadow:var(--co-shadow);transition:border-color 200ms,transform 200ms;">
       <div data-act="openSource" data-arg="${s.id}" style="position:relative;aspect-ratio:16/9;background:${s.thumbBg};cursor:pointer;">
         <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.13),transparent 60%);"></div>
         <div style="position:absolute;left:10px;top:10px;width:30px;height:30px;border-radius:8px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);display:grid;place-items:center;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;color:#2da8e2;border:1px solid rgba(45,168,226,0.4);">${s.pos}</div>
@@ -1159,10 +1285,7 @@ function sourceGridView(vals) {
           <span style="display:inline-flex;align-items:center;gap:5px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:10.5px;padding:4px 8px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
           <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11px;">${ICON.msg}${s.comments}</span>
         </div>
-        ${vals.canManageProject ? `<div data-stop="1" style="display:flex;gap:8px;margin-top:10px;">
-          <button data-act="editSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:8px;color:var(--co-text);font-weight:700;font-size:11px;cursor:pointer;">Sửa</button>
-          <button data-act="deleteSource" data-arg="${s.id}" class="co-border-hover" style="flex:1;height:32px;background:rgba(239,77,87,0.1);border:1px solid rgba(239,77,87,0.22);border-radius:8px;color:#ef4d57;font-weight:700;font-size:11px;cursor:pointer;">Xóa</button>
-        </div>` : ""}
+        ${vals.canManageProject ? `<div style="display:flex;justify-content:flex-end;margin-top:10px;"><div style="width:32px;height:32px;border-radius:9px;background:var(--co-panel-2);border:1px solid var(--co-border-2);display:grid;place-items:center;color:var(--co-faint);font-size:17px;">⋯</div></div>` : ""}
       </div>
     </div>
   `).join("")}</div>`;
@@ -1422,15 +1545,49 @@ function fmtBytes(n) {
   return v.toFixed(v < 10 && i > 0 ? 1 : 0) + " " + units[i];
 }
 
-function proxyStorageModal() {
+function projectContextMenu() {
+  const menu = state.projectContextMenu;
+  if (!menu) return "";
+  return `
+  <div data-context-menu="project" style="position:fixed;left:${menu.x}px;top:${menu.y}px;z-index:96;width:220px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.48);padding:8px;">
+    <div style="padding:8px 10px 7px;border-bottom:1px solid var(--co-border);margin-bottom:6px;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Project</div>
+      <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.name)}</div>
+    </div>
+    <div data-act="openProject" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">📂 Mở project</div>
+    ${menu.canManage ? `<div data-act="editProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">✎ Đổi tên / sửa</div>` : ""}
+    ${menu.isOwner ? (menu.isArchived
+      ? `<div data-act="restoreProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#35c389;font-size:13px;font-weight:700;">↺ Khôi phục project</div>`
+      : `<div data-act="archiveProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#f5a623;font-size:13px;font-weight:700;">📦 Archive project</div>` ) : ""}
+    ${menu.isOwner && !menu.isArchived ? `<div data-act="deleteProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">🗑 Xóa project</div>` : ""}
+  </div>`;
+}
+
+function sourceContextMenu() {
+  const menu = state.sourceContextMenu;
+  if (!menu) return "";
+  return `
+  <div data-context-menu="source" style="position:fixed;left:${menu.x}px;top:${menu.y}px;z-index:96;width:220px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.48);padding:8px;">
+    <div style="padding:8px 10px 7px;border-bottom:1px solid var(--co-border);margin-bottom:6px;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Video</div>
+      <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.title)}</div>
+    </div>
+    <div data-act="openSource" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">▶ Mở review</div>
+    <div data-act="editSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">✎ Đổi tên / sửa</div>
+    <div data-act="deleteSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">🗑 Xóa video</div>
+  </div>`;
+}
+
+function proxyStoragePage() {
   const ps = state.proxyStorage;
   const loading = state.proxyStorageLoading;
   const err = state.proxyStorageError;
   const deletingId = state.proxyDeletingId;
   return `
-  <div data-act="closeProxyStorage" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:93;display:grid;place-items:center;padding:24px;">
-    <div data-stop="1" style="width:min(880px,100%);max-height:min(85vh,960px);overflow:hidden;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.45);display:flex;flex-direction:column;">
-      <div style="padding:22px 22px 14px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:16px;">
+  <main style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 40px;">
+    <div data-act="goProjects" class="co-text-hover" style="display:inline-flex;align-items:center;gap:7px;color:var(--co-muted);font-weight:700;font-size:12.5px;cursor:pointer;margin-bottom:14px;">${ICON.back}Workspace</div>
+    <div style="background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.18);display:flex;flex-direction:column;min-height:calc(100vh - 180px);">
+      <div style="padding:22px 22px 14px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
         <div style="flex:1;">
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Proxy Storage</div>
           <div style="margin-top:4px;font-size:20px;font-weight:800;color:var(--co-text);">Quản lý dung lượng proxy</div>
@@ -1441,7 +1598,6 @@ function proxyStorageModal() {
           </div>
         </div>
         <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
-        <button data-act="closeProxyStorage" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
       </div>
       ${err ? `<div style="margin:14px 22px 0;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(err)}</div>` : ""}
       ${ps ? `
@@ -1495,7 +1651,7 @@ function proxyStorageModal() {
         ${loading && !ps ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Đang đọc danh sách MinIO…</div>` : ""}
       </div>
     </div>
-  </div>`;
+  </main>`;
 }
 
 function updateModal(vals) {
@@ -2317,25 +2473,28 @@ function render() {
   const vals = computeVals();
   lastNasListMeta = vals.nasList;
   const app = document.getElementById("app");
-  const isWorkspace = state.view === "projects" || state.view === "project";
+  const isWorkspace = state.view === "projects" || state.view === "project" || state.view === "proxyStorage";
   const isProjects = state.view === "projects";
+  const isProxyStorage = state.view === "proxyStorage";
 
   document.documentElement.setAttribute("data-theme", state.theme);
   app.setAttribute("data-theme", state.theme);
 
   app.innerHTML = `
     ${topBar(vals)}
-    ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${sidebar(vals)}${isProjects ? projectsHub(vals) : projectDetail(vals)}</div>` : ""}
+    ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${sidebar(vals)}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
     ${state.view === "review" ? review(vals) : ""}
     ${state.showMembers ? membersModal(vals) : ""}
     ${state.showAudit ? auditModal(vals) : ""}
     ${state.showTranscode ? transcodeModal(vals) : ""}
     ${state.showImport ? importModal(vals) : ""}
     ${state.showUpdateModal ? updateModal(vals) : ""}
-    ${state.showProxyStorage ? proxyStorageModal() : ""}
     ${state.showCreateProject ? createProjectModal() : ""}
     ${state.showVersionMenu ? versionMenu(vals) : ""}
+    ${projectContextMenu()}
+    ${sourceContextMenu()}
   `;
+  syncHashRoute();
 
   // Restore focus to comment input if it had it
   const ta = document.getElementById("commentInput");
@@ -2353,6 +2512,12 @@ function render() {
 // the modal. Before this guard, clicking any input/button inside the create-
 // project, members, or update modal closed the whole thing.
 document.addEventListener("click", (e) => {
+  const inContextMenu = e.target && e.target.closest && e.target.closest("[data-context-menu]");
+  if (!inContextMenu && (state.projectContextMenu || state.sourceContextMenu)) {
+    state.projectContextMenu = null;
+    state.sourceContextMenu = null;
+    render();
+  }
   let n = e.target;
   while (n && n !== document) {
     if (n.dataset && n.dataset.act) {
@@ -2367,6 +2532,27 @@ document.addEventListener("click", (e) => {
   }
 });
 
+document.addEventListener("contextmenu", (e) => {
+  const projectNode = e.target && e.target.closest && e.target.closest("[data-project-menu-id]");
+  if (projectNode) {
+    e.preventDefault();
+    e.stopPropagation();
+    openProjectContextMenu(projectNode.dataset.projectMenuId, e.clientX, e.clientY);
+    return;
+  }
+  const sourceNode = e.target && e.target.closest && e.target.closest("[data-source-menu-id]");
+  if (sourceNode) {
+    e.preventDefault();
+    e.stopPropagation();
+    openSourceContextMenu(sourceNode.dataset.sourceMenuId, e.clientX, e.clientY);
+  }
+});
+
+window.addEventListener("hashchange", () => {
+  if (_applyingHashRoute) return;
+  applyHashRoute();
+});
+
 function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
@@ -2378,7 +2564,6 @@ function handleAct(act, arg, e, node) {
     case "toggleUpdateModal": return openUpdateModal();
     case "closeUpdateModal": return setState({ showUpdateModal: false, updateError: "" });
     case "openProxyStorage": return openProxyStorage();
-    case "closeProxyStorage": return setState({ showProxyStorage: false, proxyStorageError: "" });
     case "refreshProxyStorage": return refreshProxyStorage();
     case "deleteProxy": return deleteProxyRendition(arg);
     case "checkUpdateNow": return fetchUpdateStatus(true);
@@ -2416,6 +2601,26 @@ function handleAct(act, arg, e, node) {
     case "restoreProject": return restoreSelectedProject();
     case "editProject": return editSelectedProject();
     case "deleteProject": return deleteSelectedProject();
+    case "editProjectFromMenu":
+      state.projectContextMenu = null;
+      if (arg && arg !== state.selectedProjectId) state.selectedProjectId = arg;
+      render();
+      return editSelectedProject();
+    case "archiveProjectFromMenu":
+      state.projectContextMenu = null;
+      if (arg && arg !== state.selectedProjectId) state.selectedProjectId = arg;
+      render();
+      return archiveSelectedProject();
+    case "restoreProjectFromMenu":
+      state.projectContextMenu = null;
+      if (arg && arg !== state.selectedProjectId) state.selectedProjectId = arg;
+      render();
+      return restoreSelectedProject();
+    case "deleteProjectFromMenu":
+      state.projectContextMenu = null;
+      if (arg && arg !== state.selectedProjectId) state.selectedProjectId = arg;
+      render();
+      return deleteSelectedProject();
     case "toggleShowArchived": return toggleShowArchived();
     case "doInviteMember": return doInviteMember();
     case "inviteDsmUser": {
@@ -2445,6 +2650,14 @@ function handleAct(act, arg, e, node) {
     case "doImport": return doImport();
     case "editSource": return editSourceById(arg);
     case "deleteSource": return deleteSourceById(arg);
+    case "editSourceFromMenu":
+      state.sourceContextMenu = null;
+      render();
+      return editSourceById(arg);
+    case "deleteSourceFromMenu":
+      state.sourceContextMenu = null;
+      render();
+      return deleteSourceById(arg);
     case "togglePlay": return togglePlay();
     case "frameBack": return frameBack();
     case "frameFwd": return frameFwd();
@@ -2750,6 +2963,7 @@ async function bootstrap() {
     remote.connected = true; remote.me = r.user;
     setHint("Tải dữ liệu…");
     await loadRemote();
+    applyHashRoute();
   } catch (err) {
     if (err.status === 401) { remote.connected = true; remote.me = null; }
     else { remote.connected = false; remote.error = err.message; }
@@ -2780,6 +2994,7 @@ async function tryBootProbe() {
       const r = await api("/me");
       remote.me = r.user;
       await loadRemote();
+      applyHashRoute();
     } catch (e) {
       if (e.status === 401) { remote.me = null; }
       else { remote.connected = false; remote.error = e.message; }
@@ -2819,6 +3034,7 @@ async function loadRemote() {
     if (projects.some((project) => project.myRole === "owner")) {
       fetchUpdateStatus(false).catch(() => {});
     }
+    if (window.location.hash) applyHashRoute();
   } catch (e) { remote.error = e.message; }
 }
 
@@ -2831,7 +3047,7 @@ async function openUpdateModal() {
 
 // ---- Proxy storage management ----
 async function openProxyStorage() {
-  setState({ showProxyStorage: true, proxyStorageError: "" });
+  setState({ view: "proxyStorage", showProxyStorage: false, proxyStorageError: "", showUpdateModal: false, projectContextMenu: null, sourceContextMenu: null });
   await refreshProxyStorage();
 }
 
