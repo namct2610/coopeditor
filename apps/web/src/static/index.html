@@ -168,6 +168,8 @@ const state = {
   annotationTool: "pen",
   annotationColor: "#ef4d57",
   annotationStrokes: [],
+  annotationTexts: [],
+  annotationTextDraft: "",
   annotationDrawing: null,
   timelineHoverMs: null,
   showTranscode: false,
@@ -220,8 +222,7 @@ const state = {
   lastAutoQuality: "source",
   version: "v1",
   qualities: [
-    { id: "540p", label: "540p", res: "960×540", bitrate: "1.8 Mbps", sub: "Mạng yếu · nhiều người xem", status: "ready" },
-    { id: "720p", label: "720p", res: "1280×720", bitrate: "3.5 Mbps", sub: "Mặc định review", status: "ready" },
+    { id: "720p", label: "720p", res: "1280×720", bitrate: "3.5 Mbps", sub: "Review mặc định · nhẹ mạng hơn", status: "pending", progress: 0 },
     { id: "1080p", label: "1080p", res: "1920×1080", bitrate: "8 Mbps", sub: "Check chi tiết · cần mạng tốt", status: "pending", progress: 0 },
   ],
   comments: [],
@@ -388,7 +389,7 @@ function openSource(id) {
   pause();
   const pid = state.selectedProjectId;
   const src = ((state.sourcesByProject[pid] || []).find((item) => item.id === id)) || null;
-  setState({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null });
+  setState({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
 }
 function setStatusFilter(key) { setState({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function toggleTheme() { const t = state.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("co-theme", t); } catch (_) {} setState({ theme: t }); }
@@ -725,10 +726,10 @@ function bindTimelinePreview() {
 
 // ---- transcode ----
 function recommendedQualityForMbps(speedVal) {
-  return speedVal >= 40 ? "1080p" : speedVal >= 22 ? "720p" : "540p";
+  return speedVal >= 40 ? "1080p" : "720p";
 }
 function bestAvailableQuality(targetId) {
-  const order = ["1080p", "720p", "540p"];
+  const order = ["1080p", "720p"];
   const start = Math.max(0, order.indexOf(targetId));
   for (let i = start; i < order.length; i++) {
     const q = state.qualities.find((x) => x.id === order[i]);
@@ -759,7 +760,6 @@ function setQuality(id, opts) {
     setState(patch);
   }
   else if (q && q.status === "pending") {
-    requestTranscode(id);
     setState({ showQualityMenu: false, showTranscode: true, showSpeedPanel: false, autoQualityEnabled: config.manual === false ? state.autoQualityEnabled : false });
   }
   else setState({ showQualityMenu: false, showTranscode: true });
@@ -767,6 +767,25 @@ function setQuality(id, opts) {
 function requestTranscode(id) {
   state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "processing", progress: q.progress || 0 } : q);
   render();
+}
+
+async function openSourceTranscode(sourceId) {
+  state.sourceContextMenu = null;
+  state.projectContextMenu = null;
+  state.selectedId = sourceId;
+  if (remote.me) {
+    try {
+      await refreshAssetVersions(sourceId);
+      const versions = REMOTE_VERSIONS_BY_ASSET[sourceId] || [];
+      const current = versions.slice(-1)[0];
+      if (current) {
+        state._currentVersionId = current.id;
+        state.version = current.id;
+        await refreshRenditions(current.id);
+      }
+    } catch (_) {}
+  }
+  setState({ showTranscode: true, showQualityMenu: false });
 }
 
 // ---- import ----
@@ -819,7 +838,9 @@ async function doImport() {
 // ---- comments ----
 function postComment() {
   const text = (state.newComment || "").trim(); if (!text) return;
-  const annotation = (state.annotationStrokes && state.annotationStrokes.length) ? { strokes: state.annotationStrokes.slice() } : null;
+  const annotation = ((state.annotationStrokes && state.annotationStrokes.length) || (state.annotationTexts && state.annotationTexts.length))
+    ? { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() }
+    : null;
   state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
   state.newComment = "";
   render();
@@ -949,6 +970,16 @@ const ICON = {
   spinner: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg>',
   bell: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path><path d="M9 17a3 3 0 0 0 6 0"></path></svg>',
   dots: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>',
+  open: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg>',
+  edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z"></path></svg>',
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>',
+  archive: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"></rect><path d="M5 8h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"></path><path d="M10 12h4"></path></svg>',
+  restore: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path></svg>',
+  proxy: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h10"></path><circle cx="18" cy="17" r="2"></circle><circle cx="14" cy="12" r="2"></circle><circle cx="8" cy="7" r="2"></circle></svg>',
+  penTool: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m12 20 9-9-8-8-9 9-2 10z"></path><path d="m16 7 1 1"></path></svg>',
+  arrowTool: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line><polyline points="9 5 19 5 19 15"></polyline></svg>',
+  rectTool: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="2"></rect></svg>',
+  textTool: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M12 6v12"></path><path d="M8 18h8"></path></svg>',
   refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"></path><path d="M3 3v5h5"></path></svg>',
   share: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>',
   team: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
@@ -1160,7 +1191,6 @@ function projectsHub(vals) {
                 <div style="position:absolute;left:11px;top:11px;">
                   <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);color:${p.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;"><span style="width:7px;height:7px;border-radius:50%;background:${p.statusColor};"></span>${esc(p.statusLabel)}</span>
                 </div>
-                <div style="position:absolute;right:11px;top:11px;width:32px;height:32px;border-radius:10px;background:rgba(7,9,14,0.68);border:1px solid rgba(255,255,255,0.14);display:grid;place-items:center;color:rgba(255,255,255,0.72);backdrop-filter:blur(6px);">⋯</div>
                 <div style="position:absolute;left:11px;right:11px;bottom:11px;display:flex;gap:5px;height:30px;">
                   ${p.thumbs.map((t) => `<div style="flex:1;border-radius:5px;background:${/^https?:|^\//.test(t) ? `center/cover no-repeat url(${esc(t)})` : t};border:1px solid var(--co-border-2);"></div>`).join("")}
                 </div>
@@ -1225,10 +1255,10 @@ function projectDetail(vals) {
         ` : ""}
         ${vals.isOwner ? (
           vals.isArchived
-            ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#35c389;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.refresh}Khôi phục</button>`
-            : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#f5a623;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">📦 Archive</button>`
+            ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#35c389;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.restore}Khôi phục</button>`
+            : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#f5a623;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.archive}Archive</button>`
         ) : ""}
-        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">✎ Sửa project</button>` : ""}
+        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.edit}Sửa project</button>` : ""}
         <div style="display:flex;gap:3px;background:var(--co-panel);padding:4px;border-radius:10px;border:1px solid var(--co-border);">
           <button data-act="setListView" title="Danh sách" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
           <button data-act="setGridView" title="Lưới album" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
@@ -1259,7 +1289,6 @@ function sourceListView(vals) {
       </div>
       <span style="display:inline-flex;align-items:center;gap:6px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
       <span style="display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11.5px;width:42px;">${ICON.msg}${s.comments}</span>
-      ${vals.canManageProject ? `<div style="width:32px;height:32px;border-radius:9px;background:var(--co-panel-2);border:1px solid var(--co-border-2);display:grid;place-items:center;color:var(--co-faint);font-size:17px;">⋯</div>` : ""}
       <div style="display:flex;flex-direction:column;gap:3px;">
         <button data-act="moveUp" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevUp}</button>
         <button data-act="moveDown" data-arg="${s.id}" class="co-border-hover" style="width:26px;height:18px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:6px;color:var(--co-text-2);cursor:pointer;">${ICON.chevDownSmall}</button>
@@ -1285,7 +1314,6 @@ function sourceGridView(vals) {
           <span style="display:inline-flex;align-items:center;gap:5px;background:${s.statusBg};color:${s.statusColor};font-weight:700;font-size:10.5px;padding:4px 8px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:${s.statusColor};"></span>${esc(s.statusLabel)}</span>
           <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11px;">${ICON.msg}${s.comments}</span>
         </div>
-        ${vals.canManageProject ? `<div style="display:flex;justify-content:flex-end;margin-top:10px;"><div style="width:32px;height:32px;border-radius:9px;background:var(--co-panel-2);border:1px solid var(--co-border-2);display:grid;place-items:center;color:var(--co-faint);font-size:17px;">⋯</div></div>` : ""}
       </div>
     </div>
   `).join("")}</div>`;
@@ -1321,27 +1349,37 @@ function safeAreaOverlay(aspect) {
 
 // ---- Annotation: SVG overlay + toolbar -----------------------------------
 // Coordinates stored 0..1 (normalized) so annotations survive any scaling.
-// On comment submit, state.annotationStrokes is shipped với body.annotation.
+// On comment submit, both strokes and anchored text notes are shipped in body.annotation.
 function annotationToolbar() {
   if (state.view !== "review") return "";
   const active = !!state.annotationMode;
   const tool = state.annotationTool || "pen";
   const color = state.annotationColor || "#ef4d57";
   const colors = ["#ef4d57", "#f5a623", "#35c389", "#2da8e2", "#a07bff", "#ffffff"];
-  const tools = [{ id: "pen", label: "✎ Vẽ" }, { id: "arrow", label: "→ Mũi tên" }, { id: "rect", label: "▭ Khung" }];
+  const tools = [
+    { id: "pen", label: "Vẽ", icon: ICON.penTool },
+    { id: "arrow", label: "Mũi tên", icon: ICON.arrowTool },
+    { id: "rect", label: "Khung", icon: ICON.rectTool },
+    { id: "text", label: "Text", icon: ICON.textTool },
+  ];
   const strokeCount = (state.annotationStrokes || []).length;
+  const textCount = (state.annotationTexts || []).length;
+  const totalCount = strokeCount + textCount;
   return `
     <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;flex-wrap:wrap;">
       <button data-act="toggleAnnotationMode" class="co-border-hover" title="Bật/tắt chế độ vẽ chú thích trên khung hình" style="display:inline-flex;align-items:center;gap:6px;background:${active ? "#ef4d57" : "transparent"};color:${active ? "#fff" : "var(--co-text-2)"};border:1px solid ${active ? "#ef4d57" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer;">
-        ${active ? "● Đang vẽ" : "✎ Vẽ chú thích"}
+        ${ICON.penTool}${active ? "Đang chú thích" : "Chú thích"}
       </button>
       ${active ? `
-        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="background:${tool === t.id ? "#2da8e2" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#2da8e2" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.label}</button>`).join("")}
+        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="display:inline-flex;align-items:center;gap:6px;background:${tool === t.id ? "#2da8e2" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#2da8e2" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.icon}${t.label}</button>`).join("")}
+        ${tool === "text" ? `
+          <input id="annotationTextDraft" value="${esc(state.annotationTextDraft || "")}" placeholder="Nhập text rồi click lên khung hình" style="min-width:220px;flex:1;background:var(--co-panel);border:1px solid rgba(45,168,226,0.28);border-radius:8px;padding:7px 10px;color:var(--co-text);font-size:12.5px;outline:none;" />
+        ` : ""}
         <span style="display:inline-flex;gap:4px;align-items:center;padding:0 4px;">
           ${colors.map((c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === color ? "#fff" : "transparent"};cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,0.3);"></button>`).join("")}
         </span>
-        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${strokeCount} nét @ ${fmtTc(state.currentMs)} — sẽ gửi cùng comment tiếp theo</span>
-        <button data-act="clearAnnotation" style="background:transparent;color:#ef4d57;border:1px solid rgba(239,77,87,0.3);font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">Xóa</button>
+        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${totalCount} ghi chú @ ${fmtTc(state.currentMs)} — sẽ gửi cùng comment tiếp theo</span>
+        <button data-act="clearAnnotation" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:#ef4d57;border:1px solid rgba(239,77,87,0.3);font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${ICON.trash}Xóa</button>
       ` : ""}
     </div>`;
 }
@@ -1350,16 +1388,18 @@ function visibleAnchoredAnnotations() {
   const comments = state.comments || [];
   const threshold = Math.max(320, Math.round(1000 / Math.max(1, state.fps)) * 6);
   return comments
-    .filter((c) => c && c.annotation && c.annotation.strokes && c.annotation.strokes.length && Math.abs((c.ms || 0) - state.currentMs) <= threshold)
+    .filter((c) => c && c.annotation && ((c.annotation.strokes && c.annotation.strokes.length) || (c.annotation.texts && c.annotation.texts.length)) && Math.abs((c.ms || 0) - state.currentMs) <= threshold)
     .map((c) => ({ ...c.annotation, _commentId: c.id, _commentMs: c.ms }));
 }
 
 function annotationOverlay() {
   const anchored = visibleAnchoredAnnotations();
   const savedStrokes = anchored.flatMap((a) => a.strokes || []);
+  const savedTexts = anchored.flatMap((a) => a.texts || []);
   const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
+  const texts = [...savedTexts, ...(state.annotationTexts || [])];
   const drawing = state.annotationDrawing;
-  const all = drawing ? [...strokes, drawing] : strokes;
+  const all = drawing ? [...strokes, ...texts, drawing] : [...strokes, ...texts];
   const active = !!state.annotationMode;
   return `
     <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:${active ? "crosshair" : "default"};touch-action:none;z-index:40;pointer-events:${active ? "auto" : "none"};"
@@ -1368,7 +1408,7 @@ function annotationOverlay() {
          onpointerup="window.__annPtr&&window.__annPtr('up',event)"
          onpointercancel="window.__annPtr&&window.__annPtr('up',event)"
          onpointerleave="window.__annPtr&&window.__annPtr('up',event)">
-      ${all.map((s) => renderStrokeSvg(s)).join("")}
+      ${all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")}
     </svg>`;
 }
 
@@ -1396,6 +1436,18 @@ function renderStrokeSvg(s) {
   return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />`;
 }
 
+function renderAnnotationText(t) {
+  if (!t || typeof t.text !== "string") return "";
+  const x = Math.max(0, Math.min(1, Number(t.x) || 0));
+  const y = Math.max(0, Math.min(1, Number(t.y) || 0));
+  const color = typeof t.color === "string" ? t.color : "#ef4d57";
+  const text = esc(t.text).slice(0, 120);
+  return `<g>
+    <rect x="${Math.max(0, x - 0.01)}" y="${Math.max(0, y - 0.04)}" width="${Math.min(0.42, 0.04 + text.length * 0.011)}" height="0.06" rx="0.012" fill="rgba(7,9,14,0.72)" stroke="${color}" stroke-width="0.003"></rect>
+    <text x="${x + 0.008}" y="${y}" fill="${color}" font-size="0.028" font-weight="700" dominant-baseline="middle">${text}</text>
+  </g>`;
+}
+
 // Pointer event handler — module-scope so the SVG inline attributes can hit it.
 // IMPORTANT perf note: a naive render() per pointermove rebuilds the entire app
 // DOM (~3k lines of innerHTML) every ~10ms while drawing — the cause of the
@@ -1409,10 +1461,12 @@ function repaintAnnotationSvg() {
   if (!svg) return;
   const anchored = visibleAnchoredAnnotations();
   const savedStrokes = anchored.flatMap((a) => a.strokes || []);
+  const savedTexts = anchored.flatMap((a) => a.texts || []);
   const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
+  const texts = [...savedTexts, ...(state.annotationTexts || [])];
   const drawing = state.annotationDrawing;
-  const all = drawing ? [...strokes, drawing] : strokes;
-  svg.innerHTML = all.map((s) => renderStrokeSvg(s)).join("");
+  const all = drawing ? [...strokes, ...texts, drawing] : [...strokes, ...texts];
+  svg.innerHTML = all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("");
 }
 
 let _annRafQueued = false;
@@ -1428,6 +1482,14 @@ window.__annPtr = function (phase, ev) {
   const rect = svg.getBoundingClientRect();
   const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
   const y = Math.max(0, Math.min(1, (ev.clientY - rect.top) / rect.height));
+  if (state.annotationTool === "text" && phase === "down") {
+    const text = String(state.annotationTextDraft || "").trim();
+    if (!text) return;
+    state.annotationTexts = [...(state.annotationTexts || []), { x, y, color: state.annotationColor, text: text.slice(0, 120) }];
+    state.annotationTextDraft = "";
+    render();
+    return;
+  }
   if (phase === "down") {
     state.annotationDrawing = { tool: state.annotationTool, color: state.annotationColor, points: [[x, y]] };
     try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
@@ -1554,12 +1616,12 @@ function projectContextMenu() {
       <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Project</div>
       <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.name)}</div>
     </div>
-    <div data-act="openProject" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">📂 Mở project</div>
-    ${menu.canManage ? `<div data-act="editProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">✎ Đổi tên / sửa</div>` : ""}
+    <div data-act="openProject" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.open}Mở project</div>
+    ${menu.canManage ? `<div data-act="editProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.edit}Đổi tên / sửa</div>` : ""}
     ${menu.isOwner ? (menu.isArchived
-      ? `<div data-act="restoreProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#35c389;font-size:13px;font-weight:700;">↺ Khôi phục project</div>`
-      : `<div data-act="archiveProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#f5a623;font-size:13px;font-weight:700;">📦 Archive project</div>` ) : ""}
-    ${menu.isOwner && !menu.isArchived ? `<div data-act="deleteProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">🗑 Xóa project</div>` : ""}
+      ? `<div data-act="restoreProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#35c389;font-size:13px;font-weight:700;">${ICON.restore}Khôi phục project</div>`
+      : `<div data-act="archiveProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#f5a623;font-size:13px;font-weight:700;">${ICON.archive}Archive project</div>` ) : ""}
+    ${menu.isOwner && !menu.isArchived ? `<div data-act="deleteProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">${ICON.trash}Xóa project</div>` : ""}
   </div>`;
 }
 
@@ -1572,9 +1634,10 @@ function sourceContextMenu() {
       <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Video</div>
       <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.title)}</div>
     </div>
-    <div data-act="openSource" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">▶ Mở review</div>
-    <div data-act="editSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">✎ Đổi tên / sửa</div>
-    <div data-act="deleteSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">🗑 Xóa video</div>
+    <div data-act="openSource" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.play}Mở review</div>
+    <div data-act="openSourceTranscode" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#2da8e2;font-size:13px;font-weight:700;">${ICON.proxy}Transcode proxy</div>
+    <div data-act="editSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.edit}Đổi tên / sửa</div>
+    <div data-act="deleteSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">${ICON.trash}Xóa video</div>
   </div>`;
 }
 
@@ -1592,7 +1655,7 @@ function proxyStoragePage() {
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Proxy Storage</div>
           <div style="margin-top:4px;font-size:20px;font-weight:800;color:var(--co-text);">Quản lý dung lượng proxy</div>
           <div style="margin-top:4px;color:var(--co-muted);font-size:12.5px;font-weight:600;line-height:1.5;">
-            Mỗi rendition (540p/720p/1080p) lưu HLS playlist + segment trên MinIO.
+            Mỗi rendition (720p/1080p) lưu HLS playlist + segment trên MinIO.
             Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động.
             Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu.
           </div>
@@ -1721,7 +1784,7 @@ function updateModal(vals) {
           </div>
         </div>
         <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner có thể trigger update thủ công. Nếu updater không hỗ trợ trigger, hệ thống vẫn tiếp tục auto-poll image mới theo lịch." : "Chỉ owner mới có quyền trigger update thủ công."}</div>
-        ${vals.canManageUpdates ? `<div style="margin-top:10px;display:flex;justify-content:flex-end;"><button data-act="openProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 14px;border-radius:9px;cursor:pointer;">📦 Quản lý dung lượng proxy</button></div>` : ""}
+        ${vals.canManageUpdates ? `<div style="margin-top:10px;display:flex;justify-content:flex-end;"><button data-act="openProxyStorage" class="co-border-hover" style="display:inline-flex;align-items:center;gap:7px;background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 14px;border-radius:9px;cursor:pointer;">${ICON.proxy}Quản lý dung lượng proxy</button></div>` : ""}
       </div>
       <div style="margin-top:16px;background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
         <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Release notes</div>
@@ -1905,7 +1968,7 @@ function commentsPanel(vals) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
               <button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(45,168,226,0.13);border:none;color:#2da8e2;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
-              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,0.13);border:none;color:#f5a623;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">✎ Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét</button>` : ""}
+              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,0.13);border:none;color:#f5a623;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">${ICON.penTool}Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</button>` : ""}
             </div>
             ${c.isEditing ? `
               <div style="margin-top:10px;">
@@ -2286,8 +2349,9 @@ function computeVals() {
       roleTag: au.role, roleColor: au.role ? "#35c389" : "transparent",
       content: c.content, ago: c.ago, resolved: c.resolved,
       annotation: c.annotation || null,
-      hasAnnotation: !!(c.annotation && c.annotation.strokes && c.annotation.strokes.length),
+      hasAnnotation: !!(c.annotation && ((c.annotation.strokes && c.annotation.strokes.length) || (c.annotation.texts && c.annotation.texts.length))),
       annotationStrokeCount: c.annotation && c.annotation.strokes ? c.annotation.strokes.length : 0,
+      annotationTextCount: c.annotation && c.annotation.texts ? c.annotation.texts.length : 0,
       annotationTcLabel: fmtTc(c.ms),
       tcLabel: fmtTc(c.ms), ms: c.ms, leftPct: (c.ms / s.duration) * 100,
       cardBg: c.resolved ? "rgba(255,255,255,0.015)" : "var(--co-panel)",
@@ -2375,7 +2439,7 @@ function computeVals() {
   const importCount = Object.keys(s.importSel).length;
 
   const speedVal = s.speedTesting ? s.speedDisplay : s.speedMbps;
-  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#35c389", rec: "1080p" } : speedVal >= 22 ? { label: "Ổn", color: "#2da8e2", rec: "720p" } : { label: "Yếu", color: "#f5a623", rec: "540p" };
+  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#35c389", rec: "1080p" } : { label: "Ổn", color: "#2da8e2", rec: "720p" };
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
@@ -2595,7 +2659,7 @@ function handleAct(act, arg, e, node) {
     case "toggleAnnotationMode": return setState({ annotationMode: !state.annotationMode });
     case "setAnnotationTool": return setState({ annotationTool: arg });
     case "setAnnotationColor": return setState({ annotationColor: decodeURIComponent(arg) });
-    case "clearAnnotation": return setState({ annotationStrokes: [], annotationDrawing: null });
+    case "clearAnnotation": return setState({ annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
     case "closeAudit": return setState({ showAudit: false });
     case "archiveProject": return archiveSelectedProject();
     case "restoreProject": return restoreSelectedProject();
@@ -2654,6 +2718,8 @@ function handleAct(act, arg, e, node) {
       state.sourceContextMenu = null;
       render();
       return editSourceById(arg);
+    case "openSourceTranscode":
+      return openSourceTranscode(arg);
     case "deleteSourceFromMenu":
       state.sourceContextMenu = null;
       render();
@@ -2698,6 +2764,9 @@ document.addEventListener("input", (e) => {
   if (e.target && e.target.id === "commentInput") {
     state.newComment = e.target.value;
     state._focusComment = true;
+  }
+  if (e.target && e.target.id === "annotationTextDraft") {
+    state.annotationTextDraft = e.target.value;
   }
   if (e.target && e.target.id === "workspaceSearch") {
     state.workspaceSearch = e.target.value;
@@ -2794,7 +2863,7 @@ function pickPlaybackUrl(src, quality) {
   if (!quality || quality === "source") return src.playbackUrl;
   const versionId = state._currentVersionId;
   const rends = (versionId && REMOTE_RENDITIONS && REMOTE_RENDITIONS[versionId]) || [];
-  const targetH = quality === "540p" ? 540 : quality === "720p" ? 720 : quality === "1080p" ? 1080 : 0;
+  const targetH = quality === "720p" ? 720 : quality === "1080p" ? 1080 : 0;
   const r = rends.find((x) => x.height === targetH);
   if (r && r.status === "ready" && r.hlsMasterUrl) {
     // hlsMasterUrl is "/hls/<rid>/master.m3u8" — proxied through the API.
@@ -3496,7 +3565,7 @@ async function toggleShowArchived() {
 async function remotePostComment(versionId, content, timestampMs, frameNumber, annotation) {
   if (!remote.me) return;
   const body = { content, timestampMs, frameNumber };
-  if (annotation && annotation.strokes && annotation.strokes.length) body.annotation = annotation;
+  if (annotation && ((annotation.strokes && annotation.strokes.length) || (annotation.texts && annotation.texts.length))) body.annotation = annotation;
   try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body }); await refreshComments(versionId); render(); } catch (_) {}
 }
 async function remoteToggleResolve(commentId, resolved) {
@@ -3587,7 +3656,7 @@ async function remoteRequestTranscode(versionId, height) {
 }
 
 async function selectVersion(versionId) {
-  setState({ version: versionId, showVersionMenu: false, commentMenuId: null, editingCommentId: null });
+  setState({ version: versionId, showVersionMenu: false, commentMenuId: null, editingCommentId: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
   if (!remote.me) return;
   state._currentVersionId = versionId;
   await refreshComments(versionId);
@@ -3934,15 +4003,15 @@ function applyRemoteToState() {
   if (state._currentVersionId && REMOTE_RENDITIONS[state._currentVersionId]) {
     const renditionMap = {};
     REMOTE_RENDITIONS[state._currentVersionId].forEach((r) => { renditionMap[r.height] = r; });
-    state.qualities = [540, 720, 1080].map((height) => {
+    state.qualities = [720, 1080].map((height) => {
       const r = renditionMap[height];
       const label = height + "p";
       const base = {
         id: label,
         label,
-        res: height === 540 ? "960×540" : height === 720 ? "1280×720" : "1920×1080",
-        bitrate: height === 540 ? "1.8 Mbps" : height === 720 ? "3.5 Mbps" : "8 Mbps",
-        sub: height === 540 ? "Mạng yếu · nhiều người xem" : height === 720 ? "Mặc định review" : "Check chi tiết · cần mạng tốt",
+        res: height === 720 ? "1280×720" : "1920×1080",
+        bitrate: height === 720 ? "3.5 Mbps" : "8 Mbps",
+        sub: height === 720 ? "Review mặc định · nhẹ mạng hơn" : "Check chi tiết · cần mạng tốt",
       };
       if (!r) return { ...base, status: "pending", progress: 0 };
       return { ...base, status: r.status, progress: r.progress || 0 };
@@ -4016,8 +4085,8 @@ const _origPostComment = postComment;
 postComment = function () {
   const text = (state.newComment || "").trim();
   // Snapshot annotation BEFORE the local stub clears state.newComment
-  const annotation = (state.annotationStrokes && state.annotationStrokes.length)
-    ? { strokes: state.annotationStrokes.slice() }
+  const annotation = ((state.annotationStrokes && state.annotationStrokes.length) || (state.annotationTexts && state.annotationTexts.length))
+    ? { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() }
     : null;
   _origPostComment();
   if (remote.me && state._currentVersionId && text) {
@@ -4026,6 +4095,8 @@ postComment = function () {
   // After post: clear annotation + exit drawing mode for a clean next comment
   if (annotation) {
     state.annotationStrokes = [];
+    state.annotationTexts = [];
+    state.annotationTextDraft = "";
     state.annotationDrawing = null;
     state.annotationMode = false;
     render();
@@ -4060,7 +4131,7 @@ const _origRequestTranscode = requestTranscode;
 requestTranscode = function (id) {
   _origRequestTranscode(id);
   if (remote.me && state._currentVersionId) {
-    const h = id === "540p" ? 540 : id === "720p" ? 720 : 1080;
+    const h = id === "720p" ? 720 : 1080;
     remoteRequestTranscode(state._currentVersionId, h);
   }
 };

@@ -62,8 +62,8 @@ export type RenditionStatus = "ready" | "processing" | "pending" | "failed";
 export type Rendition = {
   id: string;
   assetVersionId: string;
-  height: 540 | 720 | 1080;
-  label: "540p" | "720p" | "1080p";
+  height: 720 | 1080;
+  label: "720p" | "1080p";
   bitrateKbps: number;
   status: RenditionStatus;
   progress: number; // 0..100
@@ -139,7 +139,7 @@ export type NasListing = {
 
 export type ReorderInput = { orderedAssetIds: string[] };
 export type ImportInput = { nasPaths: string[] };
-export type CreateRenditionInput = { height: 540 | 720 | 1080 };
+export type CreateRenditionInput = { height: 720 | 1080 };
 export type PatchProjectInput = { status?: ProjectStatus; name?: string };
 export type CreateProjectTemplateInput = { name: string; description?: string; sourceProjectId?: string; defaultClient?: string };
 export type CreateProjectFromTemplateInput = { name?: string; client?: string };

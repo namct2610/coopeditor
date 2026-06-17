@@ -5,7 +5,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 test.describe("review flow", () => {
   test.skip(process.env.PLAYWRIGHT_E2E !== "1", "Set PLAYWRIGHT_E2E=1 with running API/web services to execute the end-to-end review flow.");
 
-  test("login -> import -> wait transcode -> post comment -> resolve", async ({ page }) => {
+  test("login -> import -> request proxy manually -> post comment -> resolve", async ({ page }) => {
     await page.goto(BASE_URL);
 
     await page.getByLabel("Tài khoản").fill("minh");
@@ -20,6 +20,7 @@ test.describe("review flow", () => {
 
     await page.getByText("Opening_Wide_Kitchen").click();
     await page.getByRole("button", { name: /1080p/i }).click();
+    await page.getByRole("button", { name: /Tạo proxy/i }).click();
 
     await expect.poll(async () => page.locator("text=1080p").first().textContent()).not.toContain("Tạo proxy");
 

@@ -8,7 +8,6 @@ import { randomUUID } from "node:crypto";
 import { db } from "./db.js";
 
 const RUNGS = [
-  { height: 540, label: "540p", bitrateKbps: 1800 },
   { height: 720, label: "720p", bitrateKbps: 3500 },
   { height: 1080, label: "1080p", bitrateKbps: 8000 },
 ];
@@ -450,7 +449,7 @@ export async function addAssetFromImport({ projectId, title, codec, sizeLabel, d
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',0,$14,$15) RETURNING *`,
     [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", a, b]);
 
-  // seed V1 + 3 renditions (pending; worker will tick when requested or on import)
+  // seed V1 + 2 renditions (pending; worker runs only on manual request)
   const vid = id + "_v1";
   await q(`INSERT INTO asset_versions (id, asset_id, version_number, label, note, author_user_id)
     VALUES ($1,$2,1,'V1','current',(SELECT id FROM users LIMIT 1))`, [vid, id]);

@@ -174,12 +174,15 @@ async function canManageUpdates(userId) {
   return !!(members && members.some((member) => member.role === "owner"));
 }
 
-// Annotation payload: { strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }] }
+// Annotation payload:
+// {
+//   strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }],
+//   texts: [{ x: 0..1, y: 0..1, color: "#RRGGBB", text: "..." }]
+// }
 // Coordinates are normalized 0..1 so they survive scaling. Size cap = 50 strokes × 256 points.
 function validateAnnotation(raw) {
   if (!raw || typeof raw !== "object") return null;
-  if (!Array.isArray(raw.strokes)) return null;
-  const strokes = raw.strokes.slice(0, 50).map((s) => {
+  const strokes = Array.isArray(raw.strokes) ? raw.strokes.slice(0, 50).map((s) => {
     if (!s || typeof s !== "object") return null;
     const tool = ["pen", "arrow", "rect"].includes(s.tool) ? s.tool : "pen";
     const color = typeof s.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : "#ef4d57";
@@ -192,9 +195,18 @@ function validateAnnotation(raw) {
     }).filter(Boolean);
     if (!points.length) return null;
     return { tool, color, points };
-  }).filter(Boolean);
-  if (!strokes.length) return null;
-  return { strokes };
+  }).filter(Boolean) : [];
+  const texts = Array.isArray(raw.texts) ? raw.texts.slice(0, 32).map((t) => {
+    if (!t || typeof t !== "object") return null;
+    const color = typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color) ? t.color : "#ef4d57";
+    const x = Math.round(Math.max(0, Math.min(1, Number(t.x) || 0)) * 1000) / 1000;
+    const y = Math.round(Math.max(0, Math.min(1, Number(t.y) || 0)) * 1000) / 1000;
+    const text = String(t.text || "").trim().slice(0, 120);
+    if (!text) return null;
+    return { x, y, color, text };
+  }).filter(Boolean) : [];
+  if (!strokes.length && !texts.length) return null;
+  return { strokes, texts };
 }
 
 async function publishProjectEvent(projectId, event) {
@@ -660,8 +672,6 @@ async function handle(req, res, url) {
       });
       created.push(a);
       const versions = await store.listVersionsForAsset(a.id);
-      const rends = await store.listRenditionsForVersion(versions[0].id);
-      await Promise.all(rends.map((r) => requestTranscode(r.id)));
       await audit.record({
         actorUserId: sess.userId,
         action: "asset.imported",
@@ -699,7 +709,7 @@ async function handle(req, res, url) {
     if (m === "POST") {
       if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
       const body = await readJson(req).catch(() => null);
-      if (!body || ![540, 720, 1080].includes(body.height)) return bad(res, "height must be 540|720|1080");
+      if (!body || ![720, 1080].includes(body.height)) return bad(res, "height must be 720|1080");
       const r = (await store.listRenditionsForVersion(vid)).find((x) => x.height === body.height);
       if (!r) return bad(res, "Rendition not found", 404);
       if (r.status === "ready") return send(res, 200, r);

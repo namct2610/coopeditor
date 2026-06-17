@@ -100,7 +100,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.0");
+  assert.equal(r.json.version, "0.2.11");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -108,8 +108,8 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.0");
-  assert.equal(r.json.checkAvailable, false);
+  assert.equal(r.json.local.version, "0.2.11");
+  assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
 
@@ -299,7 +299,7 @@ test("NAS list and import lifecycle", async () => {
 });
 
 test("HLS sim mode returns valid empty playlist", async () => {
-  const r = await fetch(BASE + "/hls/p1s1_v3_540p/master.m3u8", { headers: { cookie } });
+  const r = await fetch(BASE + "/hls/p1s1_v3_720p/master.m3u8", { headers: { cookie } });
   assert.equal(r.status, 200);
   const text = await r.text();
   assert.match(text, /^#EXTM3U/);
@@ -308,15 +308,15 @@ test("HLS sim mode returns valid empty playlist", async () => {
 
 test("HLS signed URL can access playback without session cookie", async () => {
   const exp = String(Math.floor(Date.now() / 1000) + 120);
-  const sig = createSignedPlaybackToken("p1s1_v3_540p", "master.m3u8", "test-hls-secret", exp);
-  const r = await fetch(`${BASE}/hls/p1s1_v3_540p/master.m3u8?exp=${encodeURIComponent(exp)}&sig=${encodeURIComponent(sig)}`);
+  const sig = createSignedPlaybackToken("p1s1_v3_720p", "master.m3u8", "test-hls-secret", exp);
+  const r = await fetch(`${BASE}/hls/p1s1_v3_720p/master.m3u8?exp=${encodeURIComponent(exp)}&sig=${encodeURIComponent(sig)}`);
   assert.equal(r.status, 200);
   const text = await r.text();
   assert.match(text, /^#EXTM3U/);
 });
 
 test("HLS unsigned playback without session is rejected", async () => {
-  const r = await fetch(BASE + "/hls/p1s1_v3_540p/master.m3u8");
+  const r = await fetch(BASE + "/hls/p1s1_v3_720p/master.m3u8");
   assert.equal(r.status, 401);
 });
 

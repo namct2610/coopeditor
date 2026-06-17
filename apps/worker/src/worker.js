@@ -37,7 +37,7 @@ const FFMPEG_PATH = process.env.FFMPEG_PATH || "";
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
 const scalingPolicy = createScalingPolicy(process.env);
 const BASE_CONCURRENCY = scalingPolicy.baseConcurrency;
-const RUNG_BITRATE = { 540: "1800k", 720: "3500k", 1080: "8000k" };
+const RUNG_BITRATE = { 720: "3500k", 1080: "8000k" };
 
 // "nvenc" → NVIDIA. "qsv" → Intel QuickSync (libmfx). "vaapi" → generic Linux
 // VAAPI (works with Intel iGPU on Alpine where libmfx is missing). "" → CPU.
@@ -46,7 +46,7 @@ const RUNG_BITRATE = { 540: "1800k", 720: "3500k", 1080: "8000k" };
 // exists — most Alpine ffmpeg builds ship VAAPI but not libmfx, so for Intel
 // boxes VAAPI is the path that actually works.
 let HW = (process.env.FFMPEG_HWACCEL || "").toLowerCase();
-// "h264" (default) — all rungs use h264. "h265" — all rungs h265. "mixed" — 540p/720p h264, 1080p h265.
+// "h264" (default) — all rungs use h264. "h265" — all rungs h265. "mixed" — 720p h264, 1080p h265.
 const CODEC_LADDER = (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase();
 function codecForHeight(h) {
   if (CODEC_LADDER === "h265") return "h265";

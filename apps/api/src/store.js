@@ -185,12 +185,11 @@ for (const a of assets.values()) {
 }
 export function listVersionsForAsset(assetId) { return versionsByAsset.get(assetId) || []; }
 
-// --- renditions: each version gets 540p (ready), 720p (ready), 1080p (pending) ---
+// --- renditions: each version gets 720p + 1080p ---
 export const renditions = new Map();
 const renditionsByVersion = new Map();
 const RUNGS = [
-  { height: 540, label: "540p", bitrateKbps: 1800, status: "ready" },
-  { height: 720, label: "720p", bitrateKbps: 3500, status: "ready" },
+  { height: 720, label: "720p", bitrateKbps: 3500, status: "pending" },
   { height: 1080, label: "1080p", bitrateKbps: 8000, status: "pending" },
 ];
 for (const v of versions.values()) {

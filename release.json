@@ -1,10 +1,10 @@
 {
-  "version": "0.2.10",
-  "summary": "Thêm menu chuột phải cho project/video, trang quản lý proxy riêng, và route bền vững để reload không văng khỏi màn hình đang mở.",
+  "version": "0.2.11",
+  "summary": "Rút ladder proxy còn 1080p/720p, chuyển sang transcode thủ công, và thêm text annotation trong review.",
   "changes": [
-    "Project card và source list/grid card giờ hỗ trợ menu chuột phải để mở, sửa/đổi tên, archive hoặc xóa mà không nhồi nút tác vụ ngay trong danh sách.",
-    "Proxy storage được chuyển từ popup sang trang quản lý riêng trong workspace, đồng thời sidebar hiển thị dung lượng đang dùng và mở thẳng vào trang này.",
-    "App đồng bộ trạng thái điều hướng vào URL hash cho projects, review và proxy storage để F5 hoặc mở lại tab vẫn quay về đúng màn hình trước đó."
+    "Pipeline proxy chỉ còn 2 mức 720p và 1080p; import source không tự động transcode nữa, thay vào đó owner có thể trigger thủ công từ menu chuột phải của video.",
+    "UI bỏ nút ba chấm trong card project/video, thay toàn bộ action chính bằng icon và context menu chuột phải để danh sách gọn hơn.",
+    "Annotation giờ hỗ trợ chèn text trực tiếp lên frame, lưu cùng timestamp của comment để review theo mốc thời gian chính xác hơn."
   ],
   "publishedAt": "2026-06-17T00:00:00.000Z"
 }

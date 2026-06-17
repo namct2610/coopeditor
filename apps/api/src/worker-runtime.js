@@ -11,7 +11,7 @@ const pendingRenditions = new Set();
 export async function requestTranscode(rid) {
   const r = await store.getRendition(rid);
   if (!r) return;
-  if (r.status === "ready") return;
+  if (r.status === "ready" || r.status === "processing") return;
   await store.setRenditionStatus(rid, { status: "processing", progress: r.progress || 0 });
 
   if (store.backend === "pg") {
