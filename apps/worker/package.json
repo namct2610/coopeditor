@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/worker.js",
-    "start": "node src/worker.js",
+    "dev": "node --watch src/bootstrap.js",
+    "start": "node src/bootstrap.js",
     "build": "echo \"build worker\"",
     "typecheck": "echo \"add TypeScript setup for worker\"",
     "test": "node --test test/*.test.js"

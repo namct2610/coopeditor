@@ -1,10 +1,10 @@
 {
-  "version": "0.2.17",
-  "summary": "Gia cố bảo mật path NAS, giảm độ trễ proxy storage và giữ worker không requeue vô hạn với lỗi mount.",
+  "version": "0.2.18",
+  "summary": "Worker giờ tự restart khi runtime config đổi và DSM path helpers không còn giữ mount root cũ trong memory.",
   "changes": [
-    "Helper NAS giờ chặn trực tiếp các segment '.' và '..' để tránh path traversal khi API đọc source, sinh thumbnail hoặc fallback sang thư mục mount cục bộ.",
-    "Route /admin/proxy-storage đã được tối ưu từ lookup metadata kiểu N+1 sang batch query để sidebar proxy có dữ liệu nhanh và ổn định hơn khi số rendition lớn.",
-    "Worker tiếp tục giữ policy không auto-requeue các lỗi permanent như source path not mounted/EACCES; toàn bộ API + worker tests liên quan đã được chạy lại."
+    "Worker bootstrap theo dõi file runtime config trong shared volume /data và sẽ tự thoát để Docker restart lại khi đổi dsmMountRoot, hwaccel, ladder hoặc concurrency từ UI.",
+    "DSM helpers chuyển sang đọc DSM_HOST / DSM_MOUNT_ROOT / DSM_DEV_LOGIN theo kiểu lazy để API và worker không bị kẹt giá trị mount root cũ trong memory.",
+    "Bổ sung test cho runtime config watcher của worker và test chứng minh resolveSourcePath bám đúng mount root mới sau khi config/env thay đổi."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

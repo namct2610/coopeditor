@@ -19,16 +19,30 @@ const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
 const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
 
-const DSM_HOST = process.env.DSM_HOST || "";
-const DSM_DEV_LOGIN = process.env.DSM_DEV_LOGIN === "1";
-const DSM_MOUNT_ROOT = process.env.DSM_MOUNT_ROOT || "";
-const DSM_FETCH_TIMEOUT_MS = Math.max(3000, Number.parseInt(process.env.DSM_FETCH_TIMEOUT_MS || "15000", 10) || 15000);
-if (process.env.DSM_INSECURE === "1") {
-  // dev-only escape hatch for self-signed DSM certs
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+function dsmHost() {
+  return process.env.DSM_HOST || "";
 }
 
-export function isDevMode() { return DSM_DEV_LOGIN || !DSM_HOST; }
+function dsmDevLogin() {
+  return process.env.DSM_DEV_LOGIN === "1";
+}
+
+function dsmMountRoot() {
+  return process.env.DSM_MOUNT_ROOT || "";
+}
+
+function dsmFetchTimeoutMs() {
+  return Math.max(3000, Number.parseInt(process.env.DSM_FETCH_TIMEOUT_MS || "15000", 10) || 15000);
+}
+
+function applyInsecureTlsOverride() {
+  if (process.env.DSM_INSECURE === "1") {
+    // dev-only escape hatch for self-signed DSM certs
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  }
+}
+
+export function isDevMode() { return dsmDevLogin() || !dsmHost(); }
 
 function isVisibleNasName(name) {
   return !!name && !name.startsWith(".") && !HIDDEN_NAMES.has(name);
@@ -121,16 +135,19 @@ async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
 }
 
 async function dsmGet(path, params) {
-  if (!DSM_HOST) throw new Error("DSM_HOST not configured");
-  const u = new URL(DSM_HOST.replace(/\/+$/, "") + path);
+  applyInsecureTlsOverride();
+  const host = dsmHost();
+  const timeoutMs = dsmFetchTimeoutMs();
+  if (!host) throw new Error("DSM_HOST not configured");
+  const u = new URL(host.replace(/\/+$/, "") + path);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-  const signal = AbortSignal.timeout ? AbortSignal.timeout(DSM_FETCH_TIMEOUT_MS) : undefined;
+  const signal = AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined;
   let res;
   try {
     res = await fetch(u, { signal });
   } catch (err) {
     if (err && (err.name === "TimeoutError" || err.name === "AbortError")) {
-      throw new Error("DSM request timed out after " + DSM_FETCH_TIMEOUT_MS + "ms");
+      throw new Error("DSM request timed out after " + timeoutMs + "ms");
     }
     throw err;
   }
@@ -214,7 +231,7 @@ export async function dsmListFolder(sid, path) {
           .map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
       };
     } catch (err) {
-      if (DSM_MOUNT_ROOT) return listMountedFolder("/");
+      if (dsmMountRoot()) return listMountedFolder("/");
       throw err;
     }
   }
@@ -240,7 +257,7 @@ export async function dsmListFolder(sid, path) {
       .filter(Boolean);
     return { path, crumbs: buildCrumbs(path), entries };
   } catch (err) {
-    if (DSM_MOUNT_ROOT) return listMountedFolder(path);
+    if (dsmMountRoot()) return listMountedFolder(path);
     throw err;
   }
 }
@@ -301,7 +318,7 @@ export function normalizeStoredNasPath(input) {
   let raw = String(input || "").trim();
   if (!raw) return "/";
   raw = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
-  const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
+  const mountRoot = dsmMountRoot().replace(/\/+$/, "");
   if (mountRoot && raw === mountRoot) return "/";
   if (mountRoot && raw.startsWith(mountRoot + "/")) raw = raw.slice(mountRoot.length);
   if (raw === "/nas") return "/";
@@ -320,7 +337,8 @@ export function normalizeStoredNasPath(input) {
 
 export function resolveSourcePath(input, realPath = "") {
   const normalized = normalizeStoredNasPath(input);
-  if (DSM_MOUNT_ROOT) return DSM_MOUNT_ROOT.replace(/\/+$/, "") + normalized;
+  const mountRoot = dsmMountRoot();
+  if (mountRoot) return mountRoot.replace(/\/+$/, "") + normalized;
   if (realPath && realPath.startsWith("/")) return realPath;
   if (String(input || "").startsWith("/")) return String(input);
   return null;
@@ -340,20 +358,20 @@ async function dsmGetFileEntry(sid, path) {
     if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
     return (body.data.files || []).find((file) => file.path === path && !file.isdir) || null;
   } catch (err) {
-    if (!DSM_MOUNT_ROOT) throw err;
+    if (!dsmMountRoot()) throw err;
     return getMountedFileEntry(path);
   }
 }
 
 function resolveProbePath(dsmPath, realPath) {
-  if (DSM_MOUNT_ROOT) return resolveSourcePath(dsmPath, realPath);
+  if (dsmMountRoot()) return resolveSourcePath(dsmPath, realPath);
   if (realPath && realPath.startsWith("/")) return realPath;
   return null;
 }
 
 async function listMountedFolder(path) {
   path = normalizeStoredNasPath(path);
-  const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
+  const mountRoot = dsmMountRoot().replace(/\/+$/, "");
   const rel = path === "/" ? "" : path.replace(/^\/+/, "");
   const diskPath = rel ? join(mountRoot, rel) : mountRoot;
   let rows;

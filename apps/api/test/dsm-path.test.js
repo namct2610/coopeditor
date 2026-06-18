@@ -30,3 +30,12 @@ test("DSM path helpers reject traversal segments", async () => {
   assert.throws(() => mod.normalizeStoredNasPath("/Folder/../clip.mp4"), /Duong dan NAS khong hop le/);
   assert.throws(() => mod.resolveSourcePath("/Folder/../clip.mp4"), /Duong dan NAS khong hop le/);
 });
+
+test("DSM path helpers follow mount root changes after module load", async () => {
+  process.env.DSM_MOUNT_ROOT = "/nas";
+  const mod = await import("../src/dsm.js?case=live-env");
+
+  assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/nas/Clip/C001.MP4");
+  process.env.DSM_MOUNT_ROOT = "/mnt/pcngon";
+  assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/mnt/pcngon/Clip/C001.MP4");
+});
