@@ -50,6 +50,9 @@ const WINDOW_MS = 60_000;
 const MAX_ATTEMPTS = 5;
 let totalLoginAttempts = 0;
 let blockedLoginAttempts = 0;
+const shareCommentBuckets = new Map(); // token:ip -> { count, resetAt }
+const SHARE_COMMENT_WINDOW_MS = 60_000;
+const MAX_SHARE_COMMENT_ATTEMPTS = 12;
 
 export function clientIp(req) {
   const xf = req.headers["x-forwarded-for"];
@@ -77,10 +80,27 @@ export function loginSuccess(req) {
   buckets.delete(clientIp(req));
 }
 
+export function shareCommentRateLimit(req, token) {
+  const key = String(token || "") + ":" + clientIp(req);
+  const now = Date.now();
+  let b = shareCommentBuckets.get(key);
+  if (!b || b.resetAt < now) {
+    b = { count: 0, resetAt: now + SHARE_COMMENT_WINDOW_MS };
+    shareCommentBuckets.set(key, b);
+  }
+  b.count++;
+  if (b.count > MAX_SHARE_COMMENT_ATTEMPTS) {
+    const retryMs = Math.max(0, b.resetAt - now);
+    return { ok: false, retryAfter: Math.ceil(retryMs / 1000) };
+  }
+  return { ok: true };
+}
+
 // Periodic GC so the map doesn't grow unbounded
 setInterval(() => {
   const now = Date.now();
   for (const [ip, b] of buckets) if (b.resetAt < now) buckets.delete(ip);
+  for (const [key, b] of shareCommentBuckets) if (b.resetAt < now) shareCommentBuckets.delete(key);
 }, WINDOW_MS).unref?.();
 
 export function loginMetrics() {

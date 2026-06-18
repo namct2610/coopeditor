@@ -96,6 +96,9 @@ export function normalizeRuntimeConfig(input) {
 
   if (!publicUrl) throw new Error("publicUrl required");
   const parsedPublicUrl = new URL(publicUrl);
+  if (/^\/volume\d+(\/|$)/i.test(dsmMountRoot)) {
+    throw new Error("DSM mount root phải là đường dẫn bên trong container, ví dụ /nas; không dùng host path kiểu /volume1/...");
+  }
   const normalized = {
     publicUrl,
     dsmHost,

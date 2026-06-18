@@ -100,7 +100,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.23");
+  assert.equal(r.json.version, "0.2.24");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -108,7 +108,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.23");
+  assert.equal(r.json.local.version, "0.2.24");
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
@@ -302,6 +302,37 @@ test("comments: list + post + resolve", async () => {
 
   const finalState = await http("/asset-versions/p1s1_v3/comments");
   assert.equal(finalState.json.length, baselineCount);
+});
+
+test("shared comment link is rate-limited per token/ip", async () => {
+  const share = await http("/projects/p1/shares", {
+    method: "POST",
+    body: { accessLevel: "comment", ttlHours: 24, guestLabel: "Khach test" },
+  });
+  assert.equal(share.status, 201);
+  assert.equal(share.json.accessLevel, "comment");
+
+  const postShared = async (idx) => {
+    const r = await fetch(BASE + "/shared/" + share.json.token + "/comments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        assetVersionId: "p1s1_v3",
+        content: "Guest comment " + idx,
+        timestampMs: 1000 + idx,
+      }),
+    });
+    const text = await r.text();
+    return { status: r.status, headers: r.headers, json: text ? JSON.parse(text) : null };
+  };
+
+  for (let i = 0; i < 12; i++) {
+    const ok = await postShared(i);
+    assert.equal(ok.status, 201);
+  }
+  const blocked = await postShared(99);
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get("retry-after") !== null, true);
 });
 
 test("transcode request advances rendition", async () => {

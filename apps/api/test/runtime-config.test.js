@@ -57,3 +57,12 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
   assert.equal(summary.updater.feedUrl, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
   assert.equal(summary.updater.triggerUrl, "http://watchtower:8080/v1/update");
 });
+
+test("normalizeRuntimeConfig rejects Synology host paths for dsmMountRoot", async () => {
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-host-path=" + Date.now());
+  assert.throws(() => mod.normalizeRuntimeConfig({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/volume1/PCNgon",
+  }), /container|\/nas|\/volume1/i);
+});

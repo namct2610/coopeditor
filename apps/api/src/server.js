@@ -18,7 +18,7 @@ import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./eve
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
 import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
-import { applyCors, loginMetrics, loginRateLimit, loginSuccess } from "./security.js";
+import { applyCors, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
 import * as presence from "./presence.js";
 import {
   COOKIE_NAME, createSession, getSession, destroySession,
@@ -1171,6 +1171,11 @@ async function handleSharedComment(req, res, token) {
   if (!link) return bad(res, "Share link not found", 404);
   if (!(await shareLinks.isValid(link))) return bad(res, "Share link expired or revoked", 410);
   if (link.accessLevel !== "comment") return bad(res, "This share link is read-only", 403);
+  const rate = shareCommentRateLimit(req, token);
+  if (!rate.ok) {
+    res.setHeader("retry-after", String(rate.retryAfter));
+    return bad(res, "Too many shared comments from this IP. Thu lai sau " + rate.retryAfter + " giay.", 429);
+  }
   const body = await readJson(req).catch(() => null);
   if (!body || typeof body.content !== "string" || typeof body.timestampMs !== "number") return bad(res, "content and timestampMs required");
   if (!body.assetVersionId) return bad(res, "assetVersionId required");

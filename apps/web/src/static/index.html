@@ -3511,7 +3511,7 @@ function setupOverlay() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
         ${setupField("URL truy cập", "setupPublicUrl", setup.publicUrl, "https://review.example.com")}
         ${setupField("DSM Host", "setupDsmHost", setup.dsmHost, "https://nas.example.com:5001")}
-        ${setupField("DSM mount root", "setupDsmMountRoot", setup.dsmMountRoot, "/nas")}
+        ${setupField("DSM mount root trong container", "setupDsmMountRoot", setup.dsmMountRoot, "/nas")}
         ${setupField("SMTP URL (tuỳ chọn)", "setupSmtpUrl", setup.smtpUrl, "smtps://user:pass@smtp.example.com:465")}
         ${setupField("SMTP From", "setupSmtpFrom", setup.smtpFrom, "Coopeditor <no-reply@example.com>")}
         ${setupField("Slack webhook", "setupSlackWebhookUrl", setup.slackWebhookUrl, "https://hooks.slack.com/...")}
@@ -3526,6 +3526,10 @@ function setupOverlay() {
         ${setupField("Update trigger URL", "setupUpdateTriggerUrl", setup.updateTriggerUrl, "http://watchtower:8080/v1/update")}
         ${setupField("Update trigger token", "setupUpdateTriggerToken", setup.updateTriggerToken, "internal-token", "password")}
         ${setupField("Update poll interval (s)", "setupUpdatePollIntervalSeconds", String(setup.updatePollIntervalSeconds), "900", "number")}
+      </div>
+      <div style="margin:12px 0 0;color:#7f8da3;font-size:11px;font-weight:600;line-height:1.65;">
+        Ô <code>DSM mount root</code> là đường dẫn nhìn thấy <strong>bên trong container</strong>, thường là <code>/nas</code>.
+        Không nhập host path Synology như <code>/volume1/PCNgon</code> ở đây; host path chỉ cấu hình trong volume mount của Docker project.
       </div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 10px;">
         ${setupToggle("setupDsmDevLogin", "Bật DSM dev login", setup.dsmDevLogin)}

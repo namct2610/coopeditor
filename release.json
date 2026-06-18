@@ -1,10 +1,10 @@
 {
-  "version": "0.2.23",
-  "summary": "Timeline marker/avatar giờ bám theo chiều rộng thật của timeline để tránh chồng lấn khi comment dày hoặc cửa sổ hẹp.",
+  "version": "0.2.24",
+  "summary": "Chặn cấu hình DSM mount root sai kiểu host path và thêm rate-limit cho comment qua public share link.",
   "changes": [
-    "Thuật toán xếp marker trên timeline chuyển sang dùng khoảng cách pixel thực của thanh timeline, giúp avatar comment/annotation ổn định hơn khi co giãn layout.",
-    "Marker có thêm z-index theo lane để click/jump không bị đè khi nhiều mốc thời gian đứng sát nhau.",
-    "Giữ nguyên các bản vá proxy runtime/sidebar trước đó; bản này tập trung hoàn thiện phần marker review."
+    "Runtime setup giờ cảnh báo rõ DSM mount root phải là đường dẫn bên trong container như /nas, tránh nhầm với host path /volume1/... khiến worker transcode không thấy source.",
+    "API chặn lưu cấu hình dsmMountRoot theo kiểu host path Synology để giảm lỗi mount lệch giữa API và worker.",
+    "Bổ sung rate-limit cho comment qua public share link để giảm nguy cơ spam và abuse trên link review công khai."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }
