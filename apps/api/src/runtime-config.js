@@ -124,7 +124,7 @@ export function normalizeRuntimeConfig(input) {
       cdnTokenTtlSeconds: clampInt(hls.cdnTokenTtlSeconds, 300, 30, 86400),
     },
     transcode: {
-      hwaccel: normalizeEnum(transcode.hwaccel, ["", "nvenc", "qsv"], ""),
+      hwaccel: normalizeEnum(transcode.hwaccel, ["", "nvenc", "qsv", "vaapi"], ""),
       codecLadder: normalizeEnum(transcode.codecLadder, ["h264", "h265", "mixed"], "h264"),
       workerConcurrency: clampInt(transcode.workerConcurrency, 2, 1, 16),
       autoscaleThreshold: clampInt(transcode.autoscaleThreshold, 5, 1, 1000),

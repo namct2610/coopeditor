@@ -1,10 +1,10 @@
 {
-  "version": "0.2.12",
-  "summary": "Sửa transcode proxy bị treo chờ: worker chỉ báo processing khi thật sự claim job và fail sớm nếu không đọc được source NAS.",
+  "version": "0.2.13",
+  "summary": "Ổn định lại đường dẫn source NAS cho proxy, hiện dung lượng proxy ở sidebar và chuyển marker timeline sang avatar người tạo.",
   "changes": [
-    "API giờ chỉ enqueue job transcode thay vì đổi rendition sang processing ngay lập tức, nên UI không còn hiện trạng thái chạy ảo khi worker chưa thực sự bắt đầu.",
-    "Worker kiểm tra source path trước khi gọi FFmpeg; nếu thiếu mount hoặc không đủ quyền đọc NAS thì rendition chuyển sang failed sớm thay vì retry mù và treo ở Đang chờ.",
-    "Web không còn nuốt lỗi khi bấm Tạo proxy: nếu backend từ chối hoặc enqueue thất bại, UI sẽ báo lỗi ngay và refresh lại trạng thái rendition thực tế."
+    "Đường dẫn asset import mới được lưu theo DSM path ổn định thay vì khóa cứng vào /nas; backend và worker giờ resolve local source path động để giảm lỗi gãy proxy khi đổi mount root.",
+    "Sidebar workspace giờ nạp và hiển thị dung lượng proxy thật từ trang quản lý proxy cho owner, thay vì để trống như trước.",
+    "Timeline review đổi từ chấm marker chung sang avatar nhỏ theo người tạo comment/chú thích, đồng thời có dấu nhấn riêng cho mốc có annotation."
   ],
-  "publishedAt": "2026-06-17T00:00:00.000Z"
+  "publishedAt": "2026-06-18T00:00:00.000Z"
 }

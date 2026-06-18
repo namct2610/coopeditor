@@ -1146,6 +1146,20 @@ function sidebar(vals) {
     </aside>`;
 }
 
+function computeProxyCacheSummary(storage) {
+  if (!storage) return null;
+  const totalBytes = Number(storage.totalBytes || 0);
+  const totalGb = totalBytes / (1024 ** 3);
+  const softCapacityGb = 100;
+  const pct = totalGb <= 0 ? 0 : Math.max(4, Math.min(100, Math.round((totalGb / softCapacityGb) * 100)));
+  const renditionCount = Array.isArray(storage.renditions) ? storage.renditions.length : 0;
+  return {
+    totalBytes,
+    pct,
+    label: fmtBytes(totalBytes) + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy"),
+  };
+}
+
 function projectsHub(vals) {
   const noProjects = vals.projectGroups.length === 0;
   return `
@@ -1873,8 +1887,10 @@ function review(vals) {
           <div style="position:absolute;left:0;right:0;top:0;height:16px;">
             ${vals.markers.map((m, i) => `
               <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:0;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;">
-                <div style="width:15px;height:15px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.5);"><span style="width:5px;height:5px;border-radius:50%;background:${m.markerDot};"></span></div>
-                <div style="width:2px;height:5px;background:${m.color};opacity:.5;"></div>
+                <div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}</div>
+                <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
+                <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
+                ${m.hasAnnotation ? `<div style="margin-top:2px;width:4px;height:4px;border-radius:50%;background:#f5a623;box-shadow:0 0 0 2px rgba(245,166,35,0.18);"></div>` : ``}
               </div>
             `).join("")}
           </div>
@@ -2372,7 +2388,19 @@ function computeVals() {
   let visible = all;
   if (s.filter === "open") visible = all.filter((c) => !c.resolved);
   else if (s.filter === "done") visible = all.filter((c) => c.resolved);
-  const markers = all.map((c) => ({ ms: c.ms, leftPct: c.leftPct, color: c.color, markerBg: c.resolved ? "var(--co-panel-2)" : c.color, markerDot: c.resolved ? c.color : "#07090e", tip: c.name + " · " + c.tcLabel + (c.hasAnnotation ? " · có chú thích" : "") }));
+  const markers = all.map((c) => ({
+    ms: c.ms,
+    leftPct: c.leftPct,
+    color: c.color,
+    initial: c.initial || "U",
+    hasAnnotation: !!c.hasAnnotation,
+    avatarBg: c.color,
+    avatarBorder: c.hasAnnotation ? "#f5a623" : "var(--co-chrome)",
+    avatarColor: "#07090e",
+    markerBg: c.resolved ? "var(--co-panel-2)" : c.color,
+    markerDot: c.resolved ? c.color : "#07090e",
+    tip: c.name + " · " + c.tcLabel + (c.hasAnnotation ? " · có chú thích" : ""),
+  }));
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {
@@ -3102,6 +3130,7 @@ async function loadRemote() {
     try { remote.presence = await api("/presence"); } catch (_) {}
     if (projects.some((project) => project.myRole === "owner")) {
       fetchUpdateStatus(false).catch(() => {});
+      refreshProxyStorage(true).catch(() => {});
     }
     if (window.location.hash) applyHashRoute();
   } catch (e) { remote.error = e.message; }
@@ -3120,14 +3149,16 @@ async function openProxyStorage() {
   await refreshProxyStorage();
 }
 
-async function refreshProxyStorage() {
-  state.proxyStorageLoading = true;
+async function refreshProxyStorage(silent) {
+  if (!silent) state.proxyStorageLoading = true;
   state.proxyStorageError = "";
   render();
   try {
     state.proxyStorage = await api("/admin/proxy-storage");
+    window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
   } catch (err) {
     state.proxyStorageError = (err && err.message) || "Không tải được danh sách";
+    if (!state.proxyStorage) window.__proxyCache = null;
   } finally {
     state.proxyStorageLoading = false;
     render();
@@ -3147,6 +3178,7 @@ async function deleteProxyRendition(renditionId) {
       state.proxyStorage.renditions = state.proxyStorage.renditions.filter((r) => r.renditionId !== renditionId);
       if (before) state.proxyStorage.totalBytes = Math.max(0, (state.proxyStorage.totalBytes || 0) - (before.bytes || 0));
     }
+    window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
   } catch (err) {
     state.proxyStorageError = "Xoá thất bại: " + ((err && err.message) || "lỗi không xác định");
   } finally {
@@ -3311,7 +3343,7 @@ function setupOverlay() {
         ${setupField("Discord webhook", "setupDiscordWebhookUrl", setup.discordWebhookUrl, "https://discord.com/api/webhooks/...")}
         ${setupField("Worker concurrency", "setupWorkerConcurrency", String(setup.workerConcurrency), "2", "number")}
         ${setupField("Codec ladder", "setupCodecLadder", setup.codecLadder, "h264")}
-        ${setupField("HW accel", "setupHwaccel", setup.hwaccel, "nvenc | qsv")}
+        ${setupField("HW accel", "setupHwaccel", setup.hwaccel, "nvenc | qsv | vaapi")}
         ${setupField("Autoscale threshold", "setupAutoscaleThreshold", String(setup.autoscaleThreshold), "5", "number")}
         ${setupField("Autoscale step", "setupAutoscaleStep", String(setup.autoscaleStep), "1", "number")}
         ${setupField("Max concurrency", "setupMaxConcurrency", String(setup.maxConcurrency), "3", "number")}

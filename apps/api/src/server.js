@@ -350,9 +350,9 @@ async function handle(req, res, url) {
     if (!path) return bad(res, "path required");
     try {
       const file = await dsm.getFileMeta(sess.dsmSid, path);
-      if (!file || !file.isVideo || !file.sourcePath) return bad(res, "Video not found", 404);
+      if (!file || !file.isVideo || !file.path) return bad(res, "Video not found", 404);
       const seekMs = Math.min(Math.max(1000, Math.round((file.durationMs || 0) * 0.1)), Math.max(1000, (file.durationMs || 0) - 1000));
-      const thumbPath = await dsm.ensureVideoThumbnail(file.sourcePath, path + ":" + (file.durationMs || 0), { seekMs });
+      const thumbPath = await dsm.ensureVideoThumbnail(file.path, path + ":" + (file.durationMs || 0), { seekMs });
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
       return bad(res, "Khong tao duoc thumbnail: " + (err && err.message), 500);
@@ -644,7 +644,9 @@ async function handle(req, res, url) {
     const asset = await store.getAsset(assetId);
     if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
     try {
-      return await streamLocalMedia(req, res, asset.nasPath, asset.mimeType || mimeFromPath(asset.nasPath));
+      const localPath = dsm.resolveSourcePath(asset.nasPath);
+      if (!localPath) return bad(res, "Khong resolve duoc source video", 404);
+      return await streamLocalMedia(req, res, localPath, asset.mimeType || mimeFromPath(asset.nasPath));
     } catch (err) {
       return bad(res, "Khong mo duoc source video: " + (err && err.message), 404);
     }
@@ -663,7 +665,7 @@ async function handle(req, res, url) {
         projectId: pid, title: file.name.replace(/\.[^.]+$/, ""), codec: file.codec || "unknown",
         sizeLabel: file.sizeLabel || "—",
         durationMs: file.durationMs || 0,
-        nasPath: file.sourcePath || path,
+        nasPath: file.path || path,
         width: file.width || 0,
         height: file.height || 0,
         frameRate: file.frameRate || 0,

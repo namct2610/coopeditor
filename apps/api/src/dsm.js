@@ -84,10 +84,11 @@ function thumbCachePath(key) {
 
 async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
   if (!looksLikeVideoName(name)) return null;
+  const normalizedPath = normalizeStoredNasPath(path);
   const base = {
     type: "file",
     name,
-    path,
+    path: normalizedPath,
     bytes,
     sizeLabel: humanSize(bytes),
     codec: guessCodecFromName(name),
@@ -111,10 +112,11 @@ async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
       height: probed.height || 0,
       frameRate: probed.frameRate || 0,
       resolutionLabel: resolutionLabel(probed.width, probed.height),
-      sourcePath: probePath,
+      sourcePath: normalizedPath,
+      localPath: probePath,
     };
   } catch (_) {
-    return { ...base, sourcePath: probePath };
+    return { ...base, sourcePath: normalizedPath, localPath: probePath };
   }
 }
 
@@ -274,7 +276,7 @@ export async function getFileMeta(sid, path) {
 }
 
 function buildCrumbs(path) {
-  const parts = path.replace(/^\/+/, "").split("/").filter(Boolean);
+  const parts = normalizeStoredNasPath(path).replace(/^\/+/, "").split("/").filter(Boolean);
   let acc = "";
   const crumbs = [{ label: "/", path: "/" }];
   for (const p of parts) { acc += "/" + p; crumbs.push({ label: p, path: acc }); }
@@ -293,6 +295,27 @@ function parseHumanSize(label) {
   if (!match) return 0;
   const powers = { B: 0, KB: 1, MB: 2, GB: 3, TB: 4 };
   return Math.round(Number(match[1]) * 1024 ** powers[match[2].toUpperCase()]);
+}
+
+export function normalizeStoredNasPath(input) {
+  let raw = String(input || "").trim();
+  if (!raw) return "/";
+  raw = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
+  const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
+  if (mountRoot && raw === mountRoot) return "/";
+  if (mountRoot && raw.startsWith(mountRoot + "/")) raw = raw.slice(mountRoot.length);
+  const hostShareMatch = raw.match(/^\/volume\d+\/[^/]+(\/.*)$/);
+  if (hostShareMatch) raw = hostShareMatch[1];
+  if (!raw.startsWith("/")) raw = "/" + raw;
+  return raw.replace(/\/+/g, "/");
+}
+
+export function resolveSourcePath(input, realPath = "") {
+  const normalized = normalizeStoredNasPath(input);
+  if (DSM_MOUNT_ROOT) return DSM_MOUNT_ROOT.replace(/\/+$/, "") + normalized;
+  if (realPath && realPath.startsWith("/")) return realPath;
+  if (String(input || "").startsWith("/")) return String(input);
+  return null;
 }
 
 async function dsmGetFileEntry(sid, path) {
@@ -315,12 +338,13 @@ async function dsmGetFileEntry(sid, path) {
 }
 
 function resolveProbePath(dsmPath, realPath) {
-  if (DSM_MOUNT_ROOT) return DSM_MOUNT_ROOT.replace(/\/+$/, "") + dsmPath;
+  if (DSM_MOUNT_ROOT) return resolveSourcePath(dsmPath, realPath);
   if (realPath && realPath.startsWith("/")) return realPath;
   return null;
 }
 
 async function listMountedFolder(path) {
+  path = normalizeStoredNasPath(path);
   const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
   const rel = path === "/" ? "" : path.replace(/^\/+/, "");
   const diskPath = rel ? join(mountRoot, rel) : mountRoot;
@@ -359,6 +383,7 @@ async function listMountedFolder(path) {
 }
 
 async function getMountedFileEntry(path) {
+  path = normalizeStoredNasPath(path);
   const probePath = resolveProbePath(path, "");
   if (!probePath) return null;
   let info;
@@ -417,6 +442,7 @@ function normalizeCodec(codecName) {
 }
 
 export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000, width = 640 } = {}) {
+  const localPath = resolveSourcePath(sourcePath) || sourcePath;
   const outPath = thumbCachePath(cacheKey || sourcePath);
   await mkdir(join(APP_DATA_DIR, "system", "thumbs"), { recursive: true });
   try {
@@ -426,7 +452,7 @@ export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000
   await execFileAsync("ffmpeg", [
     "-y",
     "-ss", String(Math.max(0, seekMs) / 1000),
-    "-i", sourcePath,
+    "-i", localPath,
     "-frames:v", "1",
     "-vf", "scale=" + width + ":-2",
     "-q:v", "3",

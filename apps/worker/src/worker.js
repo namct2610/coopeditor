@@ -30,6 +30,7 @@ import { tmpdir } from "node:os";
 import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
+import { resolveSourcePath } from "../../api/src/dsm.js";
 
 if (!process.env.DATABASE_URL) { console.error("[worker] DATABASE_URL required"); process.exit(1); }
 
@@ -309,14 +310,15 @@ async function runSim(rid, assetVersionId) {
 
 async function runFfmpeg(rendition) {
   // Source path: rendition.nas_path. Mode "full" uploads to MinIO; "ffmpeg-only" writes locally.
+  const localSourcePath = resolveSourcePath(rendition.nas_path) || rendition.nas_path;
   try {
-    await fs.stat(rendition.nas_path);
+    await fs.stat(localSourcePath);
   } catch (err) {
     if (err && err.code === "ENOENT") {
-      throw new Error("Source path not mounted in worker: " + rendition.nas_path);
+      throw new Error("Source path not mounted in worker: " + localSourcePath + " (stored: " + rendition.nas_path + ")");
     }
     if (err && err.code === "EACCES") {
-      throw new Error("Worker cannot read source path: " + rendition.nas_path);
+      throw new Error("Worker cannot read source path: " + localSourcePath + " (stored: " + rendition.nas_path + ")");
     }
     throw err;
   }
@@ -351,7 +353,7 @@ async function runFfmpeg(rendition) {
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   }
   const args = [
-    "-y", ...pre, "-i", rendition.nas_path,
+    "-y", ...pre, "-i", localSourcePath,
     ...videoArgs,
     "-c:a", "aac", "-b:a", "128k",
     "-hls_time", "4", "-hls_playlist_type", "vod",
