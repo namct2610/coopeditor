@@ -1,10 +1,10 @@
 {
-  "version": "0.2.14",
-  "summary": "Gia cố path NAS cho proxy khi đổi mount root và khóa setup mode về same-host để tránh cross-origin cấu hình trái phép.",
+  "version": "0.2.15",
+  "summary": "Ổn định hiển thị dung lượng proxy ở sidebar và tách lane avatar marker trên timeline để tránh chồng nhau.",
   "changes": [
-    "Helper NAS giờ nhận cả legacy path /nas/... lẫn host path /volumeX/share/... ngay cả khi dsmMountRoot đã đổi, giúp worker/API không resolve sai source path sau khi đổi mount root.",
-    "Setup mode không còn phản chiếu CORS cho mọi origin nữa; chỉ same-host mới được gọi API setup từ trình duyệt, giảm rủi ro bị website ngoài chiếm cấu hình lần đầu.",
-    "Bổ sung test cho path NAS legacy và helper kiểm tra same-host origin để giữ ổn định các fix bảo mật/proxy về sau."
+    "Sidebar workspace giờ có fallback từ state proxyStorage và hiện placeholder đang tải cho owner, nên khối dung lượng proxy không còn biến mất chỉ vì fetch chậm hoặc window.__proxyCache chưa kịp bơm.",
+    "Marker timeline cho comment/chú thích giờ tự chia lane theo chiều dọc khi nhiều mốc đứng gần nhau, giúp avatar người tạo không chồng đè lên nhau.",
+    "Giữ nguyên các hardening trước đó cho NAS path legacy và same-host setup mode; frontend inline JS đã được kiểm tra lại để đảm bảo không phát sinh lỗi cú pháp."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

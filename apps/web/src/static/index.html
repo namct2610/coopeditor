@@ -1141,7 +1141,7 @@ function sidebar(vals) {
         </div>
         <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#2da8e2,#4fade4);"></div></div>
         <div style="color:var(--co-muted);font-size:11px;font-weight:600;">${esc(vals.proxyCache.label)}</div>
-        <div style="margin-top:5px;color:var(--co-faint);font-size:10.5px;font-weight:700;">Nhấn để mở trang quản lý proxy</div>
+        <div style="margin-top:5px;color:var(--co-faint);font-size:10.5px;font-weight:700;">${state.proxyStorageLoading ? "Đang đồng bộ dung lượng từ MinIO…" : "Nhấn để mở trang quản lý proxy"}</div>
       </div>` : ""}
     </aside>`;
 }
@@ -1158,6 +1158,18 @@ function computeProxyCacheSummary(storage) {
     pct,
     label: fmtBytes(totalBytes) + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy"),
   };
+}
+
+function computeTimelineMarkerLanes(items) {
+  const lanes = [];
+  const markerWidthPct = 3.6;
+  return items.map((item) => {
+    const left = Number(item.leftPct || 0);
+    let lane = 0;
+    while (lane < lanes.length && Math.abs(left - lanes[lane]) < markerWidthPct) lane++;
+    lanes[lane] = left;
+    return { ...item, lane, topPx: lane * 18 };
+  });
 }
 
 function projectsHub(vals) {
@@ -1884,9 +1896,9 @@ function review(vals) {
       </div>
       <div style="flex:0 0 auto;background:var(--co-chrome);border-top:1px solid var(--co-border);padding:12px 18px 16px;">
         <div id="reviewTimelineWrap" style="position:relative;padding-top:18px;">
-          <div style="position:absolute;left:0;right:0;top:0;height:16px;">
+          <div style="position:absolute;left:0;right:0;top:0;height:44px;pointer-events:none;">
             ${vals.markers.map((m, i) => `
-              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:0;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;">
+              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;">
                 <div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}</div>
                 <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
                 <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
@@ -2388,7 +2400,7 @@ function computeVals() {
   let visible = all;
   if (s.filter === "open") visible = all.filter((c) => !c.resolved);
   else if (s.filter === "done") visible = all.filter((c) => c.resolved);
-  const markers = all.map((c) => ({
+  const markers = computeTimelineMarkerLanes(all.map((c) => ({
     ms: c.ms,
     leftPct: c.leftPct,
     color: c.color,
@@ -2400,7 +2412,7 @@ function computeVals() {
     markerBg: c.resolved ? "var(--co-panel-2)" : c.color,
     markerDot: c.resolved ? c.color : "#07090e",
     tip: c.name + " · " + c.tcLabel + (c.hasAnnotation ? " · có chú thích" : ""),
-  }));
+  })));
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {
@@ -2471,6 +2483,9 @@ function computeVals() {
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
+  const proxyCache = window.__proxyCache || computeProxyCacheSummary(s.proxyStorage) || (canManageUpdates && s.proxyStorageLoading
+    ? { totalBytes: 0, pct: 0, label: "Đang tải dung lượng proxy…" }
+    : null);
   const updateStatus = remote.updateStatus || s.updateStatus || null;
   const updateBadge = updateStatus && updateStatus.updateAvailable
     ? { label: "Update", color: "#f5a623", bg: "rgba(245,166,35,0.14)" }
@@ -2479,7 +2494,7 @@ function computeVals() {
   return {
     projectName: selProject.name, filterTitle, statusNav, projectGroups,
     nasLibrary: window.__nasLibrary || null,
-    proxyCache: window.__proxyCache || null,
+    proxyCache,
     workspaceLabel: window.__workspaceLabel || (remote.me ? "Workspace của " + (remote.me.name || "bạn") : "Workspace"),
     clientOptions,
     detailStatusLabel: SM[projStatus].label, detailStatusColor: SM[projStatus].color, detailStatusBg: SM[projStatus].bg,
