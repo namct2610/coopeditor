@@ -3325,11 +3325,11 @@ function canManageProxyStorage() {
   return projects.some((project) => project && project.myRole === "owner");
 }
 
-function scheduleProxyStorageRefresh(delayMs = 1500) {
+function scheduleProxyStorageRefresh(delayMs = 1500, force) {
   if (proxyStorageRefreshTimer) clearTimeout(proxyStorageRefreshTimer);
   proxyStorageRefreshTimer = setTimeout(() => {
     proxyStorageRefreshTimer = null;
-    const task = canManageProxyStorage() ? refreshProxyStorage(true) : refreshProxyStorageSummary(true);
+    const task = canManageProxyStorage() ? refreshProxyStorage(true, force) : refreshProxyStorageSummary(true, force);
     task.catch(() => {});
   }, delayMs);
 }
@@ -3675,7 +3675,10 @@ async function handleRemoteEvent(ev) {
     }
     if (ev.projectId && REMOTE_SOURCES[ev.projectId]) await refreshProjectSources(ev.projectId);
     if (ev.status === "failed") refreshTranscodeRuntime().catch(() => {});
-    scheduleProxyStorageRefresh(ev.status === "ready" || ev.status === "failed" ? 300 : 1500);
+    scheduleProxyStorageRefresh(
+      ev.status === "ready" || ev.status === "failed" ? 300 : 1500,
+      ev.status === "ready" || ev.status === "failed",
+    );
     scheduleRender();
   } else if (ev.type === "asset") {
     if (REMOTE_SOURCES[ev.projectId]) { await refreshProjectSources(ev.projectId); scheduleRender(); }

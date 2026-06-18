@@ -1,10 +1,10 @@
 {
-  "version": "0.2.26",
-  "summary": "Tối ưu lại proxy storage để sidebar hiện dung lượng sớm và ổn định hơn, đồng thời giữ refresh thủ công chính xác.",
+  "version": "0.2.27",
+  "summary": "Cho refresh proxy do event transcode tự bypass cache, để sidebar cập nhật dung lượng nhanh hơn ngay sau khi proxy xong hoặc fail.",
   "changes": [
-    "Backend cache ngắn hạn thống kê proxy storage để UI sidebar và trang quản lý không phải quét MinIO lặp lại quá dày khi vừa login hoặc có nhiều event transcode.",
-    "Owner giờ tải proxy summary trước rồi mới kéo danh sách đầy đủ, giúp thẻ dung lượng ở sidebar có số hiện sớm hơn.",
-    "Trang quản lý proxy dùng renditionCount đúng cả khi đang ở summary mode, tránh hiện 0 giả chỉ vì API tóm tắt không gửi full list."
+    "Các lần refresh proxy do event rendition ready/failed giờ tự gọi refresh kiểu force để không bị kẹt số cũ bởi cache 15 giây.",
+    "Polling nền và mở app ban đầu vẫn giữ cache ngắn hạn để nhẹ MinIO/NAS khi nhiều event transcode đổ về.",
+    "Giữ nguyên các tối ưu summary-first và renditionCount để sidebar và trang quản lý proxy đồng bộ ổn định hơn."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }
