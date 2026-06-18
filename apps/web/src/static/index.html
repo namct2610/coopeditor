@@ -172,6 +172,7 @@ const state = {
   annotationTextDraft: "",
   annotationDrawing: null,
   timelineHoverMs: null,
+  timelineBarWidth: 0,
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
@@ -242,6 +243,8 @@ const timelineHover = {
 };
 let _timelinePreviewRaf = 0;
 let _timelinePreviewPendingMs = null;
+let _timelineResizeObserver = null;
+let _timelineResizeFallback = null;
 
 // rAF-coalesced setState: if multiple setState() fire in the same frame
 // (common during drag, fetch waterfall, presence ping), batch them into a
@@ -724,6 +727,26 @@ function bindTimelinePreview() {
   const bar = document.getElementById("reviewTimelineBar");
   if (!wrap || !bar || wrap.dataset.bound === "1") return;
   wrap.dataset.bound = "1";
+  const syncTimelineBarWidth = () => {
+    const nextWidth = Math.round(bar.getBoundingClientRect().width || 0);
+    if (!nextWidth || nextWidth === state.timelineBarWidth) return;
+    state.timelineBarWidth = nextWidth;
+    scheduleRender();
+  };
+  syncTimelineBarWidth();
+  if (_timelineResizeObserver) _timelineResizeObserver.disconnect();
+  if (_timelineResizeFallback) {
+    window.removeEventListener("resize", _timelineResizeFallback);
+    _timelineResizeFallback = null;
+  }
+  if (typeof ResizeObserver === "function") {
+    _timelineResizeObserver = new ResizeObserver(() => syncTimelineBarWidth());
+    _timelineResizeObserver.observe(bar);
+  } else {
+    _timelineResizeObserver = null;
+    _timelineResizeFallback = syncTimelineBarWidth;
+    window.addEventListener("resize", _timelineResizeFallback, { passive: true });
+  }
   bar.addEventListener("mousemove", (ev) => {
     beginTimelineHover();
     applyTimelinePreview(timelineMsFromClientX(ev.clientX, bar));
@@ -1172,17 +1195,26 @@ function computeProxyCacheSummary(storage) {
   };
 }
 
-function computeTimelineMarkerLanes(items) {
-  const lanes = [];
-  const markerWidthPct = 3.6;
-  const markers = items.map((item) => {
-    const left = Number(item.leftPct || 0);
-    let lane = 0;
-    while (lane < lanes.length && Math.abs(left - lanes[lane]) < markerWidthPct) lane++;
-    lanes[lane] = left;
-    return { ...item, lane, topPx: lane * 18 };
-  });
-  const laneCount = Math.max(1, lanes.length);
+function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
+  const safeWidth = Math.max(280, Number(timelineWidthPx || 0));
+  const minGapPx = Math.max(24, Math.min(42, Math.round(safeWidth * 0.032)));
+  const laneEnds = [];
+  const markers = [...items]
+    .map((item, index) => ({ ...item, _index: index, leftPx: (Number(item.leftPct || 0) / 100) * safeWidth }))
+    .sort((a, b) => {
+      if (Math.abs(a.leftPx - b.leftPx) > 0.5) return a.leftPx - b.leftPx;
+      if (!!b.hasAnnotation !== !!a.hasAnnotation) return Number(!!b.hasAnnotation) - Number(!!a.hasAnnotation);
+      return a._index - b._index;
+    })
+    .map((item) => {
+      let lane = 0;
+      while (lane < laneEnds.length && item.leftPx - laneEnds[lane] < minGapPx) lane++;
+      laneEnds[lane] = item.leftPx;
+      return { ...item, lane, topPx: lane * 18, zIndex: 20 - Math.min(19, lane) };
+    })
+    .sort((a, b) => a._index - b._index)
+    .map(({ _index, leftPx, ...item }) => item);
+  const laneCount = Math.max(1, laneEnds.length);
   return {
     items: markers,
     laneCount,
@@ -1925,7 +1957,7 @@ function review(vals) {
         <div id="reviewTimelineWrap" style="position:relative;padding-top:${vals.markerWrapPaddingTop}px;">
           <div style="position:absolute;left:0;right:0;top:0;height:${vals.markerRailHeight}px;pointer-events:none;">
             ${vals.markers.map((m, i) => `
-              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;">
+              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;z-index:${m.zIndex || 1};">
                 <div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}</div>
                 <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
                 <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
@@ -2465,7 +2497,7 @@ function computeVals() {
     markerBg: c.resolved ? "var(--co-panel-2)" : c.color,
     markerDot: c.resolved ? c.color : "#07090e",
     tip: c.name + " · " + c.tcLabel + (c.hasAnnotation ? " · có chú thích" : ""),
-  })));
+  })), s.timelineBarWidth);
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {

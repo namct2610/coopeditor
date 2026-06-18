@@ -1,10 +1,10 @@
 {
-  "version": "0.2.22",
-  "summary": "Sidebar proxy giờ có summary read-only cho mọi user đăng nhập, còn lỗi transcode NAS vẫn được báo rõ theo runtime worker.",
+  "version": "0.2.23",
+  "summary": "Timeline marker/avatar giờ bám theo chiều rộng thật của timeline để tránh chồng lấn khi comment dày hoặc cửa sổ hẹp.",
   "changes": [
-    "Thêm route proxy storage summary cho mọi user đã đăng nhập, giúp sidebar luôn có số liệu dung lượng proxy mà không phụ thuộc quyền owner.",
-    "Trang proxy storage giờ tự chuyển sang chế độ chỉ xem khi user không có quyền quản trị, tránh 403 nhưng vẫn thấy tổng dung lượng và số proxy hiện có.",
-    "Giữ nguyên chẩn đoán transcode runtime: worker mount NAS lỗi sẽ hiện rõ trong UI thay vì để proxy treo chờ vô thời hạn."
+    "Thuật toán xếp marker trên timeline chuyển sang dùng khoảng cách pixel thực của thanh timeline, giúp avatar comment/annotation ổn định hơn khi co giãn layout.",
+    "Marker có thêm z-index theo lane để click/jump không bị đè khi nhiều mốc thời gian đứng sát nhau.",
+    "Giữ nguyên các bản vá proxy runtime/sidebar trước đó; bản này tập trung hoàn thiện phần marker review."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }
