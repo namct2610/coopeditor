@@ -1754,7 +1754,7 @@ function proxyStoragePage() {
           </div>
           <div>
             <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Số rendition</div>
-            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${(ps.renditions || []).length}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${Number(ps.renditionCount || ((ps.renditions || []).length) || 0)}</div>
           </div>
           ${ps.orphanCount ? `
             <div>
@@ -2768,7 +2768,7 @@ function handleAct(act, arg, e, node) {
     case "toggleUpdateModal": return openUpdateModal();
     case "closeUpdateModal": return setState({ showUpdateModal: false, updateError: "" });
     case "openProxyStorage": return openProxyStorage();
-    case "refreshProxyStorage": return canManageProxyStorage() ? refreshProxyStorage() : refreshProxyStorageSummary();
+    case "refreshProxyStorage": return canManageProxyStorage() ? refreshProxyStorage(false, true) : refreshProxyStorageSummary(false, true);
     case "deleteProxy": return deleteProxyRendition(arg);
     case "checkUpdateNow": return fetchUpdateStatus(true);
     case "triggerUpdateNow": return triggerUpdateNow();
@@ -3242,6 +3242,7 @@ async function loadRemote() {
     try { remote.presence = await api("/presence"); } catch (_) {}
     if (projects.some((project) => project.myRole === "owner")) {
       fetchUpdateStatus(false).catch(() => {});
+      refreshProxyStorageSummary(true).catch(() => {});
       refreshProxyStorage(true).catch(() => {});
     } else {
       refreshProxyStorageSummary(true).catch(() => {});
@@ -3265,13 +3266,13 @@ async function openProxyStorage() {
   else await refreshProxyStorageSummary();
 }
 
-async function refreshProxyStorageSummary(silent) {
+async function refreshProxyStorageSummary(silent, force) {
   if (!remote.me) return null;
   if (!silent) state.proxyStorageSummaryLoading = true;
   state.proxyStorageSummaryError = "";
   render();
   try {
-    state.proxyStorageSummary = await api("/proxy-storage-summary");
+    state.proxyStorageSummary = await api("/proxy-storage-summary" + (force ? "?refresh=1" : ""));
     window.__proxyCache = computeProxyCacheSummary(state.proxyStorageSummary);
   } catch (err) {
     state.proxyStorageSummaryError = (err && err.message) || "Không tải được summary";
@@ -3283,12 +3284,12 @@ async function refreshProxyStorageSummary(silent) {
   return state.proxyStorageSummary;
 }
 
-async function refreshProxyStorage(silent) {
+async function refreshProxyStorage(silent, force) {
   if (!silent) state.proxyStorageLoading = true;
   state.proxyStorageError = "";
   render();
   try {
-    state.proxyStorage = await api("/admin/proxy-storage");
+    state.proxyStorage = await api("/admin/proxy-storage" + (force ? "?refresh=1" : ""));
     window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
   } catch (err) {
     state.proxyStorageError = (err && err.message) || "Không tải được danh sách";

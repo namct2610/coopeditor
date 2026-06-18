@@ -1,10 +1,10 @@
 {
-  "version": "0.2.25",
-  "summary": "Tự fallback mount root cũ sai kiểu /volume1/... về /nas để worker transcode và NAS listing không bị gãy sau khi nâng cấp.",
+  "version": "0.2.26",
+  "summary": "Tối ưu lại proxy storage để sidebar hiện dung lượng sớm và ổn định hơn, đồng thời giữ refresh thủ công chính xác.",
   "changes": [
-    "DSM path resolver giờ thử cả mount root cấu hình và legacy mount root /nas khi gặp config cũ lỡ lưu host path Synology, giúp worker/API vẫn đọc được source thật để transcode.",
-    "Mounted NAS listing cũng fallback theo cùng cơ chế nên import/list thư mục không bị gãy trên runtime cũ sau khi update.",
-    "Worker runtime status hiển thị cảnh báo khi đang phải fallback từ config mount root cũ, để người dùng biết cần lưu lại setup cho sạch."
+    "Backend cache ngắn hạn thống kê proxy storage để UI sidebar và trang quản lý không phải quét MinIO lặp lại quá dày khi vừa login hoặc có nhiều event transcode.",
+    "Owner giờ tải proxy summary trước rồi mới kéo danh sách đầy đủ, giúp thẻ dung lượng ở sidebar có số hiện sớm hơn.",
+    "Trang quản lý proxy dùng renditionCount đúng cả khi đang ở summary mode, tránh hiện 0 giả chỉ vì API tóm tắt không gửi full list."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

@@ -38,6 +38,8 @@ import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } fr
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
 // ---------- helpers ----------
+const PROXY_STORAGE_CACHE_TTL_MS = 15_000;
+let _proxyStorageCache = null;
 
 function send(res, status, body, extraHeaders) {
   res.statusCode = status;
@@ -177,9 +179,14 @@ async function canManageUpdates(userId) {
 }
 
 async function buildProxyStoragePayload() {
+  if (_proxyStorageCache && (Date.now() - _proxyStorageCache.at) < PROXY_STORAGE_CACHE_TTL_MS) {
+    return _proxyStorageCache.data;
+  }
   const info = hlsBackendInfo();
   if (info.backend !== "minio") {
-    return { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
+    const data = { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
+    _proxyStorageCache = { at: Date.now(), data };
+    return data;
   }
   const items = await s3ListPrefix("");
   const renditionIds = [...new Set(items
@@ -188,7 +195,13 @@ async function buildProxyStoragePayload() {
     .filter(Boolean))];
   const meta = await store.listRenditionProxyMeta(renditionIds);
   const report = buildProxyStorageReport(items, meta);
-  return { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, ...report };
+  const data = { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, ...report };
+  _proxyStorageCache = { at: Date.now(), data };
+  return data;
+}
+
+function invalidateProxyStorageCache() {
+  _proxyStorageCache = null;
 }
 
 // Annotation payload:
@@ -848,6 +861,7 @@ async function handle(req, res, url) {
 
   if (p === "/proxy-storage-summary" && m === "GET") {
     try {
+      if (url.searchParams.get("refresh") === "1") invalidateProxyStorageCache();
       const payload = await buildProxyStoragePayload();
       return send(res, 200, {
         backend: payload.backend,
@@ -868,6 +882,7 @@ async function handle(req, res, url) {
   if (p === "/admin/proxy-storage" && m === "GET") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
     try {
+      if (url.searchParams.get("refresh") === "1") invalidateProxyStorageCache();
       return send(res, 200, await buildProxyStoragePayload());
     } catch (err) {
       req.log.error({ err: err.message }, "proxy-storage list failed");
@@ -892,6 +907,7 @@ async function handle(req, res, url) {
     // user explicitly requests it from the quality menu.
     try {
       const wipe = await s3DeletePrefix(rid + "/");
+      invalidateProxyStorageCache();
       await store.setRenditionStatus(rid, { status: "pending", progress: 0, hlsMasterUrl: null }).catch(() => {});
       await audit.record({ actorUserId: sess.userId, action: "rendition.proxy_deleted", resourceType: "rendition", resourceId: rid, payload: { deleted: wipe.deleted, bytes: wipe.bytes } });
       return send(res, 200, { ok: true, ...wipe });
