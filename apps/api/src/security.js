@@ -27,6 +27,10 @@ function originHostMatchesRequest(req, origin) {
   } catch (_) { return false; }
 }
 
+export function requestOriginMatchesHost(req, origin) {
+  return originHostMatchesRequest(req, origin);
+}
+
 export function applyCors(req, res) {
   const origin = req.headers.origin || "";
   const sameHost = originHostMatchesRequest(req, origin);

@@ -12,3 +12,12 @@ test("DSM path helpers normalize stored paths and rebuild local mount path", asy
   assert.equal(mod.resolveSourcePath("/volume1/PCNgon/502. Case G200/C1967.MP4"), "/nas/502. Case G200/C1967.MP4");
   assert.equal(mod.resolveSourcePath("/502. Case G200/C1967.MP4"), "/nas/502. Case G200/C1967.MP4");
 });
+
+test("DSM path helpers preserve legacy /nas paths even after mount root changes", async () => {
+  process.env.DSM_MOUNT_ROOT = "/mnt/pcngon";
+  const mod = await import("../src/dsm.js?case=legacy-nas-root");
+
+  assert.equal(mod.normalizeStoredNasPath("/nas/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
+  assert.equal(mod.resolveSourcePath("/nas/502. Case G200/C1967.MP4"), "/mnt/pcngon/502. Case G200/C1967.MP4");
+  assert.equal(mod.normalizeStoredNasPath("/volume1/PCNgon"), "/");
+});

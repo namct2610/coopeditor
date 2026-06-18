@@ -1,10 +1,10 @@
 {
-  "version": "0.2.13",
-  "summary": "Ổn định lại đường dẫn source NAS cho proxy, hiện dung lượng proxy ở sidebar và chuyển marker timeline sang avatar người tạo.",
+  "version": "0.2.14",
+  "summary": "Gia cố path NAS cho proxy khi đổi mount root và khóa setup mode về same-host để tránh cross-origin cấu hình trái phép.",
   "changes": [
-    "Đường dẫn asset import mới được lưu theo DSM path ổn định thay vì khóa cứng vào /nas; backend và worker giờ resolve local source path động để giảm lỗi gãy proxy khi đổi mount root.",
-    "Sidebar workspace giờ nạp và hiển thị dung lượng proxy thật từ trang quản lý proxy cho owner, thay vì để trống như trước.",
-    "Timeline review đổi từ chấm marker chung sang avatar nhỏ theo người tạo comment/chú thích, đồng thời có dấu nhấn riêng cho mốc có annotation."
+    "Helper NAS giờ nhận cả legacy path /nas/... lẫn host path /volumeX/share/... ngay cả khi dsmMountRoot đã đổi, giúp worker/API không resolve sai source path sau khi đổi mount root.",
+    "Setup mode không còn phản chiếu CORS cho mọi origin nữa; chỉ same-host mới được gọi API setup từ trình duyệt, giảm rủi ro bị website ngoài chiếm cấu hình lần đầu.",
+    "Bổ sung test cho path NAS legacy và helper kiểm tra same-host origin để giữ ổn định các fix bảo mật/proxy về sau."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 
 import { createRequestLogger, logger, newRequestId } from "./logger.js";
 import { publicRuntimeSummary, writeRuntimeConfig, isRuntimeConfigured } from "./runtime-config.js";
+import { requestOriginMatchesHost } from "./security.js";
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -29,10 +30,11 @@ function readJson(req) {
 
 function applySetupCors(req, res) {
   const origin = req.headers.origin || "";
+  if (origin && !requestOriginMatchesHost(req, origin)) return false;
   res.setHeader("access-control-allow-credentials", "true");
   if (origin) res.setHeader("access-control-allow-origin", origin);
-  else res.setHeader("access-control-allow-origin", "*");
   res.setHeader("vary", "Origin");
+  return true;
 }
 
 const server = createServer(async (req, res) => {
@@ -48,7 +50,7 @@ const server = createServer(async (req, res) => {
   });
 
   const url = new URL(req.url || "/", "http://x");
-  applySetupCors(req, res);
+  if (!applySetupCors(req, res)) return send(res, 403, { error: "Origin not allowed", mode: "setup" });
   if ((req.method || "GET") === "OPTIONS") {
     res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
     res.setHeader("access-control-allow-headers", "content-type");

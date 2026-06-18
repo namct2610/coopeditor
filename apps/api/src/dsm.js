@@ -304,8 +304,12 @@ export function normalizeStoredNasPath(input) {
   const mountRoot = DSM_MOUNT_ROOT.replace(/\/+$/, "");
   if (mountRoot && raw === mountRoot) return "/";
   if (mountRoot && raw.startsWith(mountRoot + "/")) raw = raw.slice(mountRoot.length);
+  if (raw === "/nas") return "/";
+  if (raw.startsWith("/nas/")) raw = raw.slice(4);
   const hostShareMatch = raw.match(/^\/volume\d+\/[^/]+(\/.*)$/);
   if (hostShareMatch) raw = hostShareMatch[1];
+  const hostShareRootMatch = raw.match(/^\/volume\d+\/[^/]+$/);
+  if (hostShareRootMatch) raw = "/";
   if (!raw.startsWith("/")) raw = "/" + raw;
   return raw.replace(/\/+/g, "/");
 }
