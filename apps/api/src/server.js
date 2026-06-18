@@ -32,6 +32,7 @@ import * as webhooks from "./webhooks.js";
 import * as shareLinks from "./share-links.js";
 import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
+import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig } from "./runtime-config.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 
@@ -820,28 +821,14 @@ async function handle(req, res, url) {
     if (info.backend !== "minio") {
       return send(res, 200, { backend: info.backend, renditions: [], totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." });
     }
-    // Group MinIO objects by rendition prefix and join with DB metadata so the
-    // UI can show "project / asset / rendition" for each chunk of bytes.
     try {
       const items = await s3ListPrefix("");
-      const bySplit = {};
-      for (const it of items) {
-        const slash = it.key.indexOf("/");
-        if (slash < 0) continue;
-        const rid = it.key.slice(0, slash);
-        if (!bySplit[rid]) bySplit[rid] = { renditionId: rid, bytes: 0, fileCount: 0 };
-        bySplit[rid].bytes += it.size;
-        bySplit[rid].fileCount += 1;
-      }
-      const renditionIds = Object.keys(bySplit);
-      // Look up project + asset metadata in one go. Skip orphans (proxy bytes
-      // for renditions that no longer exist in the DB) — but include them in
-      // a separate bucket so the user can sweep them.
+      const renditionIds = [...new Set(items
+        .map((it) => String(it && it.key || ""))
+        .map((key) => key.split("/")[0])
+        .filter(Boolean))];
       const meta = await store.listRenditionProxyMeta(renditionIds);
-      const renditions = meta.map((m) => ({ ...m, bytes: bySplit[m.renditionId].bytes, fileCount: bySplit[m.renditionId].fileCount }))
-        .sort((a, b) => b.bytes - a.bytes);
-      const totalBytes = renditions.reduce((s, x) => s + x.bytes, 0);
-      return send(res, 200, { backend: "minio", bucket: info.bucket, totalBytes, renditions });
+      return send(res, 200, { backend: "minio", bucket: info.bucket, ...buildProxyStorageReport(items, meta) });
     } catch (err) {
       req.log.error({ err: err.message }, "proxy-storage list failed");
       return bad(res, "Không đọc được danh sách MinIO: " + err.message, 502);
