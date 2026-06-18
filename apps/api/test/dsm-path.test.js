@@ -53,7 +53,7 @@ test("DSM source readability helper reports mounted and missing sources clearly"
   assert.equal(await mod.assertReadableSourcePath("/Clip/C001.MP4", { actor: "api" }), join(root, "Clip", "C001.MP4"));
   await assert.rejects(
     () => mod.assertReadableSourcePath("/Clip/C404.MP4", { actor: "api" }),
-    /Source path not mounted in api/,
+    /Source file not found in api/,
   );
 });
 

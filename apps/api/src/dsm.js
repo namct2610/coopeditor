@@ -391,8 +391,22 @@ export async function assertReadableSourcePath(sourcePath, { actor = "worker" } 
   if (permissionDeniedPath) {
     throw new Error((actor === "worker" ? "Worker" : "API") + " cannot read source path: " + permissionDeniedPath + " (stored: " + sourcePath + ")");
   }
+  const mountRoots = buildMountRootCandidates();
+  let mountReady = false;
+  for (const mountRoot of mountRoots) {
+    try {
+      const info = await stat(mountRoot);
+      if (info.isDirectory()) {
+        mountReady = true;
+        break;
+      }
+    } catch (_) {}
+  }
   const primaryPath = candidates[0] || sourcePath;
   const tried = missingPaths.length > 1 ? " (tried: " + missingPaths.join(" | ") + ")" : "";
+  if (mountReady) {
+    throw new Error("Source file not found in " + actor + ": " + primaryPath + " (stored: " + sourcePath + ")" + tried);
+  }
   throw new Error("Source path not mounted in " + actor + ": " + primaryPath + " (stored: " + sourcePath + ")" + tried);
 }
 
