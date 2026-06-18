@@ -135,6 +135,30 @@ let savedTheme = "dark";
 try { const t = localStorage.getItem("co-theme"); if (t === "light" || t === "dark") savedTheme = t; } catch (_) {}
 document.documentElement.setAttribute("data-theme", savedTheme);
 
+const PROXY_CACHE_STORAGE_KEY = "co-proxy-cache";
+
+function loadPersistedProxyCache() {
+  try {
+    const raw = localStorage.getItem(PROXY_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.totalBytes !== "number" || typeof parsed.pct !== "number" || typeof parsed.label !== "string") return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function persistProxyCache(cache) {
+  try {
+    if (!cache) localStorage.removeItem(PROXY_CACHE_STORAGE_KEY);
+    else localStorage.setItem(PROXY_CACHE_STORAGE_KEY, JSON.stringify(cache));
+  } catch (_) {}
+}
+
+window.__proxyCache = loadPersistedProxyCache();
+
 const state = {
   view: "projects",
   theme: savedTheme,
@@ -1193,6 +1217,12 @@ function computeProxyCacheSummary(storage) {
       + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy")
       + (orphanCount ? (" · " + orphanCount + " orphan") : ""),
   };
+}
+
+function updateProxyCache(cache) {
+  window.__proxyCache = cache || null;
+  persistProxyCache(window.__proxyCache);
+  return window.__proxyCache;
 }
 
 function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
@@ -3273,10 +3303,10 @@ async function refreshProxyStorageSummary(silent, force) {
   render();
   try {
     state.proxyStorageSummary = await api("/proxy-storage-summary" + (force ? "?refresh=1" : ""));
-    window.__proxyCache = computeProxyCacheSummary(state.proxyStorageSummary);
+    updateProxyCache(computeProxyCacheSummary(state.proxyStorageSummary));
   } catch (err) {
     state.proxyStorageSummaryError = (err && err.message) || "Không tải được summary";
-    if (!state.proxyStorage && !state.proxyStorageSummary) window.__proxyCache = null;
+    if (!state.proxyStorage && !state.proxyStorageSummary) updateProxyCache(null);
   } finally {
     state.proxyStorageSummaryLoading = false;
     render();
@@ -3290,12 +3320,12 @@ async function refreshProxyStorage(silent, force) {
   render();
   try {
     state.proxyStorage = await api("/admin/proxy-storage" + (force ? "?refresh=1" : ""));
-    window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
+    updateProxyCache(computeProxyCacheSummary(state.proxyStorage));
   } catch (err) {
     state.proxyStorageError = (err && err.message) || "Không tải được danh sách";
     if (!state.proxyStorage) {
-      if (state.proxyStorageSummary) window.__proxyCache = computeProxyCacheSummary(state.proxyStorageSummary);
-      else window.__proxyCache = null;
+      if (state.proxyStorageSummary) updateProxyCache(computeProxyCacheSummary(state.proxyStorageSummary));
+      else updateProxyCache(null);
     }
   } finally {
     state.proxyStorageLoading = false;
@@ -3345,9 +3375,12 @@ async function deleteProxyRendition(renditionId) {
     if (state.proxyStorage && Array.isArray(state.proxyStorage.renditions)) {
       const before = state.proxyStorage.renditions.find((r) => r.renditionId === renditionId);
       state.proxyStorage.renditions = state.proxyStorage.renditions.filter((r) => r.renditionId !== renditionId);
-      if (before) state.proxyStorage.totalBytes = Math.max(0, (state.proxyStorage.totalBytes || 0) - (before.bytes || 0));
+      if (before) {
+        state.proxyStorage.totalBytes = Math.max(0, (state.proxyStorage.totalBytes || 0) - (before.bytes || 0));
+        state.proxyStorage.renditionCount = Math.max(0, Number(state.proxyStorage.renditionCount || state.proxyStorage.renditions.length || 0) - 1);
+      }
     }
-    window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
+    updateProxyCache(computeProxyCacheSummary(state.proxyStorage));
   } catch (err) {
     state.proxyStorageError = "Xoá thất bại: " + ((err && err.message) || "lỗi không xác định");
   } finally {

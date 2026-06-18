@@ -1,10 +1,10 @@
 {
-  "version": "0.2.27",
-  "summary": "Cho refresh proxy do event transcode tự bypass cache, để sidebar cập nhật dung lượng nhanh hơn ngay sau khi proxy xong hoặc fail.",
+  "version": "0.2.28",
+  "summary": "Lưu last-known proxy summary ở browser để sidebar vẫn hiện dung lượng ngay sau reload, rồi mới đồng bộ lại bằng API.",
   "changes": [
-    "Các lần refresh proxy do event rendition ready/failed giờ tự gọi refresh kiểu force để không bị kẹt số cũ bởi cache 15 giây.",
-    "Polling nền và mở app ban đầu vẫn giữ cache ngắn hạn để nhẹ MinIO/NAS khi nhiều event transcode đổ về.",
-    "Giữ nguyên các tối ưu summary-first và renditionCount để sidebar và trang quản lý proxy đồng bộ ổn định hơn."
+    "Frontend giờ persist proxy cache cuối cùng trong localStorage, nên thẻ Bộ nhớ proxy không bị trắng số sau reload hoặc lúc NAS/API vừa khởi động lại.",
+    "Khi summary hoặc full payload mới về từ API, cache trong browser sẽ tự được cập nhật đè lên giá trị cũ để dữ liệu vẫn hội tụ về số thật.",
+    "Xoá proxy thủ công cũng cập nhật lại persisted cache ngay để sidebar và trang quản lý không lệch nhau trong cùng phiên."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }
