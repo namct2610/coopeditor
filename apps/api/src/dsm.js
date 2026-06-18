@@ -311,7 +311,11 @@ export function normalizeStoredNasPath(input) {
   const hostShareRootMatch = raw.match(/^\/volume\d+\/[^/]+$/);
   if (hostShareRootMatch) raw = "/";
   if (!raw.startsWith("/")) raw = "/" + raw;
-  return raw.replace(/\/+/g, "/");
+  const segments = raw.replace(/\/+/g, "/").split("/").filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new Error("Duong dan NAS khong hop le");
+  }
+  return "/" + segments.join("/");
 }
 
 export function resolveSourcePath(input, realPath = "") {

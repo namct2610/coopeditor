@@ -21,3 +21,12 @@ test("DSM path helpers preserve legacy /nas paths even after mount root changes"
   assert.equal(mod.resolveSourcePath("/nas/502. Case G200/C1967.MP4"), "/mnt/pcngon/502. Case G200/C1967.MP4");
   assert.equal(mod.normalizeStoredNasPath("/volume1/PCNgon"), "/");
 });
+
+test("DSM path helpers reject traversal segments", async () => {
+  process.env.DSM_MOUNT_ROOT = "/nas";
+  const mod = await import("../src/dsm.js?case=reject-traversal");
+
+  assert.throws(() => mod.normalizeStoredNasPath("/../../etc/passwd"), /Duong dan NAS khong hop le/);
+  assert.throws(() => mod.normalizeStoredNasPath("/Folder/../clip.mp4"), /Duong dan NAS khong hop le/);
+  assert.throws(() => mod.resolveSourcePath("/Folder/../clip.mp4"), /Duong dan NAS khong hop le/);
+});
