@@ -344,6 +344,22 @@ export function resolveSourcePath(input, realPath = "") {
   return null;
 }
 
+export async function assertReadableSourcePath(sourcePath, { actor = "worker" } = {}) {
+  const localPath = resolveSourcePath(sourcePath) || sourcePath;
+  try {
+    await stat(localPath);
+    return localPath;
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      throw new Error("Source path not mounted in " + actor + ": " + localPath + " (stored: " + sourcePath + ")");
+    }
+    if (err && err.code === "EACCES") {
+      throw new Error((actor === "worker" ? "Worker" : "API") + " cannot read source path: " + localPath + " (stored: " + sourcePath + ")");
+    }
+    throw err;
+  }
+}
+
 async function dsmGetFileEntry(sid, path) {
   const parent = path.replace(/\/[^/]+$/, "") || "/";
   try {

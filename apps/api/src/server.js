@@ -716,6 +716,16 @@ async function handle(req, res, url) {
       const r = (await store.listRenditionsForVersion(vid)).find((x) => x.height === body.height);
       if (!r) return bad(res, "Rendition not found", 404);
       if (r.status === "ready") return send(res, 200, r);
+      const version = await store.getVersion(vid);
+      const asset = version ? await store.getAsset(version.assetId) : null;
+      if (!asset) return bad(res, "Asset not found", 404);
+      if (!dsm.isDevMode()) {
+        try {
+          await dsm.assertReadableSourcePath(asset.nasPath, { actor: "api" });
+        } catch (err) {
+          return bad(res, "Nguon video tren NAS chua san sang cho transcode: " + ((err && err.message) || "khong doc duoc source"), 409);
+        }
+      }
       await requestTranscode(r.id);
       const refreshed = await store.getRendition(r.id);
       return send(res, 202, refreshed);

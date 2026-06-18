@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 test("DSM path helpers normalize stored paths and rebuild local mount path", async () => {
   process.env.DSM_MOUNT_ROOT = "/nas";
@@ -38,4 +41,18 @@ test("DSM path helpers follow mount root changes after module load", async () =>
   assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/nas/Clip/C001.MP4");
   process.env.DSM_MOUNT_ROOT = "/mnt/pcngon";
   assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/mnt/pcngon/Clip/C001.MP4");
+});
+
+test("DSM source readability helper reports mounted and missing sources clearly", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-source-"));
+  await mkdir(join(root, "Clip"), { recursive: true });
+  await writeFile(join(root, "Clip", "C001.MP4"), "demo");
+  process.env.DSM_MOUNT_ROOT = root;
+  const mod = await import("../src/dsm.js?case=source-readable");
+
+  assert.equal(await mod.assertReadableSourcePath("/Clip/C001.MP4", { actor: "api" }), join(root, "Clip", "C001.MP4"));
+  await assert.rejects(
+    () => mod.assertReadableSourcePath("/Clip/C404.MP4", { actor: "api" }),
+    /Source path not mounted in api/,
+  );
 });

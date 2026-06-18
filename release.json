@@ -1,10 +1,10 @@
 {
-  "version": "0.2.18",
-  "summary": "Worker giờ tự restart khi runtime config đổi và DSM path helpers không còn giữ mount root cũ trong memory.",
+  "version": "0.2.19",
+  "summary": "API giờ chặn sớm transcode khi source NAS chưa mount và worker/API dùng chung kiểm tra source readability.",
   "changes": [
-    "Worker bootstrap theo dõi file runtime config trong shared volume /data và sẽ tự thoát để Docker restart lại khi đổi dsmMountRoot, hwaccel, ladder hoặc concurrency từ UI.",
-    "DSM helpers chuyển sang đọc DSM_HOST / DSM_MOUNT_ROOT / DSM_DEV_LOGIN theo kiểu lazy để API và worker không bị kẹt giá trị mount root cũ trong memory.",
-    "Bổ sung test cho runtime config watcher của worker và test chứng minh resolveSourcePath bám đúng mount root mới sau khi config/env thay đổi."
+    "Route tạo rendition proxy sẽ preflight source NAS trước khi enqueue job, trả lỗi 409 rõ ràng ngay trên UI nếu đường dẫn chưa mount hoặc API không đọc được file nguồn.",
+    "Worker và API dùng chung helper assertReadableSourcePath trong DSM module để thống nhất lỗi mount/readability thay vì mỗi nơi tự kiểm tra một kiểu.",
+    "Bổ sung test cho helper source readability và cập nhật metadata release để phân biệt bản vá preflight proxy mới."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

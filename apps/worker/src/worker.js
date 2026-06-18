@@ -31,7 +31,7 @@ import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { isPermanentTranscodeError, shouldAutoRequeueFailedJob } from "./error-policy.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
-import { resolveSourcePath } from "../../api/src/dsm.js";
+import { assertReadableSourcePath } from "../../api/src/dsm.js";
 
 if (!process.env.DATABASE_URL) { console.error("[worker] DATABASE_URL required"); process.exit(1); }
 
@@ -307,18 +307,7 @@ async function runSim(rid, assetVersionId) {
 
 async function runFfmpeg(rendition) {
   // Source path: rendition.nas_path. Mode "full" uploads to MinIO; "ffmpeg-only" writes locally.
-  const localSourcePath = resolveSourcePath(rendition.nas_path) || rendition.nas_path;
-  try {
-    await fs.stat(localSourcePath);
-  } catch (err) {
-    if (err && err.code === "ENOENT") {
-      throw new Error("Source path not mounted in worker: " + localSourcePath + " (stored: " + rendition.nas_path + ")");
-    }
-    if (err && err.code === "EACCES") {
-      throw new Error("Worker cannot read source path: " + localSourcePath + " (stored: " + rendition.nas_path + ")");
-    }
-    throw err;
-  }
+  const localSourcePath = await assertReadableSourcePath(rendition.nas_path, { actor: "worker" });
   const outDir = mode === "full" ? await fs.mkdtemp(join(tmpdir(), "co-")) : (process.env.OUTPUT_DIR || join(tmpdir(), "co-out", rendition.id));
   await fs.mkdir(outDir, { recursive: true });
   const bitrate = RUNG_BITRATE[rendition.height] || "3500k";
