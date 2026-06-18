@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 
 import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
+import { isPermanentTranscodeError, shouldAutoRequeueFailedJob } from "./error-policy.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { resolveSourcePath } from "../../api/src/dsm.js";
 
@@ -146,8 +147,9 @@ try {
            error=NULL,
            next_run_at=now(),
            started_at=NULL
-     WHERE status IN ('running', 'failed')
-        OR (status='queued' AND attempts >= max_attempts)
+     WHERE status='running'
+        OR (status='failed' AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg)'))
+        OR (status='queued' AND attempts >= max_attempts AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg)'))
     RETURNING id
   `);
   if (r.rowCount > 0) {
@@ -279,14 +281,9 @@ async function refreshDesiredConcurrency() {
   }
 }
 
-async function finishJob(jobId, ok) {
-  await pool.query(`UPDATE transcode_jobs SET status=$1, finished_at=now() WHERE id=$2`,
-    [ok ? "done" : "failed", jobId]);
-}
-
-function isPermanentTranscodeError(err) {
-  const text = String(err && err.message || err || "");
-  return /ENOENT|EACCES|not mounted|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg/i.test(text);
+async function finishJob(jobId, ok, errorMsg = null) {
+  await pool.query(`UPDATE transcode_jobs SET status=$1, finished_at=now(), error=$3 WHERE id=$2`,
+    [ok ? "done" : "failed", jobId, ok ? null : (errorMsg || null)]);
 }
 
 async function rescheduleJob(jobId, attempts, errorMsg) {
@@ -408,7 +405,7 @@ async function workOnce() {
     await updateRendition(rendition.id, { status: "processing", progress: 0 });
     if (mode === "sim") await runSim(rendition.id, rendition.asset_version_id);
     else await runFfmpeg(rendition);
-    await finishJob(job.id, true);
+    await finishJob(job.id, true, null);
     return true;
   } catch (err) {
     const { job, rendition } = claimed;
@@ -419,7 +416,7 @@ async function workOnce() {
       await rescheduleJob(job.id, job.attempts, err.message);
     } else {
       await updateRendition(rendition.id, { status: "failed", progress: 0 });
-      await finishJob(job.id, false);
+      await finishJob(job.id, false, err.message);
     }
     return true;
   } finally {
