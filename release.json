@@ -1,10 +1,10 @@
 {
-  "version": "0.2.28",
-  "summary": "Lưu last-known proxy summary ở browser để sidebar vẫn hiện dung lượng ngay sau reload, rồi mới đồng bộ lại bằng API.",
+  "version": "0.2.29",
+  "summary": "Chặn transcode khi worker chưa online, đồng bộ lại proxy sidebar ổn định hơn, và siết marker avatar trên timeline.",
   "changes": [
-    "Frontend giờ persist proxy cache cuối cùng trong localStorage, nên thẻ Bộ nhớ proxy không bị trắng số sau reload hoặc lúc NAS/API vừa khởi động lại.",
-    "Khi summary hoặc full payload mới về từ API, cache trong browser sẽ tự được cập nhật đè lên giá trị cũ để dữ liệu vẫn hội tụ về số thật.",
-    "Xoá proxy thủ công cũng cập nhật lại persisted cache ngay để sidebar và trang quản lý không lệch nhau trong cùng phiên."
+    "Fail-fast khi chưa có worker heartbeat hoặc worker không nhìn thấy DSM mount root, tránh để job proxy kẹt trạng thái chờ mà không có CPU load.",
+    "Đồng bộ proxy storage summary từ payload đầy đủ để sidebar giữ được dung lượng proxy ổn định hơn sau các lần refresh và xóa proxy.",
+    "Clamp marker avatar ở hai mép timeline và debounce refresh source list khi transcode/comment event dồn dập để UI mượt hơn."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

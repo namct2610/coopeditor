@@ -20,15 +20,15 @@ function mountMessage(worker) {
   return "Worker chưa thấy DSM mount root " + (worker.dsmMountRoot || "/nas") + ".";
 }
 
-function buildSummaryFromWorkers(workers) {
+export function summarizeTranscodeWorkers(workers) {
   const activeWorkers = workers.filter((worker) => !worker.stale);
   const readyWorkers = activeWorkers.filter((worker) => worker.mountReady);
   const mountIssueWorkers = activeWorkers.filter((worker) => !worker.mountReady);
   const warningWorkers = readyWorkers.filter((worker) => String(worker.mountError || "").trim());
   const latestWorker = workers[0] || null;
 
-  let status = "unknown";
-  let message = "Chưa có heartbeat từ worker.";
+  let status = "offline";
+  let message = "Chưa có worker online. Kiểm tra container coopeditor-worker đã chạy và gửi heartbeat chưa.";
   if (warningWorkers.length) {
     status = "warning";
     message = mountMessage(warningWorkers[0]);
@@ -96,13 +96,16 @@ export async function getTranscodeRuntimeStatus(nowMs = Date.now()) {
       stale: !updatedAtMs || (nowMs - updatedAtMs > WORKER_HEARTBEAT_STALE_MS),
     };
   });
-  return buildSummaryFromWorkers(workers);
+  return summarizeTranscodeWorkers(workers);
 }
 
 export async function ensureTranscodeRuntimeReady() {
   const summary = await getTranscodeRuntimeStatus();
   if (summary.backend !== "pg") return summary;
-  if (summary.activeWorkers > 0 && !summary.canTranscode) {
+  if (!summary.workerHeartbeatPresent || summary.activeWorkers <= 0) {
+    throw new Error(summary.message + " Khởi động lại container worker hoặc redeploy project để nhận runtime mới.");
+  }
+  if (!summary.canTranscode) {
     throw new Error(summary.message + " Kiểm tra volume NAS của container worker rồi redeploy project.");
   }
   return summary;
