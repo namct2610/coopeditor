@@ -24,11 +24,15 @@ function buildSummaryFromWorkers(workers) {
   const activeWorkers = workers.filter((worker) => !worker.stale);
   const readyWorkers = activeWorkers.filter((worker) => worker.mountReady);
   const mountIssueWorkers = activeWorkers.filter((worker) => !worker.mountReady);
+  const warningWorkers = readyWorkers.filter((worker) => String(worker.mountError || "").trim());
   const latestWorker = workers[0] || null;
 
   let status = "unknown";
   let message = "Chưa có heartbeat từ worker.";
-  if (activeWorkers.length && readyWorkers.length === activeWorkers.length) {
+  if (warningWorkers.length) {
+    status = "warning";
+    message = mountMessage(warningWorkers[0]);
+  } else if (activeWorkers.length && readyWorkers.length === activeWorkers.length) {
     status = "ready";
     message = "Worker đang online và nhìn thấy DSM mount root.";
   } else if (activeWorkers.length && readyWorkers.length > 0) {

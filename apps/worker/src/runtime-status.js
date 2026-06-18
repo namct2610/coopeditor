@@ -2,12 +2,21 @@ import { stat } from "node:fs/promises";
 
 const DEFAULT_MOUNT_ROOT = "/nas";
 
+function legacyMountRoot(env = process.env) {
+  return String(env.DSM_LEGACY_MOUNT_ROOT || DEFAULT_MOUNT_ROOT).trim() || DEFAULT_MOUNT_ROOT;
+}
+
 export function detectNasMountRoot(env = process.env) {
   return String(env.DSM_MOUNT_ROOT || DEFAULT_MOUNT_ROOT).trim() || DEFAULT_MOUNT_ROOT;
 }
 
+function isHostStyleMountRoot(root) {
+  return /^\/volume\d+(\/|$)/i.test(String(root || "").trim());
+}
+
 export async function detectWorkerMountHealth(env = process.env) {
   const dsmMountRoot = detectNasMountRoot(env);
+  const fallbackMountRoot = isHostStyleMountRoot(dsmMountRoot) ? legacyMountRoot(env) : "";
   try {
     const info = await stat(dsmMountRoot);
     if (!info.isDirectory()) {
@@ -19,6 +28,18 @@ export async function detectWorkerMountHealth(env = process.env) {
     }
     return { dsmMountRoot, mountReady: true, mountError: "" };
   } catch (err) {
+    if (fallbackMountRoot && fallbackMountRoot !== dsmMountRoot) {
+      try {
+        const fallbackInfo = await stat(fallbackMountRoot);
+        if (fallbackInfo.isDirectory()) {
+          return {
+            dsmMountRoot: fallbackMountRoot,
+            mountReady: true,
+            mountError: "Worker dang fallback tu DSM mount root cu " + dsmMountRoot + " sang " + fallbackMountRoot + ". Nen mo Setup va luu lai dsmMountRoot=/nas de dong bo runtime.",
+          };
+        }
+      } catch (_) {}
+    }
     if (err && err.code === "ENOENT") {
       return {
         dsmMountRoot,

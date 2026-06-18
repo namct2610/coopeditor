@@ -16,6 +16,7 @@ import { join } from "node:path";
 
 const execFileAsync = promisify(execFile);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
+const LEGACY_CONTAINER_MOUNT_ROOT = process.env.DSM_LEGACY_MOUNT_ROOT || "/nas";
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
 const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
 
@@ -29,6 +30,22 @@ function dsmDevLogin() {
 
 function dsmMountRoot() {
   return process.env.DSM_MOUNT_ROOT || "";
+}
+
+function normalizeMountRoot(root) {
+  return String(root || "").trim().replace(/\/+$/, "");
+}
+
+function mountRootLooksLikeHostPath(root) {
+  return /^\/volume\d+(\/|$)/i.test(normalizeMountRoot(root));
+}
+
+function buildMountRootCandidates(root = dsmMountRoot()) {
+  const cleaned = normalizeMountRoot(root);
+  const candidates = [];
+  if (cleaned) candidates.push(cleaned);
+  if (mountRootLooksLikeHostPath(cleaned)) candidates.push(LEGACY_CONTAINER_MOUNT_ROOT);
+  return [...new Set(candidates.filter(Boolean))];
 }
 
 function dsmFetchTimeoutMs() {
@@ -336,28 +353,47 @@ export function normalizeStoredNasPath(input) {
 }
 
 export function resolveSourcePath(input, realPath = "") {
+  const candidates = resolveSourcePathCandidates(input, realPath);
+  return candidates[0] || null;
+}
+
+export function resolveSourcePathCandidates(input, realPath = "") {
   const normalized = normalizeStoredNasPath(input);
-  const mountRoot = dsmMountRoot();
-  if (mountRoot) return mountRoot.replace(/\/+$/, "") + normalized;
-  if (realPath && realPath.startsWith("/")) return realPath;
-  if (String(input || "").startsWith("/")) return String(input);
-  return null;
+  const candidates = [];
+  for (const mountRoot of buildMountRootCandidates()) {
+    candidates.push(mountRoot + normalized);
+  }
+  if (realPath && realPath.startsWith("/")) candidates.push(realPath);
+  if (String(input || "").startsWith("/")) candidates.push(String(input));
+  return [...new Set(candidates.filter(Boolean))];
 }
 
 export async function assertReadableSourcePath(sourcePath, { actor = "worker" } = {}) {
-  const localPath = resolveSourcePath(sourcePath) || sourcePath;
-  try {
-    await stat(localPath);
-    return localPath;
-  } catch (err) {
-    if (err && err.code === "ENOENT") {
-      throw new Error("Source path not mounted in " + actor + ": " + localPath + " (stored: " + sourcePath + ")");
+  const candidates = resolveSourcePathCandidates(sourcePath);
+  let permissionDeniedPath = "";
+  let missingPaths = [];
+  for (const localPath of candidates) {
+    try {
+      await stat(localPath);
+      return localPath;
+    } catch (err) {
+      if (err && err.code === "ENOENT") {
+        missingPaths.push(localPath);
+        continue;
+      }
+      if (err && err.code === "EACCES") {
+        permissionDeniedPath = localPath;
+        continue;
+      }
+      throw err;
     }
-    if (err && err.code === "EACCES") {
-      throw new Error((actor === "worker" ? "Worker" : "API") + " cannot read source path: " + localPath + " (stored: " + sourcePath + ")");
-    }
-    throw err;
   }
+  if (permissionDeniedPath) {
+    throw new Error((actor === "worker" ? "Worker" : "API") + " cannot read source path: " + permissionDeniedPath + " (stored: " + sourcePath + ")");
+  }
+  const primaryPath = candidates[0] || sourcePath;
+  const tried = missingPaths.length > 1 ? " (tried: " + missingPaths.join(" | ") + ")" : "";
+  throw new Error("Source path not mounted in " + actor + ": " + primaryPath + " (stored: " + sourcePath + ")" + tried);
 }
 
 async function dsmGetFileEntry(sid, path) {
@@ -387,20 +423,29 @@ function resolveProbePath(dsmPath, realPath) {
 
 async function listMountedFolder(path) {
   path = normalizeStoredNasPath(path);
-  const mountRoot = dsmMountRoot().replace(/\/+$/, "");
   const rel = path === "/" ? "" : path.replace(/^\/+/, "");
-  const diskPath = rel ? join(mountRoot, rel) : mountRoot;
-  let rows;
-  try {
-    rows = await readdir(diskPath, { withFileTypes: true });
-  } catch (err) {
-    if (err && err.code === "ENOENT") {
-      throw new Error("Khong tim thay thu muc NAS da mount tai " + diskPath + " — kiem tra lai DSM mount root");
+  let diskPath = "";
+  let rows = null;
+  let lastErr = null;
+  for (const mountRoot of buildMountRootCandidates()) {
+    const candidate = rel ? join(mountRoot, rel) : mountRoot;
+    try {
+      rows = await readdir(candidate, { withFileTypes: true });
+      diskPath = candidate;
+      break;
+    } catch (err) {
+      lastErr = { err, path: candidate };
+      if (!(err && (err.code === "ENOENT" || err.code === "EACCES"))) throw err;
     }
-    if (err && err.code === "EACCES") {
-      throw new Error("Khong du quyen doc thu muc NAS da mount tai " + diskPath);
+  }
+  if (!rows) {
+    if (lastErr && lastErr.err && lastErr.err.code === "ENOENT") {
+      throw new Error("Khong tim thay thu muc NAS da mount tai " + lastErr.path + " — kiem tra lai DSM mount root");
     }
-    throw err;
+    if (lastErr && lastErr.err && lastErr.err.code === "EACCES") {
+      throw new Error("Khong du quyen doc thu muc NAS da mount tai " + lastErr.path);
+    }
+    throw lastErr && lastErr.err ? lastErr.err : new Error("Khong doc duoc thu muc NAS da mount");
   }
   const entries = await Promise.all(rows
     .filter((row) => isVisibleNasName(row.name))

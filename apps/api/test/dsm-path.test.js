@@ -56,3 +56,20 @@ test("DSM source readability helper reports mounted and missing sources clearly"
     /Source path not mounted in api/,
   );
 });
+
+test("DSM source readability helper falls back to /nas when legacy config stored a host path", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-legacy-mount-"));
+  await mkdir(join(root, "Clip"), { recursive: true });
+  await writeFile(join(root, "Clip", "C002.MP4"), "demo");
+  process.env.DSM_MOUNT_ROOT = "/volume1/PCNgon";
+  process.env.DSM_LEGACY_MOUNT_ROOT = root;
+  const mod = await import("../src/dsm.js?case=legacy-host-path-fallback");
+
+  assert.equal(mod.resolveSourcePath("/Clip/C002.MP4"), "/volume1/PCNgon/Clip/C002.MP4");
+  try {
+    const localPath = await mod.assertReadableSourcePath("/Clip/C002.MP4", { actor: "worker" });
+    assert.equal(localPath, join(root, "Clip", "C002.MP4"));
+  } finally {
+    delete process.env.DSM_LEGACY_MOUNT_ROOT;
+  }
+});
