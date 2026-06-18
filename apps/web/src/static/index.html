@@ -180,6 +180,9 @@ const state = {
   proxyStorage: null,
   proxyStorageLoading: false,
   proxyStorageError: "",
+  proxyStorageSummary: null,
+  proxyStorageSummaryLoading: false,
+  proxyStorageSummaryError: "",
   proxyDeletingId: "",
   // Create-project modal (replaces the old window.prompt pair). Thumbnail is
   // optional — user can skip and add later from the project detail page.
@@ -471,7 +474,11 @@ function applyHashRoute() {
       state.projectContextMenu = null;
       state.sourceContextMenu = null;
       render();
-      if (!state.proxyStorage && !state.proxyStorageLoading) refreshProxyStorage().catch(() => {});
+      if (canManageProxyStorage()) {
+        if (!state.proxyStorage && !state.proxyStorageLoading) refreshProxyStorage().catch(() => {});
+      } else if (!state.proxyStorageSummary && !state.proxyStorageSummaryLoading) {
+        refreshProxyStorageSummary().catch(() => {});
+      }
       return;
     }
     if (reviewMatch) {
@@ -1142,8 +1149,8 @@ function sidebar(vals) {
           <div style="margin-left:auto;color:${proxyActive ? "var(--co-accent-ink)" : "var(--co-faint)"};">${ICON.chevRight}</div>
         </div>
         <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#2da8e2,#4fade4);"></div></div>
-        <div style="color:${state.proxyStorageError ? "#ef4d57" : "var(--co-muted)"};font-size:11px;font-weight:600;">${esc(vals.proxyCache.label)}</div>
-        <div style="margin-top:5px;color:${state.proxyStorageError ? "rgba(239,77,87,0.82)" : "var(--co-faint)"};font-size:10.5px;font-weight:700;">${state.proxyStorageError ? "Mở trang quản lý để xem lỗi chi tiết" : (state.proxyStorageLoading ? "Đang đồng bộ dung lượng từ MinIO…" : "Nhấn để mở trang quản lý proxy")}</div>
+        <div style="color:${(state.proxyStorageError || state.proxyStorageSummaryError) ? "#ef4d57" : "var(--co-muted)"};font-size:11px;font-weight:600;">${esc(vals.proxyCache.label)}</div>
+        <div style="margin-top:5px;color:${(state.proxyStorageError || state.proxyStorageSummaryError) ? "rgba(239,77,87,0.82)" : "var(--co-faint)"};font-size:10.5px;font-weight:700;">${(state.proxyStorageError || state.proxyStorageSummaryError) ? "Mở trang quản lý để xem lỗi chi tiết" : ((state.proxyStorageLoading || state.proxyStorageSummaryLoading) ? "Đang đồng bộ dung lượng từ MinIO…" : "Nhấn để mở trang quản lý proxy")}</div>
       </div>` : ""}
     </aside>`;
 }
@@ -1154,7 +1161,7 @@ function computeProxyCacheSummary(storage) {
   const totalGb = totalBytes / (1024 ** 3);
   const softCapacityGb = 100;
   const pct = totalGb <= 0 ? 0 : Math.max(4, Math.min(100, Math.round((totalGb / softCapacityGb) * 100)));
-  const renditionCount = Array.isArray(storage.renditions) ? storage.renditions.length : 0;
+  const renditionCount = Number(storage.renditionCount || (Array.isArray(storage.renditions) ? storage.renditions.length : 0));
   const orphanCount = Number(storage.orphanCount || 0);
   return {
     totalBytes,
@@ -1680,9 +1687,10 @@ function sourceContextMenu() {
 }
 
 function proxyStoragePage() {
-  const ps = state.proxyStorage;
-  const loading = state.proxyStorageLoading;
-  const err = state.proxyStorageError;
+  const canManage = canManageProxyStorage();
+  const ps = canManage ? state.proxyStorage : (state.proxyStorage || state.proxyStorageSummary);
+  const loading = canManage ? state.proxyStorageLoading : (state.proxyStorageLoading || state.proxyStorageSummaryLoading);
+  const err = canManage ? state.proxyStorageError : (state.proxyStorageError || state.proxyStorageSummaryError);
   const deletingId = state.proxyDeletingId;
   return `
   <main style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 40px;">
@@ -1694,8 +1702,9 @@ function proxyStoragePage() {
           <div style="margin-top:4px;font-size:20px;font-weight:800;color:var(--co-text);">Quản lý dung lượng proxy</div>
           <div style="margin-top:4px;color:var(--co-muted);font-size:12.5px;font-weight:600;line-height:1.5;">
             Mỗi rendition (720p/1080p) lưu HLS playlist + segment trên MinIO.
-            Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động.
-            Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu.
+            ${canManage
+              ? "Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động. Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu."
+              : "Bạn đang ở chế độ chỉ xem dung lượng. Chỉ owner mới có quyền xoá proxy khỏi MinIO."}
           </div>
         </div>
         <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
@@ -1733,7 +1742,7 @@ function proxyStoragePage() {
                 <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);">Rendition</th>
                 <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);">Status</th>
                 <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);text-align:right;">Dung lượng</th>
-                <th style="padding:10px 8px;border-bottom:1px solid var(--co-border);"></th>
+                ${canManage ? `<th style="padding:10px 8px;border-bottom:1px solid var(--co-border);"></th>` : ``}
               </tr>
             </thead>
             <tbody>
@@ -1747,14 +1756,14 @@ function proxyStoragePage() {
                   <td style="padding:9px 8px;color:var(--co-text-2);font-weight:700;font-family:ui-monospace,monospace;font-size:11.5px;">${esc(r.label || (r.height ? r.height + "p" : r.renditionId))}</td>
                   <td style="padding:9px 8px;color:var(--co-muted);font-weight:600;">${esc(r.status || (r.orphan ? "orphan" : "—"))}</td>
                   <td style="padding:9px 8px;color:var(--co-text);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;">${esc(fmtBytes(r.bytes))}<div style="color:var(--co-faint);font-size:10.5px;font-weight:600;">${r.fileCount} files</div></td>
-                  <td style="padding:9px 8px;text-align:right;">
+                  ${canManage ? `<td style="padding:9px 8px;text-align:right;">
                     <button data-act="deleteProxy" data-arg="${esc(r.renditionId)}" ${deletingId === r.renditionId ? "disabled" : ""} style="background:${deletingId === r.renditionId ? "var(--co-panel-2)" : "rgba(239,77,87,0.12)"};border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-weight:700;font-size:11px;padding:6px 12px;border-radius:8px;cursor:${deletingId === r.renditionId ? "wait" : "pointer"};">${deletingId === r.renditionId ? "Đang xoá…" : "Xoá"}</button>
-                  </td>
+                  </td>` : ``}
                 </tr>
               `).join("")}
             </tbody>
           </table>
-        ` : (!loading && !err ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Chưa có proxy nào trên MinIO.</div>` : "")}
+        ` : (!loading && !err ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">${canManage ? "Chưa có proxy nào trên MinIO." : "Chưa có dữ liệu proxy chi tiết cho tài khoản này."}</div>` : "")}
         ${loading && !ps ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Đang đọc danh sách MinIO…</div>` : ""}
       </div>
     </div>
@@ -2527,9 +2536,19 @@ function computeVals() {
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
-  const proxyCache = window.__proxyCache || computeProxyCacheSummary(s.proxyStorage) || (canManageUpdates
-    ? { totalBytes: 0, pct: 0, label: s.proxyStorageError ? "Không đọc được proxy storage" : (s.proxyStorageLoading ? "Đang tải dung lượng proxy…" : "Đang chờ đồng bộ proxy storage…") }
-    : null);
+  const proxySummary = s.proxyStorageSummary || null;
+  const proxyCache = window.__proxyCache
+    || computeProxyCacheSummary(s.proxyStorage)
+    || computeProxyCacheSummary(proxySummary)
+    || {
+      totalBytes: 0,
+      pct: 0,
+      label: s.proxyStorageError || s.proxyStorageSummaryError
+        ? "Không đọc được proxy storage"
+        : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
+          ? "Đang tải dung lượng proxy…"
+          : "Đang chờ đồng bộ proxy storage…"),
+    };
   const updateStatus = remote.updateStatus || s.updateStatus || null;
   const updateBadge = updateStatus && updateStatus.updateAvailable
     ? { label: "Update", color: "#f5a623", bg: "rgba(245,166,35,0.14)" }
@@ -2717,7 +2736,7 @@ function handleAct(act, arg, e, node) {
     case "toggleUpdateModal": return openUpdateModal();
     case "closeUpdateModal": return setState({ showUpdateModal: false, updateError: "" });
     case "openProxyStorage": return openProxyStorage();
-    case "refreshProxyStorage": return refreshProxyStorage();
+    case "refreshProxyStorage": return canManageProxyStorage() ? refreshProxyStorage() : refreshProxyStorageSummary();
     case "deleteProxy": return deleteProxyRendition(arg);
     case "checkUpdateNow": return fetchUpdateStatus(true);
     case "triggerUpdateNow": return triggerUpdateNow();
@@ -3192,6 +3211,8 @@ async function loadRemote() {
     if (projects.some((project) => project.myRole === "owner")) {
       fetchUpdateStatus(false).catch(() => {});
       refreshProxyStorage(true).catch(() => {});
+    } else {
+      refreshProxyStorageSummary(true).catch(() => {});
     }
     refreshTranscodeRuntime().catch(() => {});
     if (window.location.hash) applyHashRoute();
@@ -3208,7 +3229,26 @@ async function openUpdateModal() {
 // ---- Proxy storage management ----
 async function openProxyStorage() {
   setState({ view: "proxyStorage", showProxyStorage: false, proxyStorageError: "", showUpdateModal: false, projectContextMenu: null, sourceContextMenu: null });
-  await refreshProxyStorage();
+  if (canManageProxyStorage()) await refreshProxyStorage();
+  else await refreshProxyStorageSummary();
+}
+
+async function refreshProxyStorageSummary(silent) {
+  if (!remote.me) return null;
+  if (!silent) state.proxyStorageSummaryLoading = true;
+  state.proxyStorageSummaryError = "";
+  render();
+  try {
+    state.proxyStorageSummary = await api("/proxy-storage-summary");
+    window.__proxyCache = computeProxyCacheSummary(state.proxyStorageSummary);
+  } catch (err) {
+    state.proxyStorageSummaryError = (err && err.message) || "Không tải được summary";
+    if (!state.proxyStorage && !state.proxyStorageSummary) window.__proxyCache = null;
+  } finally {
+    state.proxyStorageSummaryLoading = false;
+    render();
+  }
+  return state.proxyStorageSummary;
 }
 
 async function refreshProxyStorage(silent) {
@@ -3220,7 +3260,10 @@ async function refreshProxyStorage(silent) {
     window.__proxyCache = computeProxyCacheSummary(state.proxyStorage);
   } catch (err) {
     state.proxyStorageError = (err && err.message) || "Không tải được danh sách";
-    if (!state.proxyStorage) window.__proxyCache = null;
+    if (!state.proxyStorage) {
+      if (state.proxyStorageSummary) window.__proxyCache = computeProxyCacheSummary(state.proxyStorageSummary);
+      else window.__proxyCache = null;
+    }
   } finally {
     state.proxyStorageLoading = false;
     render();
@@ -3250,11 +3293,11 @@ function canManageProxyStorage() {
 }
 
 function scheduleProxyStorageRefresh(delayMs = 1500) {
-  if (!canManageProxyStorage()) return;
   if (proxyStorageRefreshTimer) clearTimeout(proxyStorageRefreshTimer);
   proxyStorageRefreshTimer = setTimeout(() => {
     proxyStorageRefreshTimer = null;
-    refreshProxyStorage(true).catch(() => {});
+    const task = canManageProxyStorage() ? refreshProxyStorage(true) : refreshProxyStorageSummary(true);
+    task.catch(() => {});
   }, delayMs);
 }
 

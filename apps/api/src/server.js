@@ -176,6 +176,21 @@ async function canManageUpdates(userId) {
   return !!(members && members.some((member) => member.role === "owner"));
 }
 
+async function buildProxyStoragePayload() {
+  const info = hlsBackendInfo();
+  if (info.backend !== "minio") {
+    return { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
+  }
+  const items = await s3ListPrefix("");
+  const renditionIds = [...new Set(items
+    .map((it) => String(it && it.key || ""))
+    .map((key) => key.split("/")[0])
+    .filter(Boolean))];
+  const meta = await store.listRenditionProxyMeta(renditionIds);
+  const report = buildProxyStorageReport(items, meta);
+  return { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, ...report };
+}
+
 // Annotation payload:
 // {
 //   strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }],
@@ -831,20 +846,29 @@ async function handle(req, res, url) {
     return send(res, 200, await triggerUpdateRun());
   }
 
+  if (p === "/proxy-storage-summary" && m === "GET") {
+    try {
+      const payload = await buildProxyStoragePayload();
+      return send(res, 200, {
+        backend: payload.backend,
+        bucket: payload.bucket || null,
+        totalBytes: payload.totalBytes || 0,
+        orphanCount: payload.orphanCount || 0,
+        orphanBytes: payload.orphanBytes || 0,
+        renditionCount: payload.renditionCount || 0,
+        renditions: [],
+        note: payload.note || "",
+      });
+    } catch (err) {
+      req.log.error({ err: err.message }, "proxy-storage summary failed");
+      return bad(res, "Không đọc được proxy storage summary: " + err.message, 502);
+    }
+  }
+
   if (p === "/admin/proxy-storage" && m === "GET") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
-    const info = hlsBackendInfo();
-    if (info.backend !== "minio") {
-      return send(res, 200, { backend: info.backend, renditions: [], totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." });
-    }
     try {
-      const items = await s3ListPrefix("");
-      const renditionIds = [...new Set(items
-        .map((it) => String(it && it.key || ""))
-        .map((key) => key.split("/")[0])
-        .filter(Boolean))];
-      const meta = await store.listRenditionProxyMeta(renditionIds);
-      return send(res, 200, { backend: "minio", bucket: info.bucket, ...buildProxyStorageReport(items, meta) });
+      return send(res, 200, await buildProxyStoragePayload());
     } catch (err) {
       req.log.error({ err: err.message }, "proxy-storage list failed");
       return bad(res, "Không đọc được danh sách MinIO: " + err.message, 502);

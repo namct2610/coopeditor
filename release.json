@@ -1,10 +1,10 @@
 {
-  "version": "0.2.21",
-  "summary": "Transcode giờ tự báo rõ lỗi worker chưa mount NAS, đồng thời sidebar proxy tiếp tục tự refresh theo tiến trình thật.",
+  "version": "0.2.22",
+  "summary": "Sidebar proxy giờ có summary read-only cho mọi user đăng nhập, còn lỗi transcode NAS vẫn được báo rõ theo runtime worker.",
   "changes": [
-    "Worker giờ ghi heartbeat + trạng thái DSM mount root vào database, để API/UI biết khi nào container transcode không nhìn thấy /nas và chặn enqueue mù.",
-    "API trả thêm last error của từng rendition từ transcode_jobs; modal proxy ladder hiện rõ lỗi mount NAS thay vì chỉ treo ở trạng thái chờ/lỗi chung chung.",
-    "Sidebar proxy storage vẫn auto-refresh theo event rendition, và copy trong màn import được sửa lại cho đúng cơ chế transcode thủ công hiện tại."
+    "Thêm route proxy storage summary cho mọi user đã đăng nhập, giúp sidebar luôn có số liệu dung lượng proxy mà không phụ thuộc quyền owner.",
+    "Trang proxy storage giờ tự chuyển sang chế độ chỉ xem khi user không có quyền quản trị, tránh 403 nhưng vẫn thấy tổng dung lượng và số proxy hiện có.",
+    "Giữ nguyên chẩn đoán transcode runtime: worker mount NAS lỗi sẽ hiện rõ trong UI thay vì để proxy treo chờ vô thời hạn."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }
