@@ -784,12 +784,14 @@ async function openSourceTranscode(sourceId) {
         await refreshRenditions(current.id);
       }
     } catch (_) {}
+    refreshTranscodeRuntime().catch(() => {});
   }
   setState({ showTranscode: true, showQualityMenu: false });
 }
 
 // ---- import ----
 let REMOTE_NAS = null;
+let proxyStorageRefreshTimer = null;
 
 async function refreshNasListing(path) {
   if (!remote.me) return;
@@ -2068,6 +2070,13 @@ function transcodeModal(vals) {
         <button data-act="closeTranscode" class="co-attach-hover" style="margin-left:auto;width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
       </div>
       <div style="padding:18px 22px 22px;">
+        ${vals.transcodeRuntime && vals.transcodeRuntime.status !== "ready" && vals.transcodeRuntime.status !== "memory" ? `
+          <div style="margin-bottom:12px;padding:12px 14px;background:rgba(239,77,87,0.09);border:1px solid rgba(239,77,87,0.24);border-radius:12px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#ef4d57;">Worker runtime</div>
+            <div style="margin-top:5px;color:var(--co-text);font-size:13px;font-weight:700;line-height:1.55;">${esc(vals.transcodeRuntimeMessage || "Worker chưa sẵn sàng để transcode.")}</div>
+            <div style="margin-top:5px;color:var(--co-muted);font-size:11.5px;font-weight:600;line-height:1.55;">Kiểm tra volume NAS của container <code>coopeditor-worker</code> rồi redeploy project để worker đọc lại mount mới.</div>
+          </div>
+        ` : ""}
         ${vals.ladder.map((l) => `
           <div style="display:flex;align-items:center;gap:14px;padding:14px;border-radius:12px;margin-bottom:8px;background:${l.rowBg};border:1px solid ${l.rowBorder};">
             <div style="width:46px;height:46px;border-radius:11px;background:${l.iconBg};display:grid;place-items:center;flex:0 0 46px;color:${l.iconColor};font-weight:800;font-size:12px;">${esc(l.badge)}</div>
@@ -2361,6 +2370,8 @@ function computeVals() {
   const sourceResText = selectedSrc && selectedSrc.width && selectedSrc.height
     ? (selectedSrc.width + "×" + selectedSrc.height)
     : "Nguồn gốc";
+  const transcodeRuntime = remote.transcodeRuntime || null;
+  const transcodeRuntimeMessage = normalizeTranscodeRuntimeMessage(transcodeRuntime);
   const qualities = qualityList.map((q) => {
     const isActive = q.id === s.quality;
     let tag = "Sẵn sàng", tagColor = "#35c389", tagBg = "rgba(53,195,137,0.14)";
@@ -2373,13 +2384,30 @@ function computeVals() {
   const ladderSource = { badge: sourceResLabel || "SRC", label: "Source", res: sourceResText, detail: (selectedSrc ? selectedSrc.codec + " · " + selectedSrc.size : "Video source trên NAS"), status: "nas" };
   const ladder = [ladderSource, ...s.qualities].map((l) => {
     let tag, tagColor, tagBg, canRequest = false, isProcessing = false;
+    let detail = l.detail || ("h.264 · " + l.bitrate + " · HLS 4s segment · " + l.sub);
+    const lastError = String(l.lastError || "").trim();
     if (l.status === "nas") { tag = "NAS only"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; }
     else if (l.status === "ready") { tag = "Sẵn sàng"; tagColor = "#35c389"; tagBg = "rgba(53,195,137,0.14)"; }
     else if (l.status === "processing") { tag = (l.progress || 0) > 0 ? ((l.progress || 0) + "%") : "Đang chờ"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; isProcessing = true; }
-    else { tag = "Chưa tạo"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; canRequest = true; }
+    else if (l.status === "failed") {
+      tag = /not mounted|mount root|khong thay|không thấy|khong du quyen|không đủ quyền/i.test(lastError) ? "Lỗi mount NAS" : "Transcode lỗi";
+      tagColor = "#ef4d57";
+      tagBg = "rgba(239,77,87,0.12)";
+      canRequest = !(transcodeRuntime && transcodeRuntime.activeWorkers > 0 && transcodeRuntime.canTranscode === false);
+      if (lastError) detail = lastError;
+    } else { tag = "Chưa tạo"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; canRequest = true; }
+    if (!l.status || l.status === "pending") {
+      if (transcodeRuntime && transcodeRuntime.activeWorkers > 0 && transcodeRuntime.canTranscode === false) {
+        tag = "Worker chưa sẵn sàng";
+        tagColor = "#ef4d57";
+        tagBg = "rgba(239,77,87,0.12)";
+        canRequest = false;
+        if (transcodeRuntimeMessage) detail = transcodeRuntimeMessage;
+      }
+    }
     const isSrc = l.status === "nas";
     return { id: l.id, badge: l.badge || l.label.replace("p", ""), label: l.label, res: l.res,
-      detail: l.detail || ("h.264 · " + l.bitrate + " · HLS 4s segment · " + l.sub),
+      detail,
       tag, tagColor, tagBg, canRequest, isProcessing, progress: l.progress || 0,
       iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(45,168,226,0.14)",
       iconColor: isSrc ? "#ef4d57" : "#2da8e2",
@@ -2537,6 +2565,8 @@ function computeVals() {
     thumbs, markers: markerLayout.items, markerRailHeight: markerLayout.railHeight, markerWrapPaddingTop: markerLayout.paddingTop,
     activeQualityLabel: activeQ.label, activeQualityBitrate: activeQ.bitrate, qualities,
     ladder,
+    transcodeRuntime,
+    transcodeRuntimeMessage,
     visibleComments: visible, countAll, countOpen, countDone, emptyState: visible.length === 0,
     tabAllBg: tabBg(s.filter === "all"), tabAllColor: tabColor(s.filter === "all"),
     tabOpenBg: tabBg(s.filter === "open"), tabOpenColor: tabColor(s.filter === "open"),
@@ -2551,7 +2581,7 @@ function computeVals() {
     nasRootLabel: "DSM / Shared Folder",
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
     importBtnBg: importCount > 0 ? "#2da8e2" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
-    importCountLabel: importCount + " nguồn đã chọn · sẽ tự tạo proxy sau import",
+    importCountLabel: importCount + " nguồn đã chọn · có thể tạo proxy thủ công sau import",
     speedValue: speedVal, speedColor: tier.color, speedTier: tier.label, speedRec: tier.rec,
     // Pretty-print Mbps → "240 Mbps" or "1.2 Gbps" for header pill + speed panel.
     speedFmt: formatSpeedValue(speedVal),
@@ -2931,7 +2961,7 @@ function pickPlaybackUrl(src, quality) {
   return src.playbackUrl;
 }
 
-const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true }, updateStatus: null };
+const remote = { connected: false, me: null, users: {}, error: null, presence: [], setup: { configured: true }, updateStatus: null, transcodeRuntime: null };
 let presenceTimer = null;
 const auth = { needsOtp: false, busy: false, error: "", account: "", passwd: "", otp: "" };
 const API_FETCH_TIMEOUT_MS = 20000;
@@ -3163,6 +3193,7 @@ async function loadRemote() {
       fetchUpdateStatus(false).catch(() => {});
       refreshProxyStorage(true).catch(() => {});
     }
+    refreshTranscodeRuntime().catch(() => {});
     if (window.location.hash) applyHashRoute();
   } catch (e) { remote.error = e.message; }
 }
@@ -3196,6 +3227,37 @@ async function refreshProxyStorage(silent) {
   }
 }
 
+async function refreshTranscodeRuntime() {
+  if (!remote.me) return null;
+  try {
+    remote.transcodeRuntime = await api("/transcode-runtime");
+  } catch (err) {
+    remote.transcodeRuntime = {
+      status: "error",
+      canTranscode: false,
+      message: (err && err.message) || "Không đọc được worker runtime status",
+      workers: [],
+    };
+  }
+  render();
+  return remote.transcodeRuntime;
+}
+
+function canManageProxyStorage() {
+  if (!remote.me) return false;
+  const projects = REMOTE_PROJECTS || PROJECTS || [];
+  return projects.some((project) => project && project.myRole === "owner");
+}
+
+function scheduleProxyStorageRefresh(delayMs = 1500) {
+  if (!canManageProxyStorage()) return;
+  if (proxyStorageRefreshTimer) clearTimeout(proxyStorageRefreshTimer);
+  proxyStorageRefreshTimer = setTimeout(() => {
+    proxyStorageRefreshTimer = null;
+    refreshProxyStorage(true).catch(() => {});
+  }, delayMs);
+}
+
 async function deleteProxyRendition(renditionId) {
   if (!renditionId) return;
   if (!window.confirm("Xoá proxy của rendition này khỏi MinIO? File bản gốc trên NAS không bị động.\n\nWorker sẽ tạo lại khi user chọn chất lượng này.")) return;
@@ -3214,6 +3276,7 @@ async function deleteProxyRendition(renditionId) {
     state.proxyStorageError = "Xoá thất bại: " + ((err && err.message) || "lỗi không xác định");
   } finally {
     state.proxyDeletingId = "";
+    scheduleProxyStorageRefresh(250);
     render();
   }
 }
@@ -3309,6 +3372,12 @@ function normalizeNasErrorMessage(message) {
   }
   if (/Khong tim thay thu muc NAS da mount/i.test(text) || /Không tìm thấy thư mục NAS đã mount/i.test(text)) return text;
   if (/DSM request timed out/i.test(text)) return "DSM phản hồi quá chậm. Kiểm tra kết nối Tailscale/DNS tới NAS rồi thử lại.";
+  return text;
+}
+
+function normalizeTranscodeRuntimeMessage(status) {
+  if (!status) return "";
+  const text = String(status.message || "").trim();
   return text;
 }
 
@@ -3520,8 +3589,13 @@ async function handleRemoteEvent(ev) {
     if (state._currentVersionId && ev.assetVersionId === state._currentVersionId) {
       const id = ev.id.split("_").slice(-1)[0]; // "p1s1_v3_720p" -> "720p"
       state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: ev.status, progress: ev.progress } : q);
+      if (ev.status === "failed" || ev.status === "ready") {
+        refreshRenditions(state._currentVersionId).catch(() => {});
+      }
     }
     if (ev.projectId && REMOTE_SOURCES[ev.projectId]) await refreshProjectSources(ev.projectId);
+    if (ev.status === "failed") refreshTranscodeRuntime().catch(() => {});
+    scheduleProxyStorageRefresh(ev.status === "ready" || ev.status === "failed" ? 300 : 1500);
     scheduleRender();
   } else if (ev.type === "asset") {
     if (REMOTE_SOURCES[ev.projectId]) { await refreshProjectSources(ev.projectId); scheduleRender(); }
@@ -4079,7 +4153,14 @@ function applyRemoteToState() {
         sub: height === 720 ? "Review mặc định · nhẹ mạng hơn" : "Check chi tiết · cần mạng tốt",
       };
       if (!r) return { ...base, status: "pending", progress: 0 };
-      return { ...base, status: r.status, progress: r.progress || 0 };
+      return {
+        ...base,
+        status: r.status,
+        progress: r.progress || 0,
+        lastError: r.lastError || "",
+        lastJobStatus: r.lastJobStatus || "",
+        lastJobAt: r.lastJobAt || null,
+      };
     });
   }
   if (REMOTE_COMMENTS_FOR_SELECTED) {

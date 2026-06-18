@@ -30,6 +30,7 @@ import { tmpdir } from "node:os";
 import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { isPermanentTranscodeError, shouldAutoRequeueFailedJob } from "./error-policy.js";
+import { createWorkerRuntimeReporter } from "./runtime-status.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
 
@@ -133,6 +134,16 @@ await startWorkerEventBus().catch((err) => {
   console.error("[worker] event bus bootstrap failed:", err.message);
   process.exit(1);
 });
+
+const runtimeReporter = createWorkerRuntimeReporter(pool, {
+  mode,
+  hwaccel: HW || "none",
+  codecLadder: CODEC_LADDER,
+});
+await runtimeReporter.reportOnce().catch((err) => {
+  console.warn("[worker] runtime status bootstrap failed:", err.message);
+});
+runtimeReporter.start();
 
 // Auto-requeue at boot: any job that was orphaned mid-run (worker crashed,
 // pod restarted, host rebooted) sits in status='running' forever otherwise.

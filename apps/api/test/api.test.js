@@ -100,7 +100,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.19");
+  assert.equal(r.json.version, "0.2.21");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -108,7 +108,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.19");
+  assert.equal(r.json.local.version, "0.2.21");
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
@@ -119,6 +119,14 @@ test("owner can read proxy storage status", async () => {
   assert.equal(typeof r.json.backend, "string");
   assert.equal(typeof r.json.totalBytes, "number");
   assert.ok(Array.isArray(r.json.renditions));
+});
+
+test("authenticated user can read transcode runtime status", async () => {
+  const r = await http("/transcode-runtime");
+  assert.equal(r.status, 200);
+  assert.equal(r.json.backend, "memory");
+  assert.equal(typeof r.json.canTranscode, "boolean");
+  assert.ok(Array.isArray(r.json.workers));
 });
 
 test("/projects decorates with team, sourcesCount, commentsCount", async () => {

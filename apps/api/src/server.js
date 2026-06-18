@@ -35,6 +35,7 @@ import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig } from "./runtime-config.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
+import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
 // ---------- helpers ----------
 
@@ -726,6 +727,11 @@ async function handle(req, res, url) {
           return bad(res, "Nguon video tren NAS chua san sang cho transcode: " + ((err && err.message) || "khong doc duoc source"), 409);
         }
       }
+      try {
+        await ensureTranscodeRuntimeReady();
+      } catch (err) {
+        return bad(res, "Worker chua san sang de transcode: " + ((err && err.message) || "worker mount chua san sang"), 409);
+      }
       await requestTranscode(r.id);
       const refreshed = await store.getRendition(r.id);
       return send(res, 202, refreshed);
@@ -842,6 +848,15 @@ async function handle(req, res, url) {
     } catch (err) {
       req.log.error({ err: err.message }, "proxy-storage list failed");
       return bad(res, "Không đọc được danh sách MinIO: " + err.message, 502);
+    }
+  }
+
+  if (p === "/transcode-runtime" && m === "GET") {
+    try {
+      return send(res, 200, await getTranscodeRuntimeStatus());
+    } catch (err) {
+      req.log.error({ err: err.message }, "transcode-runtime failed");
+      return bad(res, "Khong doc duoc transcode runtime status: " + err.message, 502);
     }
   }
 

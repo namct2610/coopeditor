@@ -1,10 +1,10 @@
 {
-  "version": "0.2.19",
-  "summary": "API giờ chặn sớm transcode khi source NAS chưa mount và worker/API dùng chung kiểm tra source readability.",
+  "version": "0.2.21",
+  "summary": "Transcode giờ tự báo rõ lỗi worker chưa mount NAS, đồng thời sidebar proxy tiếp tục tự refresh theo tiến trình thật.",
   "changes": [
-    "Route tạo rendition proxy sẽ preflight source NAS trước khi enqueue job, trả lỗi 409 rõ ràng ngay trên UI nếu đường dẫn chưa mount hoặc API không đọc được file nguồn.",
-    "Worker và API dùng chung helper assertReadableSourcePath trong DSM module để thống nhất lỗi mount/readability thay vì mỗi nơi tự kiểm tra một kiểu.",
-    "Bổ sung test cho helper source readability và cập nhật metadata release để phân biệt bản vá preflight proxy mới."
+    "Worker giờ ghi heartbeat + trạng thái DSM mount root vào database, để API/UI biết khi nào container transcode không nhìn thấy /nas và chặn enqueue mù.",
+    "API trả thêm last error của từng rendition từ transcode_jobs; modal proxy ladder hiện rõ lỗi mount NAS thay vì chỉ treo ở trạng thái chờ/lỗi chung chung.",
+    "Sidebar proxy storage vẫn auto-refresh theo event rendition, và copy trong màn import được sửa lại cho đúng cơ chế transcode thủ công hiện tại."
   ],
   "publishedAt": "2026-06-18T00:00:00.000Z"
 }

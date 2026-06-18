@@ -37,6 +37,9 @@ const versionRow = (r) => r && ({
 const renditionRow = (r) => r && ({
   id: r.id, assetVersionId: r.asset_version_id, height: r.height, label: r.label,
   bitrateKbps: r.bitrate_kbps, status: r.status, progress: r.progress, hlsMasterUrl: r.hls_master_url,
+  lastError: r.last_job_error || "",
+  lastJobStatus: r.last_job_status || "",
+  lastJobAt: r.last_job_at || null,
 });
 const commentRow = (r) => r && ({
   id: r.id, assetVersionId: r.asset_version_id, authorUserId: r.author_user_id, content: r.content,
@@ -298,10 +301,41 @@ export async function findProjectIdForRendition(renditionId) {
 }
 
 export async function listRenditionsForVersion(vid) {
-  const rows = await q(`SELECT * FROM renditions WHERE asset_version_id = $1 ORDER BY height`, [vid]);
+  const rows = await q(`
+    SELECT r.*,
+           job.error AS last_job_error,
+           job.status AS last_job_status,
+           COALESCE(job.finished_at, job.started_at, job.enqueued_at) AS last_job_at
+      FROM renditions r
+      LEFT JOIN LATERAL (
+        SELECT error, status, enqueued_at, started_at, finished_at
+          FROM transcode_jobs
+         WHERE rendition_id = r.id
+         ORDER BY COALESCE(finished_at, started_at, enqueued_at) DESC NULLS LAST, id DESC
+         LIMIT 1
+      ) job ON TRUE
+     WHERE r.asset_version_id = $1
+     ORDER BY r.height
+  `, [vid]);
   return rows.map(renditionRow);
 }
-export async function getRendition(id) { return renditionRow(await one(`SELECT * FROM renditions WHERE id = $1`, [id])); }
+export async function getRendition(id) {
+  return renditionRow(await one(`
+    SELECT r.*,
+           job.error AS last_job_error,
+           job.status AS last_job_status,
+           COALESCE(job.finished_at, job.started_at, job.enqueued_at) AS last_job_at
+      FROM renditions r
+      LEFT JOIN LATERAL (
+        SELECT error, status, enqueued_at, started_at, finished_at
+          FROM transcode_jobs
+         WHERE rendition_id = r.id
+         ORDER BY COALESCE(finished_at, started_at, enqueued_at) DESC NULLS LAST, id DESC
+         LIMIT 1
+      ) job ON TRUE
+     WHERE r.id = $1
+  `, [id]));
+}
 export async function listRenditionProxyMeta(ids) {
   const uniqueIds = [...new Set((ids || []).filter(Boolean))];
   if (!uniqueIds.length) return [];
