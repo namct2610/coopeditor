@@ -59,6 +59,24 @@ export const findProjectIdForRendition = USE_PG ? impl.findProjectIdForRendition
 
 export const listRenditionsForVersion = USE_PG ? impl.listRenditionsForVersion : A(impl.listRenditionsForVersion);
 export const getRendition             = USE_PG ? impl.getRendition             : async (id) => mem.renditions.get(id) || null;
+export const listRenditionProxyMeta   = USE_PG ? impl.listRenditionProxyMeta   : async (ids) => ids.map((id) => {
+  const r = mem.renditions.get(id);
+  if (!r) return { renditionId: id, orphan: true };
+  const version = mem.versions.get(r.assetVersionId);
+  const asset = version ? mem.assets.get(version.assetId) : null;
+  const project = asset ? mem.projects.get(asset.projectId) : null;
+  return {
+    renditionId: id,
+    orphan: false,
+    height: r.height,
+    label: r.label,
+    status: r.status,
+    assetId: asset ? asset.id : null,
+    assetTitle: asset ? asset.title : null,
+    projectId: asset ? asset.projectId : null,
+    projectName: project ? project.name : null,
+  };
+});
 export const setRenditionStatus       = USE_PG ? impl.setRenditionStatus       : A(impl.setRenditionStatus);
 export const listProcessingRenditions = USE_PG ? impl.listProcessingRenditions : async () => [...mem.renditions.values()].filter((r) => r.status === "processing");
 export const listProcessingAssets     = USE_PG ? impl.listProcessingAssets     : async () => [...mem.assets.values()].filter((a) => a.status === "processing");

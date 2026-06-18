@@ -302,6 +302,36 @@ export async function listRenditionsForVersion(vid) {
   return rows.map(renditionRow);
 }
 export async function getRendition(id) { return renditionRow(await one(`SELECT * FROM renditions WHERE id = $1`, [id])); }
+export async function listRenditionProxyMeta(ids) {
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  if (!uniqueIds.length) return [];
+  const rows = await q(`
+    SELECT req.rendition_id,
+           r.height,
+           r.label,
+           r.status,
+           a.id AS asset_id,
+           a.title AS asset_title,
+           p.id AS project_id,
+           p.name AS project_name
+      FROM UNNEST($1::text[]) AS req(rendition_id)
+      LEFT JOIN renditions r ON r.id = req.rendition_id
+      LEFT JOIN asset_versions v ON v.id = r.asset_version_id
+      LEFT JOIN assets a ON a.id = v.asset_id
+      LEFT JOIN projects p ON p.id = a.project_id
+  `, [uniqueIds]);
+  return rows.map((r) => ({
+    renditionId: r.rendition_id,
+    orphan: !r.height && !r.label && !r.status && !r.asset_id && !r.project_id,
+    height: r.height || null,
+    label: r.label || null,
+    status: r.status || null,
+    assetId: r.asset_id || null,
+    assetTitle: r.asset_title || null,
+    projectId: r.project_id || null,
+    projectName: r.project_name || null,
+  }));
+}
 export async function setRenditionStatus(id, patch) {
   const sets = []; const vals = []; let i = 1;
   for (const [k, v] of Object.entries(patch)) {

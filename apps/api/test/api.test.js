@@ -113,6 +113,14 @@ test("owner can read update status without feed", async () => {
   assert.equal(r.json.triggerAvailable, false);
 });
 
+test("owner can read proxy storage status", async () => {
+  const r = await http("/admin/proxy-storage");
+  assert.equal(r.status, 200);
+  assert.equal(typeof r.json.backend, "string");
+  assert.equal(typeof r.json.totalBytes, "number");
+  assert.ok(Array.isArray(r.json.renditions));
+});
+
 test("/projects decorates with team, sourcesCount, commentsCount", async () => {
   const r = await http("/projects");
   assert.equal(r.status, 200);

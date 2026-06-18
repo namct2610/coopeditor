@@ -837,25 +837,7 @@ async function handle(req, res, url) {
       // Look up project + asset metadata in one go. Skip orphans (proxy bytes
       // for renditions that no longer exist in the DB) — but include them in
       // a separate bucket so the user can sweep them.
-      const meta = await Promise.all(renditionIds.map(async (rid) => {
-        const r = await store.getRendition(rid).catch(() => null);
-        if (!r) return { renditionId: rid, orphan: true };
-        const version = await store.getVersion(r.assetVersionId).catch(() => null);
-        const asset = version ? await store.getAsset(version.assetId).catch(() => null) : null;
-        const projectId = asset ? asset.projectId : null;
-        const project = projectId ? await store.getProject(projectId).catch(() => null) : null;
-        return {
-          renditionId: rid,
-          orphan: false,
-          height: r.height,
-          label: r.label,
-          status: r.status,
-          assetId: asset ? asset.id : null,
-          assetTitle: asset ? asset.title : null,
-          projectId,
-          projectName: project ? project.name : null,
-        };
-      }));
+      const meta = await store.listRenditionProxyMeta(renditionIds);
       const renditions = meta.map((m) => ({ ...m, bytes: bySplit[m.renditionId].bytes, fileCount: bySplit[m.renditionId].fileCount }))
         .sort((a, b) => b.bytes - a.bytes);
       const totalBytes = renditions.reduce((s, x) => s + x.bytes, 0);
