@@ -21,6 +21,32 @@ function envOr(value, fallback = "") {
   return text || fallback;
 }
 
+function hasOwnText(value) {
+  return typeof value === "string" ? !!value.trim() : false;
+}
+
+function normalizeHttpUrl(value, { allowEmpty = false, label = "url" } = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    if (allowEmpty) return "";
+    throw new Error(label + " required");
+  }
+  let parsed = null;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    throw new Error(label + " phải là URL hợp lệ");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(label + " chỉ hỗ trợ http/https");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error(label + " không được chứa user/password trong URL");
+  }
+  parsed.hash = "";
+  return parsed.toString();
+}
+
 export function appDataDir() {
   return APP_DATA_DIR;
 }
@@ -41,18 +67,20 @@ export function isRuntimeConfigured() {
 
 export function publicRuntimeSummary() {
   const cfg = readRuntimeConfig();
+  const updater = resolveUpdaterConfig(cfg);
+  const updaterSummary = {
+    feedUrl: updater.feedUrl,
+    triggerUrl: updater.triggerUrl,
+    pollIntervalSeconds: updater.pollIntervalSeconds,
+    feedConfigured: updater.feedConfigured,
+    triggerConfigured: updater.triggerConfigured,
+    triggerTokenConfigured: updater.triggerTokenConfigured,
+  };
   if (!cfg) {
     return {
       configured: false,
       appDataDir: APP_DATA_DIR,
-      updater: {
-        feedUrl: process.env.UPDATE_FEED_URL || "",
-        triggerUrl: process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL,
-        pollIntervalSeconds: clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
-        feedConfigured: !!(process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
-        triggerConfigured: !!(process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
-        triggerTokenConfigured: !!(process.env.UPDATE_TRIGGER_TOKEN || ""),
-      },
+      updater: updaterSummary,
     };
   }
   return {
@@ -73,14 +101,7 @@ export function publicRuntimeSummary() {
       codecLadder: (cfg.transcode && cfg.transcode.codecLadder) || "h264",
       workerConcurrency: (cfg.transcode && cfg.transcode.workerConcurrency) || 2,
     },
-    updater: {
-      feedUrl: (cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL,
-      triggerUrl: (cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL,
-      pollIntervalSeconds: (cfg.updater && cfg.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
-      feedConfigured: !!((cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
-      triggerConfigured: !!((cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
-      triggerTokenConfigured: !!((cfg.updater && cfg.updater.triggerToken) || process.env.UPDATE_TRIGGER_TOKEN || ""),
-    },
+    updater: updaterSummary,
   };
 }
 
@@ -143,8 +164,8 @@ export function normalizeRuntimeConfig(input) {
       sweepMinutes: clampInt(retention.sweepMinutes, 60, 5, 1440),
     },
     updater: {
-      feedUrl: String(updater.feedUrl || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL).trim(),
-      triggerUrl: String(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL).trim(),
+      feedUrl: normalizeHttpUrl(updater.feedUrl || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL, { label: "Updater feed URL" }),
+      triggerUrl: normalizeHttpUrl(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL, { label: "Updater trigger URL" }),
       triggerToken: String(updater.triggerToken || "").trim(),
       pollIntervalSeconds: clampInt(updater.pollIntervalSeconds, clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400), 30, 86400),
     },
@@ -172,6 +193,7 @@ export function writeRuntimeConfig(input) {
 
 export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   if (!config) return false;
+  const updater = resolveUpdaterConfig(config);
   process.env.PUBLIC_URL = config.publicUrl;
   process.env.ALLOWED_ORIGINS = config.publicUrl;
   process.env.DSM_HOST = config.dsmHost || "";
@@ -209,11 +231,33 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.COMMENT_PURGE_DAYS = String(config.retention && config.retention.commentPurgeDays || 30);
   process.env.RETENTION_SWEEP_MINUTES = String(config.retention && config.retention.sweepMinutes || 60);
 
-  process.env.UPDATE_FEED_URL = envOr(config.updater && config.updater.feedUrl, process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL);
-  process.env.UPDATE_TRIGGER_URL = envOr(config.updater && config.updater.triggerUrl, process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL);
-  process.env.UPDATE_TRIGGER_TOKEN = envOr(config.updater && config.updater.triggerToken, process.env.UPDATE_TRIGGER_TOKEN || "");
-  process.env.UPDATE_POLL_INTERVAL_SECONDS = String(config.updater && config.updater.pollIntervalSeconds || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400));
+  process.env.UPDATE_FEED_URL = updater.feedUrl;
+  process.env.UPDATE_TRIGGER_URL = updater.triggerUrl;
+  process.env.UPDATE_TRIGGER_TOKEN = updater.triggerToken;
+  process.env.UPDATE_POLL_INTERVAL_SECONDS = String(updater.pollIntervalSeconds);
   return true;
+}
+
+export function resolveUpdaterConfig(config = readRuntimeConfig()) {
+  const configUpdater = config && config.updater && typeof config.updater === "object" ? config.updater : null;
+  const configFeed = configUpdater && hasOwnText(configUpdater.feedUrl) ? String(configUpdater.feedUrl).trim() : "";
+  const envFeed = hasOwnText(process.env.UPDATE_FEED_URL) ? String(process.env.UPDATE_FEED_URL).trim() : "";
+  const configTrigger = configUpdater && hasOwnText(configUpdater.triggerUrl) ? String(configUpdater.triggerUrl).trim() : "";
+  const envTrigger = hasOwnText(process.env.UPDATE_TRIGGER_URL) ? String(process.env.UPDATE_TRIGGER_URL).trim() : "";
+  const configToken = configUpdater && hasOwnText(configUpdater.triggerToken) ? String(configUpdater.triggerToken).trim() : "";
+  const envToken = hasOwnText(process.env.UPDATE_TRIGGER_TOKEN) ? String(process.env.UPDATE_TRIGGER_TOKEN).trim() : "";
+  const feedConfigured = !!(configFeed || envFeed);
+  const triggerConfigured = !!(configTrigger || envTrigger);
+  const triggerTokenConfigured = !!(configToken || envToken);
+  return {
+    feedUrl: normalizeHttpUrl(configFeed || envFeed || DEFAULT_UPDATE_FEED_URL, { label: "Updater feed URL" }),
+    triggerUrl: normalizeHttpUrl(configTrigger || envTrigger || DEFAULT_UPDATE_TRIGGER_URL, { label: "Updater trigger URL" }),
+    triggerToken: envOr(configToken, envToken),
+    pollIntervalSeconds: (config && config.updater && config.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
+    feedConfigured,
+    triggerConfigured,
+    triggerTokenConfigured,
+  };
 }
 
 function clampInt(value, fallback, min, max) {

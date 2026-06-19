@@ -1,10 +1,10 @@
 {
-  "version": "0.2.35",
-  "summary": "Làm chắc hàng đợi transcode để job mount lỗi hoặc job trùng không bị sống lại và đè nhau trong worker.",
+  "version": "0.2.36",
+  "summary": "Làm chắc updater runtime config để UI chỉ báo cập nhật khi NAS thật sự cấu hình trigger, nhưng vẫn giữ feed fallback an toàn.",
   "changes": [
-    "Thêm migration dọn active transcode job bị trùng cho cùng rendition và tạo unique partial index ở mức database để chặn race condition enqueue.",
-    "enqueueTranscode trên Postgres giờ dùng INSERT ... ON CONFLICT DO NOTHING, tránh cùng một proxy bị bơm nhiều job queued/running khi người dùng bấm lặp hoặc nhiều request tới cùng lúc.",
-    "Worker policy giờ xem duplicate/superseded job là permanent failure, nên các job trùng cũ sẽ không bị auto-requeue lại mỗi lần worker restart."
+    "Tách rõ updater fallback URL với trạng thái da cau hinh that, nen man hinh Update Center khong con tu dong bao trigger available chi vi dang dung gia tri mac dinh.",
+    "Kiem tra update va trigger update gio doc cung mot runtime config, validate URL http/https, chan URL chua user/password, va dung timeout ro rang khi goi feed/trigger tu NAS.",
+    "Runtime summary van giu feed/trigger URL mac dinh cho deploy legacy, nhung chi danh dau configured khi thuc su co config hoac env duoc set."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

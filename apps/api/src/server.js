@@ -36,7 +36,7 @@ import * as shareLinks from "./share-links.js";
 import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
-import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig } from "./runtime-config.js";
+import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig } from "./runtime-config.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
@@ -1147,18 +1147,39 @@ async function handleOidcCallback(req, res, url) {
 //
 // If UPDATE_FEED_URL is unset, we can't check remote — return "unknown".
 let _updateCache = null;
+
+function fetchTimeoutSignal(ms) {
+  if (AbortSignal && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error("timeout")), ms).unref?.();
+  return controller.signal;
+}
+
 async function checkUpdateStatus({ force = false } = {}) {
   const local = buildLocalReleaseMeta();
   const runtimeConfig = readRuntimeConfig();
-  const configuredFeed = (runtimeConfig && runtimeConfig.updater && runtimeConfig.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL;
-  const feed = String(configuredFeed || "").trim();
+  let updater = null;
+  try {
+    updater = resolveUpdaterConfig(runtimeConfig);
+  } catch (err) {
+    return {
+      local,
+      remote: null,
+      updateAvailable: false,
+      checkAvailable: false,
+      triggerAvailable: false,
+      pollIntervalSeconds: clampPositiveInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900),
+      error: err.message || "Updater config invalid",
+    };
+  }
+  const feed = String(updater.feedUrl || "").trim();
   const base = {
     local,
     remote: null,
     updateAvailable: false,
     checkAvailable: !!feed,
-    triggerAvailable: !!(process.env.UPDATE_TRIGGER_URL || ""),
-    pollIntervalSeconds: clampPositiveInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900),
+    triggerAvailable: !!updater.triggerConfigured,
+    pollIntervalSeconds: clampPositiveInt(updater.pollIntervalSeconds, 900),
   };
   if (!feed) return { ...base, message: "Update feed chua duoc cau hinh" };
 
@@ -1177,7 +1198,7 @@ async function checkUpdateStatus({ force = false } = {}) {
     for (const candidate of candidates) {
       resolvedFeed = candidate;
       try {
-        const r = await fetch(candidate, { headers: { "user-agent": "coopeditor-updater", accept: "application/json, text/plain;q=0.9, */*;q=0.8" }, signal: AbortSignal.timeout?.(8000) });
+        const r = await fetch(candidate, { headers: { "user-agent": "coopeditor-updater", accept: "application/json, text/plain;q=0.9, */*;q=0.8" }, signal: fetchTimeoutSignal(8000) });
         if (!r.ok) {
           lastError = "remote HTTP " + r.status;
           continue;
@@ -1208,8 +1229,14 @@ async function checkUpdateStatus({ force = false } = {}) {
 }
 
 async function triggerUpdateRun() {
-  const triggerUrl = process.env.UPDATE_TRIGGER_URL || "";
-  const triggerToken = process.env.UPDATE_TRIGGER_TOKEN || "";
+  let updater = null;
+  try {
+    updater = resolveUpdaterConfig(readRuntimeConfig());
+  } catch (err) {
+    return { ok: false, triggerAvailable: false, error: err.message || "Updater config invalid" };
+  }
+  const triggerUrl = updater.triggerUrl || "";
+  const triggerToken = updater.triggerToken || "";
   if (!triggerUrl) {
     return { ok: false, triggerAvailable: false, error: "Manual update trigger chua duoc cau hinh" };
   }
@@ -1240,7 +1267,7 @@ async function triggerUpdateRun() {
         method: attempt.method,
         headers: reqHeaders,
         body: attempt.body,
-        signal: AbortSignal.timeout?.(12000),
+        signal: fetchTimeoutSignal(12000),
       });
       const raw = await r.text();
       let responseBody = raw;

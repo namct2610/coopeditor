@@ -69,3 +69,45 @@ test("normalizeRuntimeConfig rejects Synology host paths for dsmMountRoot", asyn
     dsmMountRoot: "/volume1/PCNgon",
   }), /container|\/nas|\/volume1/i);
 });
+
+test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-config-updater-"));
+  const configPath = join(root, "system", "config.json");
+  await mkdir(join(root, "system"), { recursive: true });
+  await writeFile(configPath, JSON.stringify({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/nas",
+    dsmDevLogin: false,
+    dsmInsecure: false,
+    scheme: "https",
+    updater: {
+      feedUrl: "https://updates.example.com/release.json",
+      triggerUrl: "http://watchtower:8080/v1/update",
+      triggerToken: "runtime-secret",
+      pollIntervalSeconds: 600,
+    },
+  }), "utf8");
+
+  process.env.APP_DATA_DIR = root;
+  process.env.APP_CONFIG_PATH = configPath;
+  process.env.UPDATE_FEED_URL = "https://env.example.com/feed.json";
+  process.env.UPDATE_TRIGGER_URL = "https://env.example.com/trigger";
+  process.env.UPDATE_TRIGGER_TOKEN = "env-secret";
+
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?resolve-updater=" + Date.now());
+  const updater = mod.resolveUpdaterConfig(mod.readRuntimeConfig());
+  assert.equal(updater.feedUrl, "https://updates.example.com/release.json");
+  assert.equal(updater.triggerUrl, "http://watchtower:8080/v1/update");
+  assert.equal(updater.triggerToken, "runtime-secret");
+  assert.equal(updater.pollIntervalSeconds, 600);
+  assert.throws(() => mod.normalizeRuntimeConfig({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/nas",
+    updater: {
+      feedUrl: "https://user:pass@updates.example.com/release.json",
+      triggerUrl: "http://watchtower:8080/v1/update",
+    },
+  }), /user\/password|không được chứa/i);
+});
