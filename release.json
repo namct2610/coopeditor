@@ -1,10 +1,10 @@
 {
-  "version": "0.2.36",
-  "summary": "Làm chắc updater runtime config để UI chỉ báo cập nhật khi NAS thật sự cấu hình trigger, nhưng vẫn giữ feed fallback an toàn.",
+  "version": "0.2.37",
+  "summary": "Làm chắc proxy storage snapshot qua restart/lỗi MinIO và canh lại marker avatar trên timeline để không bị cắt mép.",
   "changes": [
-    "Tách rõ updater fallback URL với trạng thái da cau hinh that, nen man hinh Update Center khong con tu dong bao trigger available chi vi dang dung gia tri mac dinh.",
-    "Kiem tra update va trigger update gio doc cung mot runtime config, validate URL http/https, chan URL chua user/password, va dung timeout ro rang khi goi feed/trigger tu NAS.",
-    "Runtime summary van giu feed/trigger URL mac dinh cho deploy legacy, nhung chi danh dau configured khi thuc su co config hoac env duoc set."
+    "Proxy storage payload gio luu last-known-good snapshot xuong APP_DATA_DIR/system/proxy-storage-cache.json, nen sidebar va trang quan ly van co so lieu gan nhat ngay ca khi MinIO chua phan hoi hoac API vua restart.",
+    "Fallback proxy snapshot gio duoc normalize ro rang truoc khi dung lai, giup UI hien dung tong dung luong, so rendition va ghi chu stale thay vi roi ve trang thai trong.",
+    "Marker avatar tren timeline gio tu canh trai/phai khi sat mep timeline, uu tien marker co chu thich va cum comment day hon de khong bi cat o dau/cuoi bar."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

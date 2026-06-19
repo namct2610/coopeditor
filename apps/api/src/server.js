@@ -10,6 +10,7 @@ import { join } from "node:path";
 const SPEEDTEST_NOISE = randomBytes(256 * 1024);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
+const PROXY_STORAGE_SNAPSHOT_PATH = join(APP_DATA_DIR, "system", "proxy-storage-cache.json");
 const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
 const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_COMMENT_CONTENT_CHARS = 4000;
@@ -44,6 +45,58 @@ import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transc
 const PROXY_STORAGE_CACHE_TTL_MS = 15_000;
 let _proxyStorageCache = null;
 let _proxyStorageLastGood = null;
+
+function normalizeProxyStoragePayloadShape(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const renditions = Array.isArray(payload.renditions)
+    ? payload.renditions.map((item) => ({
+      renditionId: String(item && item.renditionId || ""),
+      bytes: Number(item && item.bytes || 0),
+      fileCount: Number(item && item.fileCount || 0),
+      orphan: !!(item && item.orphan),
+      label: item && item.label ? String(item.label) : null,
+      status: item && item.status ? String(item.status) : null,
+      height: Number(item && item.height || 0) || null,
+      assetId: item && item.assetId ? String(item.assetId) : null,
+      assetTitle: item && item.assetTitle ? String(item.assetTitle) : null,
+      projectId: item && item.projectId ? String(item.projectId) : null,
+      projectName: item && item.projectName ? String(item.projectName) : null,
+    })).filter((item) => item.renditionId)
+    : [];
+  return {
+    backend: payload.backend ? String(payload.backend) : "",
+    bucket: payload.bucket ? String(payload.bucket) : null,
+    totalBytes: Number(payload.totalBytes || 0),
+    orphanBytes: Number(payload.orphanBytes || 0),
+    orphanCount: Number(payload.orphanCount || 0),
+    renditionCount: Number(payload.renditionCount || renditions.length),
+    renditions,
+    note: payload.note ? String(payload.note) : "",
+    stale: !!payload.stale,
+  };
+}
+
+async function loadProxyStorageSnapshotFromDisk() {
+  try {
+    const raw = await readFile(PROXY_STORAGE_SNAPSHOT_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const snapshot = normalizeProxyStoragePayloadShape(parsed);
+    return snapshot && snapshot.backend ? snapshot : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function persistProxyStorageSnapshot(payload) {
+  const snapshot = normalizeProxyStoragePayloadShape(payload);
+  if (!snapshot || !snapshot.backend) return;
+  await mkdir(join(APP_DATA_DIR, "system"), { recursive: true });
+  await writeFile(PROXY_STORAGE_SNAPSHOT_PATH, JSON.stringify({
+    ...snapshot,
+    stale: false,
+    savedAt: new Date().toISOString(),
+  }, null, 2) + "\n", "utf8");
+}
 
 function send(res, status, body, extraHeaders) {
   res.statusCode = status;
@@ -230,6 +283,9 @@ async function buildProxyStoragePayload() {
   if (_proxyStorageCache && (Date.now() - _proxyStorageCache.at) < PROXY_STORAGE_CACHE_TTL_MS) {
     return _proxyStorageCache.data;
   }
+  if (!_proxyStorageLastGood) {
+    _proxyStorageLastGood = await loadProxyStorageSnapshotFromDisk();
+  }
   const info = hlsBackendInfo();
   if (info.backend !== "minio") {
     const data = { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
@@ -248,14 +304,17 @@ async function buildProxyStoragePayload() {
     const data = { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, stale: false, ...report };
     _proxyStorageCache = { at: Date.now(), data };
     _proxyStorageLastGood = data;
+    persistProxyStorageSnapshot(data).catch(() => {});
     return data;
   } catch (err) {
-    if (_proxyStorageLastGood) {
+    const fallbackSource = _proxyStorageLastGood || await loadProxyStorageSnapshotFromDisk();
+    if (fallbackSource) {
+      _proxyStorageLastGood = fallbackSource;
       const fallback = {
-        ..._proxyStorageLastGood,
+        ...fallbackSource,
         stale: true,
-        note: (_proxyStorageLastGood.note ? (_proxyStorageLastGood.note + " · ") : "")
-          + "Đang hiển thị snapshot proxy gần nhất vì MinIO chưa phản hồi.",
+        note: (fallbackSource.note ? (fallbackSource.note + " · ") : "")
+          + "Đang hiển thị snapshot proxy gần nhất vì MinIO chưa phản hồi hoặc API vừa restart.",
       };
       _proxyStorageCache = { at: Date.now(), data: fallback };
       return fallback;

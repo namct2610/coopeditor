@@ -1321,17 +1321,27 @@ function proxyStorageSummaryFromPayload(storage) {
 function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
   const safeWidth = Math.max(280, Number(timelineWidthPx || 0));
   const minGapPx = Math.max(24, Math.min(42, Math.round(safeWidth * 0.032)));
-  const edgePaddingPx = 11;
+  const edgePaddingPx = 12;
+  const avatarHalfPx = 14;
   const laneEnds = [];
   const markers = [...items]
     .map((item, index) => {
       const rawLeftPx = (Number(item.leftPct || 0) / 100) * safeWidth;
       const leftPx = Math.max(edgePaddingPx, Math.min(safeWidth - edgePaddingPx, rawLeftPx));
-      return { ...item, _index: index, leftPx, leftPct: safeWidth > 0 ? (leftPx / safeWidth) * 100 : 0 };
+      const nearLeftEdge = leftPx <= (edgePaddingPx + avatarHalfPx);
+      const nearRightEdge = leftPx >= (safeWidth - edgePaddingPx - avatarHalfPx);
+      return {
+        ...item,
+        _index: index,
+        leftPx,
+        leftPct: safeWidth > 0 ? (leftPx / safeWidth) * 100 : 0,
+        markerTransform: nearLeftEdge ? "translateX(0)" : (nearRightEdge ? "translateX(-100%)" : "translateX(-50%)"),
+      };
     })
     .sort((a, b) => {
       if (Math.abs(a.leftPx - b.leftPx) > 0.5) return a.leftPx - b.leftPx;
       if (!!b.hasAnnotation !== !!a.hasAnnotation) return Number(!!b.hasAnnotation) - Number(!!a.hasAnnotation);
+      if ((b.count || 1) !== (a.count || 1)) return (b.count || 1) - (a.count || 1);
       return a._index - b._index;
     })
     .map((item) => {
@@ -1374,6 +1384,8 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
         markerDot: comment.resolved ? comment.color : "#07090e",
         tip: comment.name + " · " + comment.tcLabel + (comment.hasAnnotation ? " · có chú thích" : ""),
         count: 1,
+        annotationCount: comment.hasAnnotation ? 1 : 0,
+        commentCount: 1,
         resolvedCount: comment.resolved ? 1 : 0,
       });
       continue;
@@ -1384,12 +1396,14 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
     existing.hasAnnotation = existing.hasAnnotation || !!comment.hasAnnotation;
     existing.avatarBorder = existing.hasAnnotation ? "#d9a45b" : "var(--co-chrome)";
     existing.count += 1;
+    existing.commentCount += 1;
+    existing.annotationCount += comment.hasAnnotation ? 1 : 0;
     existing.resolvedCount += comment.resolved ? 1 : 0;
     existing.markerBg = existing.resolvedCount >= existing.count ? "var(--co-panel-2)" : existing.color;
     existing.markerDot = existing.resolvedCount >= existing.count ? existing.color : "#07090e";
     existing.tip = comment.name + " · " + comment.tcLabel
       + (existing.count > 1 ? (" · " + existing.count + " bình luận") : "")
-      + (existing.hasAnnotation ? " · có chú thích" : "");
+      + (existing.annotationCount ? (" · " + existing.annotationCount + " chú thích") : "");
   }
   return computeTimelineMarkerLanes([...grouped.values()], timelineWidthPx);
 }
@@ -2152,7 +2166,7 @@ function review(vals) {
         <div id="reviewTimelineWrap" style="position:relative;padding-top:${vals.markerWrapPaddingTop}px;">
           <div style="position:absolute;left:0;right:0;top:0;height:${vals.markerRailHeight}px;pointer-events:none;">
             ${vals.markers.map((m, i) => `
-              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:translateX(-50%);cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;z-index:${m.zIndex || 1};">
+              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:${m.markerTransform || "translateX(-50%)"};cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;z-index:${m.zIndex || 1};">
                 <div style="position:relative;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}${m.count > 1 ? `<span style="position:absolute;right:-6px;top:-6px;min-width:13px;height:13px;padding:0 3px;border-radius:999px;background:#07111a;border:1px solid ${m.avatarBorder};display:grid;place-items:center;color:#fff;font-size:8px;font-weight:900;line-height:1;">${m.count}</span>` : ``}</div>
                 <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
                 <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
