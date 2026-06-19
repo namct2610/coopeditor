@@ -1348,16 +1348,19 @@ function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
       let lane = 0;
       while (lane < laneEnds.length && item.leftPx - laneEnds[lane] < minGapPx) lane++;
       laneEnds[lane] = item.leftPx;
-      return { ...item, lane, topPx: lane * 18, zIndex: 20 - Math.min(19, lane) };
+      return { ...item, lane, topPx: lane * 22, zIndex: 20 - Math.min(19, lane) };
     })
     .sort((a, b) => a._index - b._index)
     .map(({ _index, leftPx, ...item }) => item);
   const laneCount = Math.max(1, laneEnds.length);
+  // Each lane is a 22px round avatar (Synoframe spec) with no tail/stem.
+  // Reserve laneCount × 22 height above the timeline bar so circles never
+  // overlap the seek thumbs.
   return {
     items: markers,
     laneCount,
-    railHeight: 44 + Math.max(0, laneCount - 1) * 18,
-    paddingTop: 18 + Math.max(0, laneCount - 1) * 18,
+    railHeight: 22 + Math.max(0, laneCount - 1) * 22,
+    paddingTop: 22 + Math.max(0, laneCount - 1) * 22,
   };
 }
 
@@ -2166,11 +2169,11 @@ function review(vals) {
         <div id="reviewTimelineWrap" style="position:relative;padding-top:${vals.markerWrapPaddingTop}px;">
           <div style="position:absolute;left:0;right:0;top:0;height:${vals.markerRailHeight}px;pointer-events:none;">
             ${vals.markers.map((m, i) => `
-              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:${m.markerTransform || "translateX(-50%)"};cursor:pointer;display:flex;flex-direction:column;align-items:center;pointer-events:auto;z-index:${m.zIndex || 1};">
-                <div style="position:relative;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}${m.count > 1 ? `<span style="position:absolute;right:-6px;top:-6px;min-width:13px;height:13px;padding:0 3px;border-radius:999px;background:#07111a;border:1px solid ${m.avatarBorder};display:grid;place-items:center;color:#fff;font-size:8px;font-weight:900;line-height:1;">${m.count}</span>` : ``}</div>
-                <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
-                <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
-                ${m.hasAnnotation ? `<div style="margin-top:2px;width:4px;height:4px;border-radius:50%;background:#d9a45b;box-shadow:0 0 0 2px rgba(217,164,91,0.18);"></div>` : ``}
+              <!-- Synoframe marker: single 22×22 round avatar with 2-char
+                   initials, sitting just above the timeline bar. Replaces
+                   the previous pill-stem-dot stack. -->
+              <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:${m.markerTransform || "translateX(-50%)"};cursor:pointer;pointer-events:auto;z-index:${m.zIndex || 1};">
+                <div style="position:relative;width:22px;height:22px;border-radius:50%;background:${m.avatarBg};border:2px solid #060608;display:grid;place-items:center;font-size:9px;font-weight:700;line-height:1;color:${m.avatarColor};">${esc(m.initial)}${m.count > 1 ? `<span style="position:absolute;right:-5px;top:-5px;min-width:12px;height:12px;padding:0 3px;border-radius:999px;background:#0a0a0d;border:1px solid ${m.avatarBg};display:grid;place-items:center;color:#fff;font-size:8px;font-weight:800;line-height:1;">${m.count}</span>` : ``}${m.hasAnnotation ? `<span style="position:absolute;right:-3px;bottom:-3px;width:7px;height:7px;border-radius:50%;background:#d9a45b;border:1.5px solid #060608;"></span>` : ``}</div>
               </div>
             `).join("")}
           </div>
