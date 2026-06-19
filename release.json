@@ -1,10 +1,10 @@
 {
-  "version": "0.2.29",
-  "summary": "Chặn transcode khi worker chưa online, đồng bộ lại proxy sidebar ổn định hơn, và siết marker avatar trên timeline.",
+  "version": "0.2.30",
+  "summary": "Gia cố bảo mật OIDC + setup runtime, đồng thời làm test/API ổn định hơn cho các vòng fix proxy tiếp theo.",
   "changes": [
-    "Fail-fast khi chưa có worker heartbeat hoặc worker không nhìn thấy DSM mount root, tránh để job proxy kẹt trạng thái chờ mà không có CPU load.",
-    "Đồng bộ proxy storage summary từ payload đầy đủ để sidebar giữ được dung lượng proxy ổn định hơn sau các lần refresh và xóa proxy.",
-    "Clamp marker avatar ở hai mép timeline và debounce refresh source list khi transcode/comment event dồn dập để UI mượt hơn."
+    "OIDC giờ verify chữ ký id_token bằng JWKS, đồng thời kiểm tra issuer, audience, exp/nbf trước khi tạo session nội bộ.",
+    "Runtime setup/public summary không còn lộ update trigger token ra client; UI chỉ biết token đã được cấu hình hay chưa.",
+    "Bổ sung test regression cho OIDC signature verification, runtime config summary, và giữ version metadata khớp với bản đang chạy trong Update Center."
   ],
-  "publishedAt": "2026-06-18T00:00:00.000Z"
+  "publishedAt": "2026-06-19T00:00:00.000Z"
 }

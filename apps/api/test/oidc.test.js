@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportJWK, generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign } from "node:crypto";
 
 import { verifyIdToken } from "../src/oidc.js";
 
@@ -15,7 +15,7 @@ function createJwt({ claims, privateKey, kid = "kid-1", alg = "RS256" }) {
 
 test("verifyIdToken accepts a valid RS256 token", async () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const jwk = await exportJWK(publicKey);
+  const jwk = publicKey.export({ format: "jwk" });
   jwk.kid = "kid-1";
   jwk.use = "sig";
   const issuer = "https://issuer.example.com";
@@ -38,7 +38,7 @@ test("verifyIdToken accepts a valid RS256 token", async () => {
 
 test("verifyIdToken rejects audience mismatch", async () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const jwk = await exportJWK(publicKey);
+  const jwk = publicKey.export({ format: "jwk" });
   jwk.kid = "kid-1";
   const issuer = "https://issuer.example.com";
   const token = createJwt({
@@ -60,7 +60,7 @@ test("verifyIdToken rejects audience mismatch", async () => {
 test("verifyIdToken rejects invalid signature", async () => {
   const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const { publicKey: wrongPublicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const jwk = await exportJWK(wrongPublicKey);
+  const jwk = wrongPublicKey.export({ format: "jwk" });
   jwk.kid = "kid-1";
   const issuer = "https://issuer.example.com";
   const clientId = "coopeditor-web";
