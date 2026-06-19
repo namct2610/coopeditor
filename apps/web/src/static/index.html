@@ -39,12 +39,12 @@
 
   /* ===== Mobile (≤ 760px) — stack review layout, hide secondary chrome ===== */
   @media (max-width: 760px) {
+    /* Hide left rail (Synoframe nav) on mobile — its actions live in topBar still */
+    #app nav { display: none !important; }
     /* App-wide: stack top bar items, allow horizontal scroll if needed */
-    #app > header { padding: 0 10px !important; gap: 8px !important; overflow-x: auto; flex-wrap: nowrap; }
-    #app > header [data-act="toggleSpeedPanel"] span:nth-child(2),
-    #app > header [data-act="toggleSpeedPanel"] span:nth-child(3) { display: none !important; } /* drop "42 Mbps" → keep icon only */
-    #app > header > button:last-of-type, /* Share button */
-    #app > header > div:has(> [title]) ~ button { display: none !important; }
+    #app header { padding: 0 10px !important; gap: 8px !important; overflow-x: auto; flex-wrap: nowrap; }
+    #app header [data-act="toggleSpeedPanel"] span:nth-child(2),
+    #app header [data-act="toggleSpeedPanel"] span:nth-child(3) { display: none !important; }
     /* Workspace: hide sidebar; main fills width */
     #app aside { display: none !important; }
     main { padding: 16px 12px !important; }
@@ -77,6 +77,7 @@
   .co-hover:hover { background: var(--co-hover) !important; }
   .co-border-hover:hover { border-color: rgba(108,92,246,0.5) !important; }
   .co-border-hover-strong:hover { border-color: rgba(108,92,246,0.45) !important; transform: translateY(-3px); }
+  .co-card-hover:hover { filter: brightness(1.08); }
   .co-btn-blue:hover { background:#4fade4 !important; }
   .co-text-hover:hover { color: var(--co-text) !important; }
   .co-blue-hover:hover { color: #6c5cf6 !important; }
@@ -1074,27 +1075,53 @@ const ICON = {
   reorder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>',
 };
 
+// Left rail (64px) per Synoframe design: dot-grid logo + Home / Search /
+// Notifications / NAS picker icons, then spacer, then account avatar at the
+// bottom. Replaces some of what the legacy topBar held; topBar now focuses
+// on breadcrumbs + status pills.
+function leftRail(vals) {
+  const isProjects = state.view === "projects";
+  const isReview = state.view === "review";
+  const notif = vals.notificationCount || 0;
+  return `
+  <nav style="width:64px;flex:0 0 64px;background:var(--co-bg);border-right:1px solid var(--co-border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;z-index:30;">
+    <div data-act="goProjects" title="Synoframe" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2.5px;width:20px;height:20px;margin-bottom:8px;cursor:pointer;opacity:0.85;">
+      ${Array.from({length: 9}).map(() => `<span style="width:5px;height:5px;border-radius:1.5px;background:var(--co-text-2);"></span>`).join("")}
+    </div>
+    <div data-act="goProjects" title="Home" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:${isProjects ? "var(--co-text)" : "var(--co-muted)"};background:${isProjects ? "rgba(108,92,246,0.14)" : "transparent"};">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+    </div>
+    <div data-act="focusWorkspaceSearch" title="Tìm kiếm project" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--co-muted);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </div>
+    <div data-act="toggleUpdateModal" title="Thông báo / Update center" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--co-muted);position:relative;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10.3 20a1.94 1.94 0 0 0 3.4 0"/></svg>
+      ${notif > 0 ? `<span style="position:absolute;top:6px;right:7px;min-width:14px;height:14px;border-radius:999px;background:#ef4d57;color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;padding:0 4px;">${notif}</span>` : ""}
+    </div>
+    <div data-act="openImport" title="Thêm media từ NAS" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--co-muted);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><circle cx="6.8" cy="7.5" r=".7" fill="currentColor"/><circle cx="6.8" cy="16.5" r=".7" fill="currentColor"/></svg>
+    </div>
+    <div style="flex:1"></div>
+    <div data-act="doLogout" title="${esc((remote.me && remote.me.name) || "Tài khoản")} — Đăng xuất" style="width:36px;height:36px;border-radius:10px;background:${vals.meColor};display:grid;place-items:center;cursor:pointer;color:#0a0a0d;font-weight:700;font-size:12.5px;margin-top:4px;">${esc(vals.meInitial)}</div>
+  </nav>`;
+}
+
 function topBar(vals) {
   const isLight = state.theme === "light";
   return `
-  <header style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:18px;padding:0 18px;background:var(--co-chrome);border-bottom:1px solid var(--co-border);z-index:40;">
-    <div data-act="goProjects" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;">
-      <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(108,92,246,0.4);">${ICON.play}</div>
-      <div style="font-weight:800;font-size:16px;letter-spacing:-0.02em;">Coop<span style="color:#6c5cf6;">editor</span></div>
-    </div>
+  <header style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:14px;padding:0 18px;background:var(--co-chrome);border-bottom:1px solid var(--co-border);z-index:40;">
     ${state.view !== "projects" ? `
-    <div style="display:flex;align-items:center;gap:8px;color:var(--co-muted);font-size:13px;font-weight:600;white-space:nowrap;min-width:0;">
-      <span style="color:var(--co-faint);">/</span>
+    <div style="display:flex;align-items:center;gap:8px;color:var(--co-muted);font-size:13.5px;font-weight:600;white-space:nowrap;min-width:0;">
       <span data-act="goProjects" class="co-text-hover" style="cursor:pointer;">Workspace</span>
       <span style="color:var(--co-faint);">/</span>
-      <span data-act="openSelProject" class="co-text-hover" style="cursor:pointer;color:${state.view === "review" ? "#8896ab" : "var(--co-text)"};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.projectName)}</span>
+      <span data-act="openSelProject" class="co-text-hover" style="cursor:pointer;color:${state.view === "review" ? "var(--co-muted)" : "var(--co-text)"};max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.projectName)}</span>
       ${state.view === "review" ? `
         <span style="color:var(--co-faint);">/</span>
         <span style="color:var(--co-text);">${esc(vals.selTitle)}</span>
-        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#6c5cf6;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
+        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#b9aeff;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
       ` : ""}
     </div>
-    ` : ""}
+    ` : `<div style="font-size:14.5px;font-weight:700;color:var(--co-text);letter-spacing:-0.01em;">Workspace của ${esc((remote.me && remote.me.name) || "bạn")}</div>`}
     <div style="flex:1"></div>
     <button data-act="toggleUpdateModal" title="Trung tam cap nhat" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:${vals.updateBadgeBg};border:1px solid var(--co-border-2);color:${vals.updateBadgeColor};font-weight:800;font-size:12px;padding:8px 12px;border-radius:999px;cursor:pointer;">
       ${ICON.refresh}
@@ -1119,12 +1146,8 @@ function topBar(vals) {
         </div>
       `).join("")}
     </div>
-    <div title="${vals.notificationTitle}" style="position:relative;width:36px;height:36px;display:grid;place-items:center;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:999px;color:var(--co-text-2);">
-      ${ICON.bell}
-      ${vals.notificationCount > 0 ? `<span style="position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ef4d57;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;">${vals.notificationCount}</span>` : ""}
-    </div>
-    <div style="width:32px;height:32px;border-radius:50%;background:${vals.meColor};display:grid;place-items:center;font-weight:700;font-size:13px;color:#07090e;">${esc(vals.meInitial)}</div>
   </header>`;
+  // (bell + avatar đã chuyển sang leftRail() để khớp design Synoframe.)
 }
 
 function speedPanel(vals) {
@@ -1311,35 +1334,35 @@ function projectsHub(vals) {
             <div style="flex:1;height:1px;background:var(--co-hover);"></div>
           </div>
         ` : ""}
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;">
+        <!-- Synoframe card grid: aspect 1/0.82 + name overlaid on thumbnail,
+             updated label + dots menu below. -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,240px));gap:20px;">
           ${g.projects.map((p) => `
-            <div data-act="openProject" data-arg="${p.id}" data-project-menu-id="${p.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:var(--co-shadow);transition:transform 250ms cubic-bezier(0.16,1,0.3,1),border-color 250ms;">
-              <div style="position:relative;height:132px;background:${p.coverIsImage ? `center/cover no-repeat url(${esc(p.cover)})` : p.cover};">
-                <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.12),transparent 60%);"></div>
-                <div style="position:absolute;left:11px;top:11px;">
-                  <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);color:${p.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;"><span style="width:7px;height:7px;border-radius:50%;background:${p.statusColor};"></span>${esc(p.statusLabel)}</span>
+            <div data-act="openProject" data-arg="${p.id}" data-project-menu-id="${p.id}" style="cursor:pointer;">
+              <div style="position:relative;aspect-ratio:1/0.82;border-radius:14px;background:${p.coverIsImage ? `center/cover no-repeat url(${esc(p.cover)})` : p.cover};overflow:hidden;display:flex;align-items:flex-end;padding:16px;transition:filter 200ms;" class="co-card-hover">
+                <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,0.55) 100%);pointer-events:none;"></div>
+                <div style="position:absolute;left:12px;top:12px;">
+                  <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(10,10,13,0.55);backdrop-filter:blur(6px);color:${p.statusColor};font-weight:700;font-size:11px;padding:5px 10px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:${p.statusColor};"></span>${esc(p.statusLabel)}</span>
                 </div>
-                <div style="position:absolute;left:11px;right:11px;bottom:11px;display:flex;gap:5px;height:30px;">
-                  ${p.thumbs.map((t) => `<div style="flex:1;border-radius:5px;background:${/^https?:|^\//.test(t) ? `center/cover no-repeat url(${esc(t)})` : t};border:1px solid var(--co-border-2);"></div>`).join("")}
-                </div>
-              </div>
-              <div style="padding:14px;">
-                <div style="font-weight:700;font-size:14.5px;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div>
-                <div style="color:var(--co-faint);font-size:11.5px;font-weight:600;margin-top:3px;">${esc(p.client)}</div>
-                ${p.isProgress ? `
-                  <div style="margin-top:11px;">
-                    <div style="height:5px;border-radius:999px;background:var(--co-border);overflow:hidden;"><div style="width:${p.pct}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
-                    <div style="color:var(--co-muted);font-size:10.5px;font-weight:700;margin-top:5px;">${esc(p.readyLabel)}</div>
-                  </div>
-                ` : ""}
-                <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
-                  <span style="display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11.5px;">${ICON.film}${p.nSources} nguồn</span>
-                  <span style="display:inline-flex;align-items:center;gap:5px;color:var(--co-muted);font-weight:600;font-size:11.5px;">${ICON.msg}${p.nComments}</span>
-                  <div style="margin-left:auto;display:flex;align-items:center;">
-                    ${p.team.map((t) => `<div style="width:24px;height:24px;border-radius:50%;background:${t.color};display:grid;place-items:center;font-weight:700;font-size:10.5px;color:#07090e;margin-left:-6px;border:2px solid var(--co-panel);">${t.initial}</div>`).join("")}
-                  </div>
+                <div style="position:relative;z-index:2;">
+                  <div style="font-size:16px;font-weight:700;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div>
+                  <div style="font-size:12.5px;color:rgba(255,255,255,0.75);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.client)}</div>
                 </div>
               </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px 0;gap:8px;">
+                <div style="min-width:0;display:flex;align-items:center;gap:10px;flex:1;">
+                  <span style="font-size:12.5px;color:var(--co-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.client || "Workspace")} · ${esc(p.updated || "")}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                  ${p.team.slice(0,3).map((t) => `<div style="width:22px;height:22px;border-radius:50%;background:${t.color};display:grid;place-items:center;font-weight:700;font-size:10px;color:#0a0a0d;margin-left:-6px;border:2px solid var(--co-bg);">${t.initial}</div>`).join("")}
+                  <span data-stop="1" style="color:var(--co-faint);cursor:pointer;display:grid;place-items:center;width:22px;height:22px;border-radius:6px;" class="co-hover">${ICON.dots}</span>
+                </div>
+              </div>
+              ${p.isProgress ? `
+                <div style="margin-top:7px;padding:0 4px;">
+                  <div style="height:3px;border-radius:999px;background:var(--co-border);overflow:hidden;"><div style="width:${p.pct}%;height:100%;background:#6c5cf6;"></div></div>
+                </div>
+              ` : ""}
             </div>
           `).join("")}
         </div>
@@ -2736,10 +2759,19 @@ function render() {
   document.documentElement.setAttribute("data-theme", state.theme);
   app.setAttribute("data-theme", state.theme);
 
+  // Row layout: persistent left rail + main column (top bar + content).
+  // The rail is always visible while authenticated so navigation icons
+  // (Home / Search / Notifications / NAS / Account) follow the Synoframe
+  // spec, mirroring claude.ai/design/p/fbbd84a0… (Synoframe.dc.html).
   app.innerHTML = `
-    ${topBar(vals)}
-    ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${sidebar(vals)}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
-    ${state.view === "review" ? review(vals) : ""}
+    <div style="display:flex;flex:1;min-height:0;">
+      ${leftRail(vals)}
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        ${topBar(vals)}
+        ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${sidebar(vals)}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
+        ${state.view === "review" ? review(vals) : ""}
+      </div>
+    </div>
     ${state.showMembers ? membersModal(vals) : ""}
     ${state.showAudit ? auditModal(vals) : ""}
     ${state.showTranscode ? transcodeModal(vals) : ""}
@@ -2812,6 +2844,11 @@ window.addEventListener("hashchange", () => {
 function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
+    case "focusWorkspaceSearch": {
+      goProjects();
+      setTimeout(() => { const el = document.getElementById("workspaceSearch"); if (el) el.focus(); }, 0);
+      return;
+    }
     case "openProject": return openProject(arg);
     case "openSelProject": return openProject(state.selectedProjectId);
     case "openSource": return openSource(arg);
