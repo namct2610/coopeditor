@@ -1998,9 +1998,9 @@ function auditLabel(e) {
 function review(vals) {
   return `
   <div data-theme="dark" style="flex:1;display:flex;min-height:0;">
-    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#07090e;">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#060608;">
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 22px 10px;position:relative;overflow:auto;">
-        <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 300px));aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);background:#000;flex:0 0 auto;">
+        <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 300px));aspect-ratio:16/9;border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);background:#000;flex:0 0 auto;">
           <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;pointer-events:none;"></div>
@@ -2159,14 +2159,21 @@ function commentsPanel(vals) {
           </div>
         ` : ""}
       </div>
-      <div style="flex:0 0 auto;border-top:1px solid var(--co-border);padding:12px 14px 14px;background:var(--co-chrome);">
-        <div data-act="toggleAttach" style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:9px;padding:5px 9px;border-radius:7px;background:${vals.attachBg};border:1px solid ${vals.attachBorder};">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${vals.attachIcon}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
-          <span id="commentAttachLabel" style="font-weight:700;font-size:11.5px;color:${vals.attachIcon};font-variant-numeric:tabular-nums;">${esc(vals.attachLabel)}</span>
-        </div>
-        <div style="display:flex;gap:9px;align-items:flex-end;">
-          <textarea id="commentInput" placeholder="Thêm comment tại timecode hiện tại…  ( ⌘↵ để gửi )" rows="2" style="flex:1;resize:none;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:10px;padding:10px 12px;color:var(--co-text);font-size:13px;line-height:1.45;outline:none;min-height:44px;">${esc(state.newComment)}</textarea>
-          <button data-act="postComment" class="co-btn-blue" style="width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;background:#6c5cf6;border:none;border-radius:11px;color:#07111a;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.35);">${ICON.send}</button>
+      <!-- Synoframe composer: tc tag + inline input, toolbar row with icons + send -->
+      <div style="flex:0 0 auto;border-top:1px solid var(--co-border);padding:12px 14px;background:var(--co-chrome);">
+        <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:11px;padding:10px 12px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span data-act="toggleAttach" title="${esc(vals.attachLabel)}" id="commentAttachLabel" style="font-variant-numeric:tabular-nums;background:${state.attachTc ? "rgba(217,164,91,0.16)" : "var(--co-hover)"};color:${state.attachTc ? "#d9a45b" : "var(--co-faint)"};border-radius:5px;padding:2px 6px;font-size:11px;font-weight:600;flex:0 0 auto;cursor:pointer;">${state.attachTc ? esc(vals.tcCurrent) : "no tc"}</span>
+            <textarea id="commentInput" placeholder="Leave your comment..." rows="1" style="flex:1;resize:none;background:transparent;border:none;outline:none;color:var(--co-text);font-size:13.5px;line-height:1.45;min-height:22px;max-height:120px;">${esc(state.newComment)}</textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:10px;color:var(--co-faint);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Revert"><path d="M3 3v5h5"></path><path d="M3.5 8a9 9 0 1 0 2.2-3.3L3 8"></path></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Attach"><path d="M21 11 12 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.6-2.6l8-8"></path></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="width:17px;height:17px;cursor:pointer" title="Emoji"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14a4 4 0 0 0 7 0"></path><circle cx="9" cy="10" r=".6" fill="currentColor"></circle><circle cx="15" cy="10" r=".6" fill="currentColor"></circle></svg>
+            <div style="flex:1"></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;background:var(--co-panel-2);border-radius:7px;padding:5px 9px;font-size:11.5px;font-weight:600;color:var(--co-text-2);cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"></path></svg>Public${ICON.chevDown}</span>
+            <button data-act="postComment" style="width:32px;height:32px;border-radius:8px;background:#6c5cf6;border:none;display:grid;place-items:center;cursor:pointer;color:#fff;box-shadow:0 4px 14px rgba(108,92,246,0.35);">${ICON.send}</button>
+          </div>
         </div>
       </div>
     </aside>`;
