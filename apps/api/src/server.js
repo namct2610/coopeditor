@@ -199,6 +199,20 @@ async function canManageUpdates(userId) {
   return !!(members && members.some((member) => member.role === "owner"));
 }
 
+async function requireCommentWriteAccess(res, commentId, projectId, userId) {
+  const [member, comment] = await Promise.all([
+    store.getProjectMember(projectId, userId),
+    store.getComment(commentId),
+  ]);
+  if (!member || !comment) {
+    bad(res, "Forbidden", 403);
+    return null;
+  }
+  if (["owner", "editor"].includes(member.role) || comment.authorUserId === userId) return comment;
+  bad(res, "Forbidden", 403);
+  return null;
+}
+
 async function buildProxyStoragePayload() {
   if (_proxyStorageCache && (Date.now() - _proxyStorageCache.at) < PROXY_STORAGE_CACHE_TTL_MS) {
     return _proxyStorageCache.data;
@@ -820,6 +834,8 @@ async function handle(req, res, url) {
     const projectId = await store.findProjectIdForComment(mat[1]);
     if (!projectId) return bad(res, "Comment not found", 404);
     if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const writableComment = await requireCommentWriteAccess(res, mat[1], projectId, sess.userId);
+    if (!writableComment) return;
     const body = await readJson(req).catch(() => null);
     if (!body) return bad(res, "Invalid body");
     if (typeof body.content === "string") {
@@ -849,6 +865,8 @@ async function handle(req, res, url) {
     const projectId = await store.findProjectIdForComment(mat[1]);
     if (!projectId) return bad(res, "Comment not found", 404);
     if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const writableComment = await requireCommentWriteAccess(res, mat[1], projectId, sess.userId);
+    if (!writableComment) return;
     const deleted = await store.deleteComment(mat[1]);
     if (!deleted) return bad(res, "Comment not found or already deleted", 404);
     await publishProjectEvent(projectId, { type: "comment", action: "deleted", comment: deleted });

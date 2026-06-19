@@ -296,6 +296,61 @@ test("only owner can manage project access", async () => {
   assert.equal(ownerLogin.status, 200);
 });
 
+test("reviewer can only edit or delete their own comments, while editors can moderate", async () => {
+  const addReviewer = await http("/projects/p1/members", { method: "POST", body: { userId: "u_khach", role: "reviewer" } });
+  assert.equal(addReviewer.status, 201);
+
+  const editorComment = await http("/asset-versions/p1s1_v3/comments", {
+    method: "POST",
+    body: { content: "Editor note", timestampMs: 9100, frameNumber: 219 },
+  });
+  assert.equal(editorComment.status, 201);
+
+  await http("/auth/logout", { method: "POST" });
+  const reviewerLogin = await http("/auth/dsm/login", { method: "POST", body: { account: "khach", passwd: "x" } });
+  assert.equal(reviewerLogin.status, 200);
+
+  const foreignEdit = await http("/comments/" + editorComment.json.id, {
+    method: "PATCH",
+    body: { content: "Reviewer cannot overwrite this" },
+  });
+  assert.equal(foreignEdit.status, 403);
+
+  const foreignDelete = await http("/comments/" + editorComment.json.id, { method: "DELETE" });
+  assert.equal(foreignDelete.status, 403);
+
+  const ownComment = await http("/asset-versions/p1s1_v3/comments", {
+    method: "POST",
+    body: { content: "Reviewer own note", timestampMs: 9300, frameNumber: 223 },
+  });
+  assert.equal(ownComment.status, 201);
+
+  const ownEdit = await http("/comments/" + ownComment.json.id, {
+    method: "PATCH",
+    body: { content: "Reviewer updated own note" },
+  });
+  assert.equal(ownEdit.status, 200);
+  assert.equal(ownEdit.json.content, "Reviewer updated own note");
+
+  const ownDelete = await http("/comments/" + ownComment.json.id, { method: "DELETE" });
+  assert.equal(ownDelete.status, 200);
+
+  await http("/auth/logout", { method: "POST" });
+  const editorLogin = await http("/auth/dsm/login", { method: "POST", body: { account: "lan", passwd: "x" } });
+  assert.equal(editorLogin.status, 200);
+
+  const editorModerate = await http("/comments/" + editorComment.json.id, {
+    method: "PATCH",
+    body: { content: "Editor moderated note" },
+  });
+  assert.equal(editorModerate.status, 200);
+  assert.equal(editorModerate.json.content, "Editor moderated note");
+
+  await http("/auth/logout", { method: "POST" });
+  const ownerLogin = await http("/auth/dsm/login", { method: "POST", body: { account: "phong", passwd: "x" } });
+  assert.equal(ownerLogin.status, 200);
+});
+
 test("PATCH project status moves it between groups", async () => {
   const r = await http("/projects/p1", { method: "PATCH", body: { status: "done" } });
   assert.equal(r.status, 200);
