@@ -2229,66 +2229,60 @@ function qualityMenu(vals) {
 
 function commentsPanel(vals) {
   return `
-    <aside style="width:380px;flex:0 0 380px;background:var(--co-chrome);border-left:1px solid var(--co-border);display:flex;flex-direction:column;min-height:0;">
-      <div style="padding:16px 18px 12px;border-bottom:1px solid var(--co-border);">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <h2 style="margin:0;font-size:15px;font-weight:800;">Comments</h2>
-          <span style="background:var(--co-border);color:var(--co-text-2);font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;">${vals.countAll}</span>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:12px;background:var(--co-panel);padding:4px;border-radius:9px;">
-          <button data-act="filterAll" style="flex:1;padding:7px;border:none;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;background:${vals.tabAllBg};color:${vals.tabAllColor};">Tất cả ${vals.countAll}</button>
-          <button data-act="filterOpen" style="flex:1;padding:7px;border:none;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;background:${vals.tabOpenBg};color:${vals.tabOpenColor};">Chưa xong ${vals.countOpen}</button>
-          <button data-act="filterDone" style="flex:1;padding:7px;border:none;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;background:${vals.tabDoneBg};color:${vals.tabDoneColor};">Đã xong ${vals.countDone}</button>
-        </div>
+    <aside style="width:340px;flex:0 0 340px;background:var(--co-chrome);border-left:1px solid var(--co-border);display:flex;flex-direction:column;min-height:0;">
+      <!-- Synoframe-style header: just the 3 tabs (no separate "Comments" heading) -->
+      <div style="display:flex;padding:14px 14px 6px;gap:6px;">
+        <div data-act="filterAll" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabAllBg};color:${vals.tabAllColor};">Tất cả ${vals.countAll}</div>
+        <div data-act="filterOpen" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabOpenBg};color:${vals.tabOpenColor};">Chưa xong ${vals.countOpen}</div>
+        <div data-act="filterDone" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabDoneBg};color:${vals.tabDoneColor};">Đã xong ${vals.countDone}</div>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:8px 12px 14px;">
+      <div style="flex:1;overflow-y:auto;padding:4px 14px 14px;">
         ${vals.visibleComments.map((c) => `
-          <div style="padding:13px;border-radius:12px;margin-top:6px;background:${c.cardBg};border:1px solid ${c.cardBorder};">
+          <!-- Synoframe comment row: flat, no card bg, border-bottom divider.
+               Click anywhere → jumpTo timecode. Inner buttons have data-stop. -->
+          <div data-act="jumpTo" data-arg="${c.ms}" style="padding:13px 0;border-bottom:1px solid var(--co-border);cursor:pointer;${c.resolved ? "opacity:0.6;" : ""}">
             <div style="display:flex;align-items:center;gap:9px;">
-              <div style="width:28px;height:28px;border-radius:50%;background:${c.color};display:grid;place-items:center;font-weight:700;font-size:12px;color:#07090e;flex:0 0 28px;">${c.initial}</div>
-              <div style="min-width:0;">
-                <div style="font-weight:700;font-size:12.5px;color:var(--co-text);">${esc(c.name)} ${c.roleTag ? `<span style="color:${c.roleColor};font-weight:700;font-size:10px;">${esc(c.roleTag)}</span>` : ""}</div>
-                <div style="color:var(--co-faint);font-size:10.5px;font-weight:600;">${esc(c.ago)}</div>
-              </div>
+              <span style="width:26px;height:26px;border-radius:7px;background:${c.color};display:grid;place-items:center;font-weight:700;font-size:10px;color:#0a0a0d;flex:0 0 26px;">${c.initial}</span>
+              <span style="font-size:13px;font-weight:600;color:var(--co-text);">${esc(c.name)}</span>
+              ${c.roleTag ? `<span style="font-size:10px;font-weight:700;color:${c.roleColor};">${esc(c.roleTag)}</span>` : ""}
+              <span style="font-size:12px;color:var(--co-faint);">${esc(c.ago)}</span>
               <div style="flex:1"></div>
-              <div style="position:relative;">
-                <button data-act="toggleCommentMenu" data-arg="${c.id}" title="Tác vụ comment" style="width:26px;height:26px;display:grid;place-items:center;border-radius:7px;border:1px solid var(--co-border-2);background:var(--co-panel-2);color:var(--co-text-2);cursor:pointer;margin-right:6px;">${ICON.dots}</button>
+              <div data-stop="1" style="position:relative;">
+                <button data-act="toggleCommentMenu" data-arg="${c.id}" title="Tác vụ comment" class="co-hover" style="width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:none;background:transparent;color:var(--co-faint);cursor:pointer;">${ICON.dots}</button>
                 ${c.menuOpen ? `
                   <div style="position:absolute;right:0;top:calc(100% + 6px);width:148px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:10px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,0.4);z-index:5;">
-                    <button data-act="startEditComment" data-arg="${c.id}" class="co-hover" style="width:100%;text-align:left;background:transparent;border:none;border-radius:8px;padding:8px 9px;color:var(--co-text);font-weight:700;font-size:12px;cursor:pointer;">Chỉnh sửa</button>
-                    <button data-act="deleteComment" data-arg="${c.id}" class="co-hover" style="width:100%;text-align:left;background:transparent;border:none;border-radius:8px;padding:8px 9px;color:#ef4d57;font-weight:700;font-size:12px;cursor:pointer;">Xóa comment</button>
+                    <button data-act="startEditComment" data-arg="${c.id}" class="co-hover" style="width:100%;text-align:left;background:transparent;border:none;border-radius:8px;padding:8px 9px;color:var(--co-text);font-weight:600;font-size:12.5px;cursor:pointer;">Chỉnh sửa</button>
+                    <button data-act="deleteComment" data-arg="${c.id}" class="co-hover" style="width:100%;text-align:left;background:transparent;border:none;border-radius:8px;padding:8px 9px;color:#ef4d57;font-weight:600;font-size:12.5px;cursor:pointer;">Xóa comment</button>
                   </div>
                 ` : ""}
               </div>
-              <button data-act="toggleResolve" data-arg="${c.id}" title="Đánh dấu xong" style="width:26px;height:26px;display:grid;place-items:center;border-radius:7px;border:1px solid ${c.resolveBorder};background:${c.resolveBg};color:${c.resolveColor};cursor:pointer;">${ICON.check}</button>
+              <button data-act="toggleResolve" data-arg="${c.id}" data-stop="1" title="${c.resolved ? "Mở lại" : "Đánh dấu xong"}" class="${c.resolved ? "" : "co-hover"}" style="width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:none;background:${c.resolved ? "#2bbe6e" : "transparent"};color:${c.resolved ? "#0a0a0d" : "var(--co-faint)"};cursor:pointer;">${ICON.check}</button>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
-              <button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(108,92,246,0.13);border:none;color:#6c5cf6;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
-              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(217,164,91,0.13);border:none;color:#d9a45b;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">${ICON.penTool}Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</button>` : ""}
+            <div style="display:flex;align-items:baseline;gap:8px;margin:8px 0 0 35px;flex-wrap:wrap;">
+              <span style="font-variant-numeric:tabular-nums;background:rgba(217,164,91,0.16);color:#d9a45b;border-radius:5px;padding:2px 6px;font-size:11.5px;font-weight:600;flex:0 0 auto;">${esc(c.tcLabel)}</span>
+              ${c.isEditing ? "" : `<span style="font-size:13.5px;color:var(--co-comment);line-height:1.5;${c.contentStyle}">${esc(c.content)}</span>`}
             </div>
+            ${c.hasAnnotation && !c.isEditing ? `<div style="margin:6px 0 0 35px;display:inline-flex;align-items:center;gap:5px;color:#d9a45b;font-size:11px;font-weight:600;">${ICON.penTool}Chú thích · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</div>` : ""}
             ${c.isEditing ? `
-              <div style="margin-top:10px;">
-                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel-2);border:1px solid rgba(108,92,246,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
+              <div data-stop="1" style="margin:10px 0 0 35px;">
+                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel);border:1px solid rgba(108,92,246,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
-                  <button data-act="cancelEditComment" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">Hủy</button>
-                  <button data-act="saveEditComment" data-arg="${c.id}" class="co-btn-blue" style="background:#6c5cf6;border:none;color:#07111a;font-weight:800;font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
+                  <button data-act="cancelEditComment" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:600;font-size:12.5px;padding:7px 11px;border-radius:8px;cursor:pointer;">Hủy</button>
+                  <button data-act="saveEditComment" data-arg="${c.id}" style="background:#6c5cf6;border:none;color:#fff;font-weight:700;font-size:12.5px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
                 </div>
               </div>
-            ` : `<div style="margin-top:9px;font-size:13px;line-height:1.55;color:var(--co-comment);${c.contentStyle}">${esc(c.content)}</div>`}
+            ` : ""}
             ${c.hasReplies ? `
-              <div style="margin-top:10px;padding-left:12px;border-left:2px solid var(--co-border-2);display:flex;flex-direction:column;gap:8px;">
+              <div style="margin:9px 0 0 35px;display:flex;flex-direction:column;gap:7px;">
                 ${c.replies.map((r) => `
-                  <div>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                      <div style="font-weight:700;font-size:11.5px;color:${r.color};">${esc(r.name)}</div>
-                      <button data-act="jumpTo" data-arg="${r.ms || 0}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(108,92,246,0.13);border:none;color:#6c5cf6;font-variant-numeric:tabular-nums;font-weight:700;font-size:10.5px;padding:3px 8px;border-radius:999px;cursor:pointer;">${ICON.playBtn}${esc(r.tcLabel)}</button>
-                      ${r.hasAnnotation ? `<button data-act="jumpTo" data-arg="${r.ms || 0}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(217,164,91,0.13);border:none;color:#d9a45b;font-variant-numeric:tabular-nums;font-weight:700;font-size:10.5px;padding:3px 8px;border-radius:999px;cursor:pointer;">${ICON.penTool}${r.annotationStrokeCount} nét${r.annotationTextCount ? ` · ${r.annotationTextCount} text` : ""}</button>` : ``}
-                    </div>
-                    <div style="font-size:12px;color:var(--co-text-2);line-height:1.5;margin-top:1px;">${esc(r.content)}</div>
+                  <div data-stop="1" style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;">
+                    <span style="font-weight:600;font-size:12px;color:${r.color};flex:0 0 auto;">${esc(r.name)}</span>
+                    <span style="font-size:12.5px;color:var(--co-text-2);line-height:1.5;">${esc(r.content)}</span>
                   </div>
                 `).join("")}
               </div>
             ` : ""}
+            <div data-stop="1" style="margin:9px 0 0 35px;font-size:12.5px;color:var(--co-faint);cursor:pointer;display:inline-block;" class="co-text-hover">Reply</div>
           </div>
         `).join("")}
         ${vals.emptyState ? `
