@@ -43,6 +43,7 @@ import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transc
 // ---------- helpers ----------
 const PROXY_STORAGE_CACHE_TTL_MS = 15_000;
 let _proxyStorageCache = null;
+let _proxyStorageLastGood = null;
 
 function send(res, status, body, extraHeaders) {
   res.statusCode = status;
@@ -233,18 +234,34 @@ async function buildProxyStoragePayload() {
   if (info.backend !== "minio") {
     const data = { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
     _proxyStorageCache = { at: Date.now(), data };
+    _proxyStorageLastGood = data;
     return data;
   }
-  const items = await s3ListPrefix("");
-  const renditionIds = [...new Set(items
-    .map((it) => String(it && it.key || ""))
-    .map((key) => key.split("/")[0])
-    .filter(Boolean))];
-  const meta = await store.listRenditionProxyMeta(renditionIds);
-  const report = buildProxyStorageReport(items, meta);
-  const data = { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, ...report };
-  _proxyStorageCache = { at: Date.now(), data };
-  return data;
+  try {
+    const items = await s3ListPrefix("");
+    const renditionIds = [...new Set(items
+      .map((it) => String(it && it.key || ""))
+      .map((key) => key.split("/")[0])
+      .filter(Boolean))];
+    const meta = await store.listRenditionProxyMeta(renditionIds);
+    const report = buildProxyStorageReport(items, meta);
+    const data = { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, stale: false, ...report };
+    _proxyStorageCache = { at: Date.now(), data };
+    _proxyStorageLastGood = data;
+    return data;
+  } catch (err) {
+    if (_proxyStorageLastGood) {
+      const fallback = {
+        ..._proxyStorageLastGood,
+        stale: true,
+        note: (_proxyStorageLastGood.note ? (_proxyStorageLastGood.note + " · ") : "")
+          + "Đang hiển thị snapshot proxy gần nhất vì MinIO chưa phản hồi.",
+      };
+      _proxyStorageCache = { at: Date.now(), data: fallback };
+      return fallback;
+    }
+    throw err;
+  }
 }
 
 function invalidateProxyStorageCache() {

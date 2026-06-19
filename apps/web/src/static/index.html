@@ -1247,6 +1247,7 @@ function computeProxyCacheSummary(storage) {
   const detailParts = [];
   if (orphanCount) detailParts.push(orphanCount + " orphan");
   if (storage.backend) detailParts.push("lưu trên " + storage.backend);
+  if (storage.stale) detailParts.push("snapshot gần nhất");
   if (storage.note) detailParts.push(storage.note);
   return {
     totalBytes,
@@ -1282,6 +1283,7 @@ function hydrateProxyCache(cache, { loading = false, error = "" } = {}) {
     const detailParts = [];
     if (orphanCount) detailParts.push(orphanCount + " orphan");
     if (cache.backend) detailParts.push("lưu trên " + cache.backend);
+    if (cache.stale) detailParts.push("snapshot gần nhất");
     if (cache.note) detailParts.push(cache.note);
     detailLabel = detailParts.join(" · ") || "Nhấn để mở trang quản lý proxy";
   }
@@ -1306,6 +1308,7 @@ function proxyStorageSummaryFromPayload(storage) {
   return {
     backend: storage.backend || "",
     bucket: storage.bucket || null,
+    stale: !!storage.stale,
     totalBytes: Number(storage.totalBytes || 0),
     orphanCount: Number(storage.orphanCount || 0),
     orphanBytes: Number(storage.orphanBytes || 0),
@@ -1637,11 +1640,28 @@ function annotationToolbar() {
 }
 
 function visibleAnchoredAnnotations() {
-  const comments = state.comments || [];
+  const comments = flattenTimedComments(state.comments || []);
   const threshold = Math.max(320, Math.round(1000 / Math.max(1, state.fps)) * 6);
   return comments
     .filter((c) => c && c.annotation && ((c.annotation.strokes && c.annotation.strokes.length) || (c.annotation.texts && c.annotation.texts.length)) && Math.abs((c.ms || 0) - state.currentMs) <= threshold)
     .map((c) => ({ ...c.annotation, _commentId: c.id, _commentMs: c.ms }));
+}
+
+function flattenTimedComments(comments) {
+  const out = [];
+  for (const comment of comments || []) {
+    if (!comment) continue;
+    out.push(comment);
+    for (const reply of (comment.replies || [])) {
+      if (!reply) continue;
+      out.push({
+        ...reply,
+        parentId: comment.id,
+        rootId: comment.id,
+      });
+    }
+  }
+  return out;
 }
 
 function annotationOverlay() {
@@ -2245,7 +2265,11 @@ function commentsPanel(vals) {
               <div style="margin-top:10px;padding-left:12px;border-left:2px solid var(--co-border-2);display:flex;flex-direction:column;gap:8px;">
                 ${c.replies.map((r) => `
                   <div>
-                    <div style="font-weight:700;font-size:11.5px;color:${r.color};">${esc(r.name)}</div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <div style="font-weight:700;font-size:11.5px;color:${r.color};">${esc(r.name)}</div>
+                      <button data-act="jumpTo" data-arg="${r.ms || 0}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(108,92,246,0.13);border:none;color:#6c5cf6;font-variant-numeric:tabular-nums;font-weight:700;font-size:10.5px;padding:3px 8px;border-radius:999px;cursor:pointer;">${ICON.playBtn}${esc(r.tcLabel)}</button>
+                      ${r.hasAnnotation ? `<button data-act="jumpTo" data-arg="${r.ms || 0}" style="display:inline-flex;align-items:center;gap:5px;background:rgba(217,164,91,0.13);border:none;color:#d9a45b;font-variant-numeric:tabular-nums;font-weight:700;font-size:10.5px;padding:3px 8px;border-radius:999px;cursor:pointer;">${ICON.penTool}${r.annotationStrokeCount} nét${r.annotationTextCount ? ` · ${r.annotationTextCount} text` : ""}</button>` : ``}
+                    </div>
                     <div style="font-size:12px;color:var(--co-text-2);line-height:1.5;margin-top:1px;">${esc(r.content)}</div>
                   </div>
                 `).join("")}
@@ -2660,7 +2684,22 @@ function computeVals() {
       isEditing: s.editingCommentId === c.id,
       editingText: s.editingCommentId === c.id ? s.editingCommentText : c.content,
       hasReplies: c.replies && c.replies.length > 0,
-      replies: (c.replies || []).map((r) => ({ name: (A[r.who] || A.me).name, color: (A[r.who] || A.me).color, content: r.content })) };
+      replies: (c.replies || []).map((r) => ({
+        id: r.id,
+        name: (A[r.who] || A.me).name,
+        color: (A[r.who] || A.me).color,
+        content: r.content,
+        ms: r.ms,
+        tcLabel: fmtTc(r.ms || 0),
+        annotation: r.annotation || null,
+        hasAnnotation: !!(r.annotation && ((r.annotation.strokes && r.annotation.strokes.length) || (r.annotation.texts && r.annotation.texts.length))),
+        annotationStrokeCount: r.annotation && r.annotation.strokes ? r.annotation.strokes.length : 0,
+        annotationTextCount: r.annotation && r.annotation.texts ? r.annotation.texts.length : 0,
+        authorKey: r.authorKey || r.who || r.id,
+        initial: (A[r.who] || A.me).initial,
+        resolved: !!r.resolved,
+      })),
+    };
   };
   const sorted = [...s.comments].sort((a, b) => a.ms - b.ms);
   const all = sorted.map(mapComment);
@@ -2668,7 +2707,7 @@ function computeVals() {
   let visible = all;
   if (s.filter === "open") visible = all.filter((c) => !c.resolved);
   else if (s.filter === "done") visible = all.filter((c) => c.resolved);
-  const markerLayout = buildTimelineMarkers(all, s.duration, s.fps, s.timelineBarWidth);
+  const markerLayout = buildTimelineMarkers(flattenTimedComments(all), s.duration, s.fps, s.timelineBarWidth);
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {
@@ -3476,7 +3515,7 @@ async function refreshProxyStorageSummary(silent, force) {
     updateProxyCache(computeProxyCacheSummary(state.proxyStorageSummary));
   } catch (err) {
     state.proxyStorageSummaryError = (err && err.message) || "Không tải được summary";
-    if (!state.proxyStorage && !state.proxyStorageSummary) updateProxyCache(null);
+    if (!state.proxyStorage && !state.proxyStorageSummary && !window.__proxyCache) updateProxyCache(null);
   } finally {
     state.proxyStorageSummaryLoading = false;
     render();
@@ -3496,7 +3535,7 @@ async function refreshProxyStorage(silent, force) {
     state.proxyStorageError = (err && err.message) || "Không tải được danh sách";
     if (!state.proxyStorage) {
       if (state.proxyStorageSummary) updateProxyCache(computeProxyCacheSummary(state.proxyStorageSummary));
-      else updateProxyCache(null);
+      else if (!window.__proxyCache) updateProxyCache(null);
     }
   } finally {
     state.proxyStorageLoading = false;
@@ -4470,7 +4509,13 @@ function applyRemoteToState() {
   if (REMOTE_COMMENTS_FOR_SELECTED) {
     state.comments = REMOTE_COMMENTS_FOR_SELECTED.filter((c) => !c.parentId).map((c) => {
       const replies = REMOTE_COMMENTS_FOR_SELECTED.filter((r) => r.parentId === c.id).map((r) => ({
-        who: guestAuthorKey(r) || mapAuthor(r.authorUserId), content: r.content,
+        id: r.id,
+        who: guestAuthorKey(r) || mapAuthor(r.authorUserId),
+        authorKey: r.guestLabel ? ("guest:" + r.id) : (r.authorUserId || r.id),
+        content: r.content,
+        ms: r.timestampMs,
+        resolved: !!r.resolved,
+        annotation: r.annotation || null,
       }));
       return {
         id: c.id,

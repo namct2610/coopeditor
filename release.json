@@ -1,10 +1,10 @@
 {
-  "version": "0.2.33",
-  "summary": "Sửa identity comment qua share link để avatar timeline, comment list và notification hiển thị đúng người review thực tế.",
+  "version": "0.2.34",
+  "summary": "Làm chắc hơn proxy sidebar và timeline comment/annotation để UI không mất dấu khi backend hoặc MinIO chập chờn.",
   "changes": [
-    "Comment gửi qua share link giờ lưu thêm guestLabel/guestInitial/guestColor thay vì chỉ mượn authorUserId của owner, nên avatar và tên trên timeline phản ánh đúng reviewer thực tế.",
-    "Frontend hydrate comment đã ưu tiên guest identity khi render comment list, replies và marker avatar phía trên timeline.",
-    "Webhook/email notification cũng dùng display author thật của comment guest; đồng thời bổ sung migration + regression test cho luồng share link comment."
+    "Backend proxy storage giờ giữ snapshot tốt gần nhất nếu MinIO tạm thời không phản hồi, giúp sidebar và trang quản lý không rơi về trạng thái trắng hoặc 0 B sai lệch.",
+    "Frontend giữ lại proxy cache gần nhất khi request lỗi, đồng thời hiển thị rõ trạng thái snapshot gần nhất để người dùng biết số liệu đang là fallback.",
+    "Timeline marker và annotation overlay giờ đọc cả reply có timecode/chú thích; reply trong comments panel cũng có nút nhảy timecode để bám đúng mốc review."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }
