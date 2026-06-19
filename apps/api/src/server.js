@@ -291,13 +291,33 @@ async function publishProjectEvent(projectId, event) {
   publishEvent({ ...event, projectId, userIds });
 }
 
+function guestCommentProfile(comment) {
+  if (!comment || !comment.guestLabel) return null;
+  return {
+    name: comment.guestLabel,
+    initial: comment.guestInitial || String(comment.guestLabel || "?").trim().charAt(0).toUpperCase() || "?",
+    color: comment.guestColor || "#2bbe6e",
+  };
+}
+
+function displayAuthorProfile(comment, fallbackUser) {
+  const guest = guestCommentProfile(comment);
+  if (guest) return guest;
+  return {
+    name: fallbackUser && fallbackUser.name || "Someone",
+    initial: fallbackUser && fallbackUser.initial || "S",
+    color: fallbackUser && fallbackUser.color || "#6c5cf6",
+  };
+}
+
 async function notifyCommentWebhook({ comment, projectId, authorUserId }) {
   const [project, version, author] = await Promise.all([store.getProject(projectId), store.getVersion(comment.assetVersionId), store.getUser(authorUserId)]);
   const asset = version ? await store.getAsset(version.assetId) : null;
+  const profile = displayAuthorProfile(comment, author);
   webhooks.notifyCommentCreated({
     projectName: project ? project.name : "Project",
     sourceTitle: asset ? asset.title : "(source)",
-    authorName: author ? author.name : "Someone",
+    authorName: profile.name,
     content: comment.content,
     projectId,
     timestampMs: comment.timestampMs || 0,
@@ -318,15 +338,33 @@ async function notifyCommentByEmail({ comment, projectId, authorUserId }) {
     const u = await store.getUser(uid);
     if (u && u.email) recipients.push(u.email);
   }
+  const profile = displayAuthorProfile(comment, author);
   mailer.notifyComment({
     recipients,
     projectName: project ? project.name : "Project",
     sourceTitle: asset ? asset.title : "(source)",
-    authorName: author ? author.name : "Someone",
+    authorName: profile.name,
     content: comment.content,
     projectId,
     timestampMs: comment.timestampMs || 0,
   });
+}
+
+function colorFromGuestLabel(label) {
+  const palette = ["#2bbe6e", "#2da8e2", "#f5a623", "#a07bff", "#ef4d57", "#d9a45b"];
+  const text = String(label || "").trim();
+  let hash = 0;
+  for (const ch of text) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
+
+function buildGuestIdentity(guestLabel) {
+  const label = String(guestLabel || "").trim() || "Khách";
+  return {
+    guestLabel: label,
+    guestInitial: label.charAt(0).toUpperCase() || "K",
+    guestColor: colorFromGuestLabel(label),
+  };
 }
 
 // ---------- routes ----------
@@ -1266,7 +1304,8 @@ async function handleSharedComment(req, res, token) {
   const projectId = await store.findProjectIdForVersion(version.id);
   if (projectId !== link.projectId) return bad(res, "Version not in shared project", 403);
   if (link.assetId && version.assetId !== link.assetId) return bad(res, "Version not in shared asset", 403);
-  // Use the link's owner (createdBy) as authorUserId; suffix the content with guest_label so it's clear who wrote it.
+  // Keep actorUserId = owner for audit ownership, but store guest identity
+  // separately so UI/timeline/avatar show the real reviewer behind the share link.
   const guestSuffix = link.guestLabel ? ` — ${link.guestLabel} (qua link share)` : ` — (qua link share)`;
   let content = "";
   try {
@@ -1274,6 +1313,7 @@ async function handleSharedComment(req, res, token) {
   } catch (err) {
     return bad(res, err.message || "content required");
   }
+  const guestIdentity = buildGuestIdentity(link.guestLabel);
   const c = await store.addComment({
     assetVersionId: body.assetVersionId,
     authorUserId: link.createdBy,
@@ -1281,6 +1321,7 @@ async function handleSharedComment(req, res, token) {
     timestampMs: body.timestampMs,
     frameNumber: body.frameNumber,
     parentId: body.parentId,
+    ...guestIdentity,
   });
   await publishProjectEvent(projectId, { type: "comment", action: "created", comment: c });
   await audit.record({ actorUserId: link.createdBy, action: "comment.created", resourceType: "comment", resourceId: c.id, projectId, payload: { via: "share_link", token: token.slice(0, 8), guestLabel: link.guestLabel, snippet: c.content.slice(0, 120) } });

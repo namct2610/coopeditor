@@ -1,10 +1,10 @@
 {
-  "version": "0.2.32",
-  "summary": "Làm chắc hơn phần proxy sidebar, marker timeline và chặn comment payload quá dài để giảm rủi ro vận hành.",
+  "version": "0.2.33",
+  "summary": "Sửa identity comment qua share link để avatar timeline, comment list và notification hiển thị đúng người review thực tế.",
   "changes": [
-    "Sidebar Bộ nhớ proxy giờ ưu tiên số liệu mới nhất từ API, vẫn giữ được dung lượng cache gần nhất khi request lỗi hoặc đang refresh thay vì rơi về 0 B gây hiểu nhầm.",
-    "Marker avatar trên timeline được nhóm theo đúng tác giả thay vì chỉ dựa vào tên viết tắt, giảm gộp nhầm khi nhiều người có cùng initials hoặc cùng mốc comment.",
-    "API chặn comment quá 4000 ký tự ở cả luồng nội bộ lẫn share link để giảm rủi ro payload bẩn/DoS nhẹ và giữ DB/UI ổn định hơn."
+    "Comment gửi qua share link giờ lưu thêm guestLabel/guestInitial/guestColor thay vì chỉ mượn authorUserId của owner, nên avatar và tên trên timeline phản ánh đúng reviewer thực tế.",
+    "Frontend hydrate comment đã ưu tiên guest identity khi render comment list, replies và marker avatar phía trên timeline.",
+    "Webhook/email notification cũng dùng display author thật của comment guest; đồng thời bổ sung migration + regression test cho luồng share link comment."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

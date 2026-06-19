@@ -45,7 +45,11 @@ const commentRow = (r) => r && ({
   id: r.id, assetVersionId: r.asset_version_id, authorUserId: r.author_user_id, content: r.content,
   timestampMs: r.timestamp_ms, frameNumber: r.frame_number, resolved: r.resolved,
   parentId: r.parent_id, deletedAt: r.deleted_at || null,
-  annotation: r.annotation || null, createdAt: r.created_at,
+  annotation: r.annotation || null,
+  guestLabel: r.guest_label || null,
+  guestInitial: r.guest_initial || null,
+  guestColor: r.guest_color || null,
+  createdAt: r.created_at,
 });
 const userRow = (r) => r && ({
   id: r.id, name: r.name, initial: r.initial, color: r.color, role: r.role,
@@ -407,9 +411,23 @@ export async function findProjectIdForComment(commentId) {
 }
 export async function addComment(input) {
   const id = randomUUID();
-  const row = await one(`INSERT INTO comments (id, asset_version_id, author_user_id, content, timestamp_ms, frame_number, parent_id, annotation)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [id, input.assetVersionId, input.authorUserId, input.content, input.timestampMs || 0, input.frameNumber || null, input.parentId || null, input.annotation ? JSON.stringify(input.annotation) : null]);
+  const row = await one(`INSERT INTO comments (
+      id, asset_version_id, author_user_id, content, timestamp_ms, frame_number, parent_id, annotation,
+      guest_label, guest_initial, guest_color
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [
+      id,
+      input.assetVersionId,
+      input.authorUserId,
+      input.content,
+      input.timestampMs || 0,
+      input.frameNumber || null,
+      input.parentId || null,
+      input.annotation ? JSON.stringify(input.annotation) : null,
+      input.guestLabel || null,
+      input.guestInitial || null,
+      input.guestColor || null,
+    ]);
   return commentRow(row);
 }
 export async function setCommentResolved(id, resolved) {

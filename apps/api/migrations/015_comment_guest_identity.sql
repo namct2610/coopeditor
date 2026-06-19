@@ -1,0 +1,4 @@
+ALTER TABLE comments
+  ADD COLUMN IF NOT EXISTS guest_label TEXT,
+  ADD COLUMN IF NOT EXISTS guest_initial TEXT,
+  ADD COLUMN IF NOT EXISTS guest_color TEXT;

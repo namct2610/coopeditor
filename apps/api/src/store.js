@@ -448,7 +448,21 @@ export function findProjectIdForComment(commentId) {
   return findProjectIdForVersion(comment.assetVersionId);
 }
 export function addComment(input) {
-  const c = { id: randomUUID(), assetVersionId: input.assetVersionId, authorUserId: input.authorUserId, content: input.content, timestampMs: input.timestampMs, frameNumber: input.frameNumber, resolved: false, parentId: input.parentId, annotation: input.annotation || null, createdAt: now() };
+  const c = {
+    id: randomUUID(),
+    assetVersionId: input.assetVersionId,
+    authorUserId: input.authorUserId,
+    content: input.content,
+    timestampMs: input.timestampMs,
+    frameNumber: input.frameNumber,
+    resolved: false,
+    parentId: input.parentId,
+    annotation: input.annotation || null,
+    guestLabel: input.guestLabel || null,
+    guestInitial: input.guestInitial || null,
+    guestColor: input.guestColor || null,
+    createdAt: now(),
+  };
   comments.set(c.id, c);
   return c;
 }

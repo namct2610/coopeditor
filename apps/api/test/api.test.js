@@ -106,7 +106,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.32");
+  assert.equal(r.json.version, "0.2.33");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -114,7 +114,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.32");
+  assert.equal(r.json.local.version, "0.2.33");
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
@@ -441,10 +441,19 @@ test("shared comment link is rate-limited per token/ip", async () => {
   for (let i = 0; i < 12; i++) {
     const ok = await postShared(i);
     assert.equal(ok.status, 201);
+    assert.equal(ok.json.guestLabel, "Khach test");
+    assert.equal(ok.json.guestInitial, "K");
+    assert.equal(typeof ok.json.guestColor, "string");
   }
   const blocked = await postShared(99);
   assert.equal(blocked.status, 429);
   assert.equal(blocked.headers.get("retry-after") !== null, true);
+
+  const ownerView = await http("/asset-versions/p1s1_v3/comments");
+  const guestComment = ownerView.json.find((comment) => comment.guestLabel === "Khach test");
+  assert.ok(guestComment);
+  assert.equal(guestComment.guestInitial, "K");
+  assert.equal(typeof guestComment.guestColor, "string");
 });
 
 test("transcode request advances rendition", async () => {

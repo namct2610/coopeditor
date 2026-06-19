@@ -4470,10 +4470,14 @@ function applyRemoteToState() {
   if (REMOTE_COMMENTS_FOR_SELECTED) {
     state.comments = REMOTE_COMMENTS_FOR_SELECTED.filter((c) => !c.parentId).map((c) => {
       const replies = REMOTE_COMMENTS_FOR_SELECTED.filter((r) => r.parentId === c.id).map((r) => ({
-        who: mapAuthor(r.authorUserId), content: r.content,
+        who: guestAuthorKey(r) || mapAuthor(r.authorUserId), content: r.content,
       }));
       return {
-        id: c.id, who: mapAuthor(c.authorUserId), authorKey: c.authorUserId || c.id, ms: c.timestampMs, content: c.content,
+        id: c.id,
+        who: guestAuthorKey(c) || mapAuthor(c.authorUserId),
+        authorKey: c.guestLabel ? ("guest:" + c.id) : (c.authorUserId || c.id),
+        ms: c.timestampMs,
+        content: c.content,
         resolved: !!c.resolved, ago: "vừa qua", replies, annotation: c.annotation || null,
       };
     });
@@ -4488,6 +4492,14 @@ function mapAuthor(userId) {
 function ensureAuthor(key, u) {
   if (!AUTHORS[key]) AUTHORS[key] = { name: u.name, initial: u.initial, color: u.color, role: u.role === "client" ? "CLIENT" : "" };
   return key;
+}
+
+function guestAuthorKey(comment) {
+  if (!comment || !comment.guestLabel) return "";
+  const label = String(comment.guestLabel || "").trim() || "Khách";
+  const initial = String(comment.guestInitial || label.charAt(0).toUpperCase() || "K");
+  const color = String(comment.guestColor || "#2bbe6e");
+  return ensureAuthor("guest_" + (comment.id || label), { name: label, initial, color, role: "client" });
 }
 
 const PROJECTS_REF = PROJECTS;
