@@ -49,3 +49,10 @@ Repo nay moi la skeleton kien truc va contract ban dau. Buoc tiep theo hop ly nh
 - `release.json` la nguon version/changelog de API + UI hien thi trong Update Center.
 - Moi lan cap nhat code can tang `version` va viet `summary`/`changes` ngan trong file nay.
 - NAS deploy co the auto-poll image moi qua Watchtower, va owner co them nut `Update now` trong UI de gui lenh update thu cong khi updater da san sang.
+
+## Luu y deploy len NAS
+
+- API va worker phai cung mount chinh xac mot host folder NAS vao cung mot duong dan trong container, thuong la `/nas`.
+- Vi du voi Team Folder `PCNgon`: bind mount dung la `/volume1/PCNgon:/nas:ro`.
+- Trong UI Setup, o `DSM mount root` chi nhap `/nas`, khong nhap host path kieu `/volume1/PCNgon`.
+- Neu worker log `Source path not mounted in worker: /nas/...` thi nghia la container worker khong nhin thay bind mount. Luc nay FFmpeg chua chay. Can redeploy/recreate project de worker nhan lai volume mount moi.

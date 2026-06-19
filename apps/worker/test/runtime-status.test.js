@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { detectWorkerMountHealth, ensureWorkerMountReady } from "../src/runtime-status.js";
+import { detectWorkerMountHealth, ensureWorkerMountReady, shouldFailWorkerStartup } from "../src/runtime-status.js";
 
 test("detectWorkerMountHealth reports ready for an existing directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "co-worker-mount-"));
@@ -48,4 +48,10 @@ test("ensureWorkerMountReady throws the same mount diagnostic when NAS mount is 
     () => ensureWorkerMountReady({ DSM_MOUNT_ROOT: missing }),
     /chưa thấy DSM mount root|khong thay DSM mount root/i,
   );
+});
+
+test("worker startup is strict about NAS mount by default but can be relaxed explicitly", () => {
+  assert.equal(shouldFailWorkerStartup({}), true);
+  assert.equal(shouldFailWorkerStartup({ WORKER_STRICT_NAS_MOUNT: "1" }), true);
+  assert.equal(shouldFailWorkerStartup({ WORKER_STRICT_NAS_MOUNT: "0" }), false);
 });

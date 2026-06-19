@@ -1,10 +1,10 @@
 {
-  "version": "0.2.30",
-  "summary": "Gia cố bảo mật OIDC + setup runtime, đồng thời làm test/API ổn định hơn cho các vòng fix proxy tiếp theo.",
+  "version": "0.2.31",
+  "summary": "Sửa chẩn đoán mount NAS cho worker để transcode không còn chạy giả khi container chưa thấy /nas.",
   "changes": [
-    "OIDC giờ verify chữ ký id_token bằng JWKS, đồng thời kiểm tra issuer, audience, exp/nbf trước khi tạo session nội bộ.",
-    "Runtime setup/public summary không còn lộ update trigger token ra client; UI chỉ biết token đã được cấu hình hay chưa.",
-    "Bổ sung test regression cho OIDC signature verification, runtime config summary, và giữ version metadata khớp với bản đang chạy trong Update Center."
+    "Worker bootstrap giờ fail-fast nếu runtime đã cấu hình nhưng bind mount NAS chưa sẵn sàng, tránh nhận job transcode trong trạng thái online giả.",
+    "Compose NAS mẫu được chốt rõ DSM_MOUNT_ROOT=/nas và ví dụ bind mount Team Folder cụ thể như /volume1/PCNgon:/nas:ro cho cả API lẫn worker.",
+    "Bổ sung test regression cho chế độ startup nghiêm ngặt của worker và cập nhật hướng dẫn deploy NAS để dễ xử lý lỗi Source path not mounted."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

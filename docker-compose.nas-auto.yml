@@ -77,6 +77,7 @@ services:
       REDIS_URL: redis://redis:6379
       EVENT_BUS_STREAM_KEY: coopeditor_events
       APP_DATA_DIR: /data
+      DSM_MOUNT_ROOT: /nas
       MINIO_ENDPOINT: http://minio:9000
       MINIO_BUCKET: coopeditor-proxy
       MINIO_ACCESS_KEY: coopeditor-minio
@@ -94,7 +95,10 @@ services:
       "
     volumes:
       - coopeditor_app_data:/data
-      - /volume1:/nas:ro
+      # Mount dung thu muc Team Folder / Shared Folder can import, vi du:
+      #   /volume1/PCNgon:/nas:ro
+      # Khong mount host path nay vao setup UI; trong UI chi nhap DSM mount root la /nas.
+      - /volume1/PCNgon:/nas:ro
 
   worker:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.
@@ -118,6 +122,7 @@ services:
       REDIS_URL: redis://redis:6379
       EVENT_BUS_STREAM_KEY: coopeditor_events
       APP_DATA_DIR: /data
+      DSM_MOUNT_ROOT: /nas
       FFMPEG_PATH: /usr/bin/ffmpeg
       MINIO_ENDPOINT: http://minio:9000
       MINIO_BUCKET: coopeditor-proxy
@@ -125,7 +130,8 @@ services:
       MINIO_SECRET_KEY: coopeditor-minio-secret
     volumes:
       - coopeditor_app_data:/data
-      - /volume1:/nas:ro
+      # Worker phai mount cung host folder vao cung duong dan /nas nhu API.
+      - /volume1/PCNgon:/nas:ro
 
   web:
     # Replace `your-github-owner` with the GitHub owner/org that hosts this repo.

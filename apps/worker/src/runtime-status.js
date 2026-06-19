@@ -70,6 +70,10 @@ export async function ensureWorkerMountReady(env = process.env) {
   return mount;
 }
 
+export function shouldFailWorkerStartup(env = process.env) {
+  return String(env.WORKER_STRICT_NAS_MOUNT || "1").trim() !== "0";
+}
+
 export function createWorkerRuntimeReporter(pool, {
   workerId = process.env.WORKER_RUNTIME_ID || process.env.HOSTNAME || ("worker-" + process.pid),
   hostname = process.env.HOSTNAME || "",
