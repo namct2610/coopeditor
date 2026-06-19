@@ -106,7 +106,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.37");
+  assert.equal(r.json.version, "0.2.38");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -114,7 +114,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.37");
+  assert.equal(r.json.local.version, "0.2.38");
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });

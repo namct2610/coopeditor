@@ -29,7 +29,7 @@ import { tmpdir } from "node:os";
 
 import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
-import { isPermanentTranscodeError, shouldAutoRequeueFailedJob } from "./error-policy.js";
+import { isPermanentTranscodeError, shouldAutoRequeueFailedJob, terminalFailureAttempts } from "./error-policy.js";
 import { createWorkerRuntimeReporter, detectWorkerMountHealth } from "./runtime-status.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
@@ -325,9 +325,21 @@ async function refreshDesiredConcurrency() {
   }
 }
 
-async function finishJob(jobId, ok, errorMsg = null) {
-  await pool.query(`UPDATE transcode_jobs SET status=$1, finished_at=now(), error=$3 WHERE id=$2`,
-    [ok ? "done" : "failed", jobId, ok ? null : (errorMsg || null)]);
+async function finishJob(jobId, ok, errorMsg = null, options = {}) {
+  const patchAttempts = options && typeof options.forceAttempts === "number";
+  if (!patchAttempts) {
+    await pool.query(`UPDATE transcode_jobs SET status=$1, finished_at=now(), error=$3 WHERE id=$2`,
+      [ok ? "done" : "failed", jobId, ok ? null : (errorMsg || null)]);
+    return;
+  }
+  await pool.query(`
+    UPDATE transcode_jobs
+       SET status=$1,
+           finished_at=now(),
+           error=$3,
+           attempts=$4
+     WHERE id=$2
+  `, [ok ? "done" : "failed", jobId, ok ? null : (errorMsg || null), options.forceAttempts]);
 }
 
 async function rescheduleJob(jobId, attempts, errorMsg) {
@@ -443,13 +455,14 @@ async function workOnce() {
   } catch (err) {
     const { job, rendition } = claimed;
     console.error("[worker] job", job.id, "attempt", job.attempts, "/", job.max_attempts, "failed:", err.message);
-    if (!isPermanentTranscodeError(err) && job.attempts < job.max_attempts) {
+    const permanentFailure = isPermanentTranscodeError(err);
+    if (!permanentFailure && job.attempts < job.max_attempts) {
       // keep rendition in 'processing' so the FE shows "đang transcode", just at 0% until next attempt
       await updateRendition(rendition.id, { status: "processing", progress: 0 });
       await rescheduleJob(job.id, job.attempts, err.message);
     } else {
       await updateRendition(rendition.id, { status: "failed", progress: 0 });
-      await finishJob(job.id, false, err.message);
+      await finishJob(job.id, false, err.message, { forceAttempts: terminalFailureAttempts(job.attempts, job.max_attempts, err) });
     }
     return true;
   } finally {

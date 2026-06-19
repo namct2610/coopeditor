@@ -8,3 +8,7 @@ export function isPermanentTranscodeError(err) {
 export function shouldAutoRequeueFailedJob(errorText) {
   return !isPermanentTranscodeError(errorText || "");
 }
+
+export function terminalFailureAttempts(attempts, maxAttempts, err) {
+  return isPermanentTranscodeError(err) ? maxAttempts : attempts;
+}

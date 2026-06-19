@@ -1,10 +1,10 @@
 {
-  "version": "0.2.37",
-  "summary": "Làm chắc proxy storage snapshot qua restart/lỗi MinIO và canh lại marker avatar trên timeline để không bị cắt mép.",
+  "version": "0.2.38",
+  "summary": "Bổ sung guard chặn cross-site mutation cho API dùng session cookie và chốt worker permanent-failure dứt khoát hơn khi NAS mount lỗi.",
   "changes": [
-    "Proxy storage payload gio luu last-known-good snapshot xuong APP_DATA_DIR/system/proxy-storage-cache.json, nen sidebar va trang quan ly van co so lieu gan nhat ngay ca khi MinIO chua phan hoi hoac API vua restart.",
-    "Fallback proxy snapshot gio duoc normalize ro rang truoc khi dung lai, giup UI hien dung tong dung luong, so rendition va ghi chu stale thay vi roi ve trang thai trong.",
-    "Marker avatar tren timeline gio tu canh trai/phai khi sat mep timeline, uu tien marker co chu thich va cum comment day hon de khong bi cat o dau/cuoi bar."
+    "API gio chặn request POST/PATCH/DELETE cross-site bằng cách kiểm tra Origin, Referer và Sec-Fetch-Site, giảm rủi ro CSRF cho các thao tác dùng session cookie trên NAS/Tailscale.",
+    "Worker gio ghi thẳng permanent failure kiểu source path not mounted / source file not found / permission denied về max_attempts, giúp trạng thái transcode rõ ràng hơn và không để job mount-lỗi nhìn như còn retry được.",
+    "Bo test duoc mo rong cho security mutation guard va worker failure policy, giup cac fix nay co evidence ro rang trong cac lan audit tiep theo."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

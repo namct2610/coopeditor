@@ -31,6 +31,25 @@ export function requestOriginMatchesHost(req, origin) {
   return originHostMatchesRequest(req, origin);
 }
 
+function originFromReferer(referer) {
+  if (!referer) return "";
+  try {
+    return new URL(String(referer)).origin;
+  } catch (_) {
+    return "";
+  }
+}
+
+export function isTrustedMutationRequest(req) {
+  const origin = String(req.headers.origin || "").trim();
+  const refererOrigin = originFromReferer(req.headers.referer || "");
+  if (origin) return isOriginAllowed(origin, originHostMatchesRequest(req, origin));
+  if (refererOrigin) return isOriginAllowed(refererOrigin, originHostMatchesRequest(req, refererOrigin));
+  const fetchSite = String(req.headers["sec-fetch-site"] || "").trim().toLowerCase();
+  if (fetchSite === "cross-site") return false;
+  return true;
+}
+
 export function applyCors(req, res) {
   const origin = req.headers.origin || "";
   const sameHost = originHostMatchesRequest(req, origin);

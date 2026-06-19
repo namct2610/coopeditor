@@ -22,7 +22,7 @@ import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./eve
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
 import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
-import { applyCors, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
+import { applyCors, isTrustedMutationRequest, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
 import * as presence from "./presence.js";
 import {
   COOKIE_NAME, createSession, getSession, destroySession,
@@ -448,6 +448,7 @@ function buildGuestIdentity(guestLabel) {
 async function handle(req, res, url) {
   const m = req.method || "GET";
   const p = url.pathname;
+  const isMutation = m === "POST" || m === "PATCH" || m === "DELETE";
 
   if (!applyCors(req, res)) {
     res.statusCode = 403; res.setHeader("content-type", "application/json");
@@ -457,6 +458,10 @@ async function handle(req, res, url) {
     res.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
     res.setHeader("access-control-allow-headers", "content-type");
     res.statusCode = 204; return res.end();
+  }
+
+  if (isMutation && !isTrustedMutationRequest(req)) {
+    return bad(res, "Cross-site mutation blocked", 403);
   }
 
   setSecurityHeaders(res);
