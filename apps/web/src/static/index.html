@@ -6,7 +6,7 @@
 <title>Coopeditor — Coopeditor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" />
 <!-- hls.js: Chrome/Firefox/Edge không native phát HLS .m3u8. Safari thì phát
      được luôn (Mac/iOS). Library này hook vào <video> qua MSE để phát proxy. -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
@@ -14,21 +14,23 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   :root, [data-theme="dark"] {
-    --co-bg:#07090e; --co-chrome:#0b0e15; --co-panel:#11151e; --co-panel-2:#1b2130; --co-menu:#161b26;
-    --co-text:#e9eef6; --co-text-2:#c5d0e0; --co-muted:#8896ab; --co-faint:#5d6b82; --co-comment:#d4dcea;
-    --co-border:rgba(255,255,255,0.08); --co-border-2:rgba(255,255,255,0.12); --co-hover:rgba(255,255,255,0.05);
-    --co-shadow:0 0 #0000; --co-accent-ink:#2da8e2;
+    /* Synoframe palette — deeper blacks, neutral grays, violet accent.
+       Mapped from claude.ai/design/p/fbbd84a0… (Synoframe.dc.html). */
+    --co-bg:#0a0a0d; --co-chrome:#0a0a0d; --co-panel:#16161a; --co-panel-2:#1d1d22; --co-menu:#161619;
+    --co-text:#f4f4f6; --co-text-2:#c9c9d2; --co-muted:#9b9ba6; --co-faint:#7a7a85; --co-comment:#e4e4ea;
+    --co-border:rgba(255,255,255,0.07); --co-border-2:rgba(255,255,255,0.14); --co-hover:rgba(255,255,255,0.06);
+    --co-shadow:0 0 #0000; --co-accent-ink:#b9aeff;
   }
   [data-theme="light"] {
-    --co-bg:#eef1f6; --co-chrome:#ffffff; --co-panel:#ffffff; --co-panel-2:#e9edf3; --co-menu:#ffffff;
-    --co-text:#0a141f; --co-text-2:#2a3949; --co-muted:#44525f; --co-faint:#5a6878; --co-comment:#1b2836;
-    --co-border:rgba(16,30,52,0.14); --co-border-2:rgba(16,30,52,0.22); --co-hover:rgba(16,30,52,0.05);
-    --co-shadow:0 1px 2px rgba(16,30,52,0.06), 0 8px 22px rgba(16,30,52,0.08); --co-accent-ink:#136099;
+    --co-bg:#f6f6f9; --co-chrome:#ffffff; --co-panel:#ffffff; --co-panel-2:#eeeef2; --co-menu:#ffffff;
+    --co-text:#0a0a0d; --co-text-2:#2a2a32; --co-muted:#5a5a62; --co-faint:#7a7a85; --co-comment:#1b1b22;
+    --co-border:rgba(10,10,13,0.08); --co-border-2:rgba(10,10,13,0.14); --co-hover:rgba(10,10,13,0.04);
+    --co-shadow:0 1px 2px rgba(10,10,13,0.06), 0 8px 22px rgba(10,10,13,0.08); --co-accent-ink:#6c5cf6;
   }
-  body { background: var(--co-bg); color: var(--co-text); font-family: "Montserrat", system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  body { background: var(--co-bg); color: var(--co-text); font-family: "Onest", -apple-system, system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: #2a3344; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
   ::-webkit-scrollbar-track { background: transparent; }
   textarea, input { font-family: inherit; }
   button { font-family: inherit; }
@@ -73,13 +75,13 @@
     div[data-act="closeTranscode"] > div { max-height: 100vh !important; max-width: 100vw !important; width: 100vw !important; border-radius: 0 !important; }
   }
   .co-hover:hover { background: var(--co-hover) !important; }
-  .co-border-hover:hover { border-color: rgba(45,168,226,0.5) !important; }
-  .co-border-hover-strong:hover { border-color: rgba(45,168,226,0.45) !important; transform: translateY(-3px); }
+  .co-border-hover:hover { border-color: rgba(108,92,246,0.5) !important; }
+  .co-border-hover-strong:hover { border-color: rgba(108,92,246,0.45) !important; transform: translateY(-3px); }
   .co-btn-blue:hover { background:#4fade4 !important; }
   .co-text-hover:hover { color: var(--co-text) !important; }
-  .co-blue-hover:hover { color: #2da8e2 !important; }
+  .co-blue-hover:hover { color: #6c5cf6 !important; }
   .co-attach-hover:hover { background: rgba(255,255,255,0.12) !important; }
-  textarea:focus { border-color: rgba(45,168,226,0.6) !important; }
+  textarea:focus { border-color: rgba(108,92,246,0.6) !important; }
 </style>
 </head>
 <body>
@@ -89,7 +91,7 @@
        leaves users staring at a black screen for 20-40s and they think the app crashed. -->
   <div style="position:fixed;inset:0;background:#07090e;display:grid;place-items:center;color:#8896ab;font-family:system-ui,-apple-system,sans-serif;">
     <div style="text-align:center;max-width:320px;padding:24px;">
-      <div style="width:48px;height:48px;border:3px solid #1c2536;border-top-color:#2da8e2;border-radius:50%;animation:coSpin 1s linear infinite;margin:0 auto 16px;"></div>
+      <div style="width:48px;height:48px;border:3px solid #1c2536;border-top-color:#6c5cf6;border-radius:50%;animation:coSpin 1s linear infinite;margin:0 auto 16px;"></div>
       <div style="font-size:14px;font-weight:600;">Đang khởi động Coopeditor…</div>
       <div id="bootHint" style="margin-top:10px;font-size:11px;color:#5d6b82;font-weight:500;">Kết nối tới máy chủ…</div>
     </div>
@@ -103,26 +105,26 @@ const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],[
 const PROJECTS = [];
 const EMPTY_SOURCES = {};
 const AUTHORS = {
-  me: { name: "Bạn", initial: "B", color: "#2da8e2", role: "" },
-  guest: { name: "Khách", initial: "K", color: "#35c389", role: "CLIENT" },
+  me: { name: "Bạn", initial: "B", color: "#6c5cf6", role: "" },
+  guest: { name: "Khách", initial: "K", color: "#2bbe6e", role: "CLIENT" },
 };
 
 const SM = {
-  progress: { label: "Đang thực hiện", color: "#2da8e2", bg: "rgba(45,168,226,0.13)" },
-  done: { label: "Đã xong", color: "#35c389", bg: "rgba(53,195,137,0.13)" },
+  progress: { label: "Đang thực hiện", color: "#6c5cf6", bg: "rgba(108,92,246,0.13)" },
+  done: { label: "Đã xong", color: "#2bbe6e", bg: "rgba(43,190,110,0.13)" },
   published: { label: "Đã đăng", color: "#a07bff", bg: "rgba(160,123,255,0.13)" },
 };
 
 const SRC_STATUS = {
-  ready: { label: "Sẵn sàng", color: "#35c389", bg: "rgba(53,195,137,0.13)" },
-  processing: { label: "Transcode", color: "#f5a623", bg: "rgba(245,166,35,0.13)" },
+  ready: { label: "Sẵn sàng", color: "#2bbe6e", bg: "rgba(43,190,110,0.13)" },
+  processing: { label: "Transcode", color: "#d9a45b", bg: "rgba(217,164,91,0.13)" },
   pending: { label: "Chờ proxy", color: "#8896ab", bg: "var(--co-border)" },
   failed: { label: "Lỗi", color: "#ef4d57", bg: "rgba(239,77,87,0.13)" },
 };
 
 const SCENES = [
-  { at: 0, label: "INT · KITCHEN — DAY", sub: "01 · Wide establishing", a: "#0c2436", b: "#1c5876", hi: "rgba(45,168,226,.5)" },
-  { at: 16000, label: "CU · GLASS FILLING", sub: "02 · Insert", a: "#2a1d0c", b: "#7a521d", hi: "rgba(245,166,35,.45)" },
+  { at: 0, label: "INT · KITCHEN — DAY", sub: "01 · Wide establishing", a: "#0c2436", b: "#1c5876", hi: "rgba(108,92,246,.5)" },
+  { at: 16000, label: "CU · GLASS FILLING", sub: "02 · Insert", a: "#2a1d0c", b: "#7a521d", hi: "rgba(217,164,91,.45)" },
   { at: 38000, label: "INT · KITCHEN — DAY", sub: "03 · Two shot", a: "#0c1c33", b: "#234a78", hi: "rgba(80,150,220,.42)" },
   { at: 62000, label: "INSERT · FILTER UNIT", sub: "04 · Macro", a: "#15171c", b: "#3a4453", hi: "rgba(170,190,210,.35)" },
   { at: 88000, label: "EXT · BALCONY — DUSK", sub: "05 · Wide", a: "#291230", b: "#6e2a55", hi: "rgba(224,114,168,.42)" },
@@ -1060,16 +1062,16 @@ const ICON = {
   full: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
   send: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>',
   check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-  checkBig: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2da8e2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+  checkBig: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
   clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>',
   cogs: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"></path></svg>',
   x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2da8e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
-  folder: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2da8e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 19px"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>',
+  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+  folder: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 19px"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>',
   chevRightSmall: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6b82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>',
   fileVideo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8896ab" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><rect x="2" y="2" width="20" height="20" rx="2.5"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>',
-  nas: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#35c389" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"></rect><rect x="2" y="14" width="20" height="6" rx="1.5"></rect><line x1="6" y1="7" x2="6.01" y2="7"></line><line x1="6" y1="17" x2="6.01" y2="17"></line></svg>',
-  reorder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2da8e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>',
+  nas: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2bbe6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"></rect><rect x="2" y="14" width="20" height="6" rx="1.5"></rect><line x1="6" y1="7" x2="6.01" y2="7"></line><line x1="6" y1="17" x2="6.01" y2="17"></line></svg>',
+  reorder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>',
 };
 
 function topBar(vals) {
@@ -1077,8 +1079,8 @@ function topBar(vals) {
   return `
   <header style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:18px;padding:0 18px;background:var(--co-chrome);border-bottom:1px solid var(--co-border);z-index:40;">
     <div data-act="goProjects" style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;">
-      <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,#2da8e2,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(45,168,226,0.4);">${ICON.play}</div>
-      <div style="font-weight:800;font-size:16px;letter-spacing:-0.02em;">Coop<span style="color:#2da8e2;">editor</span></div>
+      <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(108,92,246,0.4);">${ICON.play}</div>
+      <div style="font-weight:800;font-size:16px;letter-spacing:-0.02em;">Coop<span style="color:#6c5cf6;">editor</span></div>
     </div>
     ${state.view !== "projects" ? `
     <div style="display:flex;align-items:center;gap:8px;color:var(--co-muted);font-size:13px;font-weight:600;white-space:nowrap;min-width:0;">
@@ -1089,7 +1091,7 @@ function topBar(vals) {
       ${state.view === "review" ? `
         <span style="color:var(--co-faint);">/</span>
         <span style="color:var(--co-text);">${esc(vals.selTitle)}</span>
-        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#2da8e2;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
+        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#6c5cf6;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
       ` : ""}
     </div>
     ` : ""}
@@ -1105,7 +1107,7 @@ function topBar(vals) {
         <span style="display:flex;color:${vals.speedColor};">${ICON.bars}</span>
         <span style="font-variant-numeric:tabular-nums;">${vals.speedFmt.value}</span>
         <span style="color:var(--co-muted);font-weight:600;font-size:11px;margin-left:-3px;">${vals.speedFmt.unit}</span>
-        ${state.speedTesting ? `<span style="display:flex;color:#2da8e2;animation:coSpin 0.7s linear infinite;">${ICON.spinner}</span>` : ""}
+        ${state.speedTesting ? `<span style="display:flex;color:#6c5cf6;animation:coSpin 0.7s linear infinite;">${ICON.spinner}</span>` : ""}
       </button>
       ${state.showSpeedPanel ? speedPanel(vals) : ""}
     </div>
@@ -1113,7 +1115,7 @@ function topBar(vals) {
       ${(window.__presenceList || []).filter((p) => p && p.id !== (remote.me && remote.me.id)).map((p) => `
         <div title="${esc(p.name + (p.focus ? " · " + (p.focus.kind === "source" ? "đang xem nguồn" : p.focus.kind === "project" ? "trong project" : "ở workspace") : ""))}" style="width:30px;height:30px;border-radius:50%;background:${p.color};display:grid;place-items:center;font-weight:700;font-size:12px;color:#07090e;margin-left:-8px;border:2px solid var(--co-chrome);position:relative;">
           ${esc(p.initial)}
-          <span style="position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#35c389;border:2px solid var(--co-chrome);"></span>
+          <span style="position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#2bbe6e;border:2px solid var(--co-chrome);"></span>
         </div>
       `).join("")}
     </div>
@@ -1135,17 +1137,17 @@ function speedPanel(vals) {
         <span style="font-size:14px;font-weight:700;color:var(--co-muted);">${vals.speedFmt.unit} ↓</span>
         <span style="margin-left:auto;font-size:11px;font-weight:700;color:${vals.speedColor};background:var(--co-hover);padding:4px 10px;border-radius:999px;">${vals.speedTier}</span>
       </div>
-      <div style="position:relative;height:8px;border-radius:999px;margin:14px 0 6px;overflow:hidden;background:linear-gradient(90deg,#f5a623 0%,#f5a623 22%,#2da8e2 22%,#2da8e2 40%,#35c389 40%,#35c389 100%);opacity:.35;"></div>
+      <div style="position:relative;height:8px;border-radius:999px;margin:14px 0 6px;overflow:hidden;background:linear-gradient(90deg,#d9a45b 0%,#d9a45b 22%,#6c5cf6 22%,#6c5cf6 40%,#2bbe6e 40%,#2bbe6e 100%);opacity:.35;"></div>
       <div style="position:relative;height:0;">
         <div style="position:absolute;top:-19px;left:${vals.speedPct}%;transform:translateX(-50%);width:3px;height:14px;background:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,255,255,0.6);"></div>
       </div>
       <div style="display:flex;justify-content:space-between;color:var(--co-faint);font-size:10px;font-weight:700;margin-top:4px;"><span>0</span><span>40</span><span>${vals.speedScaleMax}</span></div>
-      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:11px;">
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:11px;">
         <div style="flex:1;">
           <div style="font-size:11px;color:var(--co-muted);font-weight:600;">Khuyến nghị proxy phát</div>
           <div style="font-size:15px;font-weight:800;color:var(--co-accent-ink);margin-top:1px;">${vals.speedRec}</div>
         </div>
-        <button data-act="applyRec" class="co-btn-blue" style="background:#2da8e2;border:none;color:#07111a;font-weight:700;font-size:12px;padding:8px 13px;border-radius:999px;cursor:pointer;">Áp dụng</button>
+        <button data-act="applyRec" class="co-btn-blue" style="background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:12px;padding:8px 13px;border-radius:999px;cursor:pointer;">Áp dụng</button>
       </div>
       <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:11px;">
         <div>
@@ -1173,8 +1175,8 @@ function sidebar(vals) {
             </div>
           `).join("")}
         </div>
-        <div style="margin-top:8px;padding:8px 10px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:9px;color:${state.showArchived ? "var(--co-text)" : "var(--co-faint)"};font-weight:600;font-size:12px;background:${state.showArchived ? "rgba(245,166,35,0.13)" : "transparent"};" data-act="toggleShowArchived" class="co-hover">
-          <span style="width:14px;height:14px;display:grid;place-items:center;border:1.5px solid ${state.showArchived ? "#f5a623" : "var(--co-border-2)"};background:${state.showArchived ? "#f5a623" : "transparent"};border-radius:4px;color:#07111a;font-size:9px;font-weight:900;">${state.showArchived ? "✓" : ""}</span>
+        <div style="margin-top:8px;padding:8px 10px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:9px;color:${state.showArchived ? "var(--co-text)" : "var(--co-faint)"};font-weight:600;font-size:12px;background:${state.showArchived ? "rgba(217,164,91,0.13)" : "transparent"};" data-act="toggleShowArchived" class="co-hover">
+          <span style="width:14px;height:14px;display:grid;place-items:center;border:1.5px solid ${state.showArchived ? "#d9a45b" : "var(--co-border-2)"};background:${state.showArchived ? "#d9a45b" : "transparent"};border-radius:4px;color:#07111a;font-size:9px;font-weight:900;">${state.showArchived ? "✓" : ""}</span>
           Hiện cả project đã archive
         </div>
       </div>
@@ -1183,19 +1185,19 @@ function sidebar(vals) {
         <div style="font-size:10px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;padding:0 8px 8px;">NAS Library</div>
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:11px;padding:12px;">
           <div style="display:flex;align-items:center;gap:9px;">${ICON.nas}<div style="font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--co-text-2);font-weight:600;word-break:break-all;">${esc(vals.nasLibrary.path)}</div></div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:9px;color:${vals.nasLibrary.connected ? "#35c389" : "var(--co-muted)"};font-size:11px;font-weight:700;">
-            <span style="width:7px;height:7px;border-radius:50%;background:${vals.nasLibrary.connected ? "#35c389" : "var(--co-muted)"};${vals.nasLibrary.connected ? "animation:coPulse 2s infinite;" : ""}"></span>${esc(vals.nasLibrary.status)}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:9px;color:${vals.nasLibrary.connected ? "#2bbe6e" : "var(--co-muted)"};font-size:11px;font-weight:700;">
+            <span style="width:7px;height:7px;border-radius:50%;background:${vals.nasLibrary.connected ? "#2bbe6e" : "var(--co-muted)"};${vals.nasLibrary.connected ? "animation:coPulse 2s infinite;" : ""}"></span>${esc(vals.nasLibrary.status)}
           </div>
           <div style="margin-top:9px;color:var(--co-faint);font-size:11px;font-weight:600;">${esc(vals.nasLibrary.hint)}</div>
         </div>
       </div>` : ""}
       ${vals.proxyCache ? `
-      <div data-act="openProxyStorage" class="co-border-hover" style="margin-top:auto;background:${proxyActive ? "linear-gradient(160deg,rgba(45,168,226,0.2),rgba(24,120,185,0.08))" : "linear-gradient(160deg,rgba(45,168,226,0.12),rgba(24,120,185,0.05))"};border:1px solid ${proxyActive ? "rgba(45,168,226,0.42)" : "rgba(45,168,226,0.2)"};border-radius:12px;padding:13px;cursor:pointer;">
+      <div data-act="openProxyStorage" class="co-border-hover" style="margin-top:auto;background:${proxyActive ? "linear-gradient(160deg,rgba(108,92,246,0.2),rgba(24,120,185,0.08))" : "linear-gradient(160deg,rgba(108,92,246,0.12),rgba(24,120,185,0.05))"};border:1px solid ${proxyActive ? "rgba(108,92,246,0.42)" : "rgba(108,92,246,0.2)"};border-radius:12px;padding:13px;cursor:pointer;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="font-weight:700;font-size:12.5px;color:var(--co-text);">Bộ nhớ proxy</div>
           <div style="margin-left:auto;color:${proxyActive ? "var(--co-accent-ink)" : "var(--co-faint)"};">${ICON.chevRight}</div>
         </div>
-        <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#2da8e2,#4fade4);"></div></div>
+        <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
         <div style="color:${(state.proxyStorageError || state.proxyStorageSummaryError) ? "#ef4d57" : "var(--co-muted)"};font-size:11px;font-weight:600;">${esc(vals.proxyCache.label)}</div>
         <div style="margin-top:5px;color:${(state.proxyStorageError || state.proxyStorageSummaryError) ? "rgba(239,77,87,0.82)" : "var(--co-faint)"};font-size:10.5px;font-weight:700;">${(state.proxyStorageError || state.proxyStorageSummaryError) ? "Mở trang quản lý để xem lỗi chi tiết" : ((state.proxyStorageLoading || state.proxyStorageSummaryLoading) ? "Đang đồng bộ dung lượng từ MinIO…" : "Nhấn để mở trang quản lý proxy")}</div>
       </div>` : ""}
@@ -1288,15 +1290,15 @@ function projectsHub(vals) {
         <select id="clientFilter" style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:999px;padding:8px 14px;color:var(--co-text);font-size:13px;outline:none;max-width:220px;">
           ${vals.clientOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
         </select>
-        <button data-act="createProject" class="co-btn-blue" style="display:inline-flex;align-items:center;gap:6px;background:#2da8e2;color:#07111a;font-weight:800;font-size:13px;padding:9px 16px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.35);"><span style="font-size:16px;line-height:1;">+</span>Tạo project</button>
+        <button data-act="createProject" class="co-btn-blue" style="display:inline-flex;align-items:center;gap:6px;background:#6c5cf6;color:#07111a;font-weight:800;font-size:13px;padding:9px 16px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.35);"><span style="font-size:16px;line-height:1;">+</span>Tạo project</button>
       </div>
     </div>
     ${noProjects ? `
       <div style="margin-top:60px;display:grid;place-items:center;text-align:center;color:var(--co-muted);">
-        <div style="width:72px;height:72px;border-radius:18px;background:rgba(45,168,226,0.12);border:1px solid rgba(45,168,226,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:18px;">${ICON.film}</div>
+        <div style="width:72px;height:72px;border-radius:18px;background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:18px;">${ICON.film}</div>
         <div style="font-size:18px;font-weight:800;color:var(--co-text);margin-bottom:6px;">Chưa có project nào</div>
         <div style="font-size:13px;font-weight:600;max-width:380px;line-height:1.55;">Tạo project đầu tiên để bắt đầu import nguồn từ NAS, tạo proxy và mời client review.</div>
-        <button data-act="createProject" class="co-btn-blue" style="margin-top:18px;display:inline-flex;align-items:center;gap:7px;background:#2da8e2;color:#07111a;font-weight:800;font-size:14px;padding:11px 22px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.35);"><span style="font-size:18px;line-height:1;">+</span>Tạo project mới</button>
+        <button data-act="createProject" class="co-btn-blue" style="margin-top:18px;display:inline-flex;align-items:center;gap:7px;background:#6c5cf6;color:#07111a;font-weight:800;font-size:14px;padding:11px 22px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.35);"><span style="font-size:18px;line-height:1;">+</span>Tạo project mới</button>
       </div>
     ` : ""}
     ${vals.projectGroups.map((g) => `
@@ -1326,7 +1328,7 @@ function projectsHub(vals) {
                 <div style="color:var(--co-faint);font-size:11.5px;font-weight:600;margin-top:3px;">${esc(p.client)}</div>
                 ${p.isProgress ? `
                   <div style="margin-top:11px;">
-                    <div style="height:5px;border-radius:999px;background:var(--co-border);overflow:hidden;"><div style="width:${p.pct}%;height:100%;background:linear-gradient(90deg,#2da8e2,#4fade4);"></div></div>
+                    <div style="height:5px;border-radius:999px;background:var(--co-border);overflow:hidden;"><div style="width:${p.pct}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
                     <div style="color:var(--co-muted);font-size:10.5px;font-weight:700;margin-top:5px;">${esc(p.readyLabel)}</div>
                   </div>
                 ` : ""}
@@ -1381,18 +1383,18 @@ function projectDetail(vals) {
         ` : ""}
         ${vals.isOwner ? (
           vals.isArchived
-            ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#35c389;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.restore}Khôi phục</button>`
-            : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#f5a623;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.archive}Archive</button>`
+            ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#2bbe6e;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.restore}Khôi phục</button>`
+            : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#d9a45b;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.archive}Archive</button>`
         ) : ""}
         ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.edit}Sửa project</button>` : ""}
         <div style="display:flex;gap:3px;background:var(--co-panel);padding:4px;border-radius:10px;border:1px solid var(--co-border);">
           <button data-act="setListView" title="Danh sách" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
           <button data-act="setGridView" title="Lưới album" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
         </div>
-        <button data-act="openImport" class="co-btn-blue" style="display:inline-flex;align-items:center;gap:8px;background:#2da8e2;border:none;color:#07111a;font-weight:700;font-size:13px;padding:9px 15px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.3);">${ICON.import}Import từ NAS</button>
+        <button data-act="openImport" class="co-btn-blue" style="display:inline-flex;align-items:center;gap:8px;background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:13px;padding:9px 15px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">${ICON.import}Import từ NAS</button>
       </div>
     </div>
-    <div style="display:inline-flex;align-items:center;gap:8px;margin:18px 0 12px;color:var(--co-muted);font-size:12px;font-weight:600;background:rgba(45,168,226,0.07);border:1px solid rgba(45,168,226,0.16);padding:8px 13px;border-radius:999px;">
+    <div style="display:inline-flex;align-items:center;gap:8px;margin:18px 0 12px;color:var(--co-muted);font-size:12px;font-weight:600;background:rgba(108,92,246,0.07);border:1px solid rgba(108,92,246,0.16);padding:8px 13px;border-radius:999px;">
       ${ICON.reorder}<span>Thứ tự dựng (timeline) — <span style="color:var(--co-accent-ink);font-weight:700;">kéo thả</span> để sắp xếp lại các nguồn theo đúng mạch edit</span>
     </div>
     ${state.sourceView === "list" ? sourceListView(vals) : sourceGridView(vals)}
@@ -1403,7 +1405,7 @@ function sourceListView(vals) {
   return `<div style="display:flex;flex-direction:column;gap:8px;">${vals.sources.map((s) => `
     <div draggable="true" data-drag-id="${s.id}" data-source-menu-id="${s.id}" class="co-border-hover" style="display:flex;align-items:center;gap:14px;padding:11px 14px;background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:12px;opacity:${s.dragOpacity};box-shadow:var(--co-shadow);transition:border-color 200ms;">
       <div style="display:flex;flex-direction:column;gap:2px;color:var(--co-faint);cursor:grab;">${ICON.drag}</div>
-      <div style="font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;color:#2da8e2;width:28px;text-align:center;">${s.pos}</div>
+      <div style="font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;color:#6c5cf6;width:28px;text-align:center;">${s.pos}</div>
       <div data-act="openSource" data-arg="${s.id}" style="position:relative;width:104px;height:58px;border-radius:8px;overflow:hidden;flex:0 0 104px;cursor:pointer;background:${s.thumbBg};">
         <div style="position:absolute;inset:0;background:radial-gradient(100% 80% at 50% 30%,rgba(255,255,255,0.14),transparent 60%);"></div>
         <div style="position:absolute;right:5px;bottom:5px;background:rgba(7,9,14,0.8);color:#fff;font-weight:700;font-size:10px;padding:2px 5px;border-radius:4px;font-variant-numeric:tabular-nums;">${s.durLabel}</div>
@@ -1428,7 +1430,7 @@ function sourceGridView(vals) {
     <div draggable="true" data-drag-id="${s.id}" data-source-menu-id="${s.id}" class="co-border-hover-strong" style="background:var(--co-panel);border:1px solid ${s.rowBorder};border-radius:13px;overflow:hidden;opacity:${s.dragOpacity};cursor:grab;box-shadow:var(--co-shadow);transition:border-color 200ms,transform 200ms;">
       <div data-act="openSource" data-arg="${s.id}" style="position:relative;aspect-ratio:16/9;background:${s.thumbBg};cursor:pointer;">
         <div style="position:absolute;inset:0;background:radial-gradient(110% 90% at 50% 25%,rgba(255,255,255,0.13),transparent 60%);"></div>
-        <div style="position:absolute;left:10px;top:10px;width:30px;height:30px;border-radius:8px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);display:grid;place-items:center;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;color:#2da8e2;border:1px solid rgba(45,168,226,0.4);">${s.pos}</div>
+        <div style="position:absolute;left:10px;top:10px;width:30px;height:30px;border-radius:8px;background:rgba(7,9,14,0.72);backdrop-filter:blur(4px);display:grid;place-items:center;font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;color:#6c5cf6;border:1px solid rgba(108,92,246,0.4);">${s.pos}</div>
         <div style="position:absolute;right:10px;top:10px;color:rgba(255,255,255,0.55);">${ICON.drag}</div>
         <div style="position:absolute;right:10px;bottom:10px;background:rgba(7,9,14,0.8);color:#fff;font-weight:700;font-size:11px;padding:3px 7px;border-radius:5px;font-variant-numeric:tabular-nums;">${s.durLabel}</div>
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(7,9,14,0.5);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.25);"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></div>
@@ -1465,10 +1467,10 @@ function safeAreaOverlay(aspect) {
   const label = aspect === "9:16" ? "SAFE 9:16 (short / reel)" : "SAFE 1:1 (square)";
   return `
     <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;">
-      <div style="height:100%;aspect-ratio:${ratio};position:relative;outline:1.5px solid rgba(45,168,226,0.7);background:rgba(0,0,0,0.18);">
+      <div style="height:100%;aspect-ratio:${ratio};position:relative;outline:1.5px solid rgba(108,92,246,0.7);background:rgba(0,0,0,0.18);">
         <div style="position:absolute;inset:6%;border:1px solid rgba(255,255,255,0.4);"></div>
         <div style="position:absolute;inset:3%;border:1px solid rgba(255,255,255,0.2);"></div>
-        <div style="position:absolute;left:6px;top:6px;background:rgba(45,168,226,0.85);color:#07111a;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;">${label}</div>
+        <div style="position:absolute;left:6px;top:6px;background:rgba(108,92,246,0.85);color:#07111a;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;">${label}</div>
       </div>
     </div>`;
 }
@@ -1481,7 +1483,7 @@ function annotationToolbar() {
   const active = !!state.annotationMode;
   const tool = state.annotationTool || "pen";
   const color = state.annotationColor || "#ef4d57";
-  const colors = ["#ef4d57", "#f5a623", "#35c389", "#2da8e2", "#a07bff", "#ffffff"];
+  const colors = ["#ef4d57", "#d9a45b", "#2bbe6e", "#6c5cf6", "#a07bff", "#ffffff"];
   const tools = [
     { id: "pen", label: "Vẽ", icon: ICON.penTool },
     { id: "arrow", label: "Mũi tên", icon: ICON.arrowTool },
@@ -1497,9 +1499,9 @@ function annotationToolbar() {
         ${ICON.penTool}${active ? "Đang chú thích" : "Chú thích"}
       </button>
       ${active ? `
-        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="display:inline-flex;align-items:center;gap:6px;background:${tool === t.id ? "#2da8e2" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#2da8e2" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.icon}${t.label}</button>`).join("")}
+        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="display:inline-flex;align-items:center;gap:6px;background:${tool === t.id ? "#6c5cf6" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#6c5cf6" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.icon}${t.label}</button>`).join("")}
         ${tool === "text" ? `
-          <input id="annotationTextDraft" value="${esc(state.annotationTextDraft || "")}" placeholder="Nhập text rồi click lên khung hình" style="min-width:220px;flex:1;background:var(--co-panel);border:1px solid rgba(45,168,226,0.28);border-radius:8px;padding:7px 10px;color:var(--co-text);font-size:12.5px;outline:none;" />
+          <input id="annotationTextDraft" value="${esc(state.annotationTextDraft || "")}" placeholder="Nhập text rồi click lên khung hình" style="min-width:220px;flex:1;background:var(--co-panel);border:1px solid rgba(108,92,246,0.28);border-radius:8px;padding:7px 10px;color:var(--co-text);font-size:12.5px;outline:none;" />
         ` : ""}
         <span style="display:inline-flex;gap:4px;align-items:center;padding:0 4px;">
           ${colors.map((c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === color ? "#fff" : "transparent"};cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,0.3);"></button>`).join("")}
@@ -1648,7 +1650,7 @@ function membersModal(vals) {
         </div>
         <button data-act="closeMembers" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
       </div>
-      <div style="margin-top:14px;padding:12px 14px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:12px;color:var(--co-text-2);font-size:12px;font-weight:600;line-height:1.6;">
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:12px;color:var(--co-text-2);font-size:12px;font-weight:600;line-height:1.6;">
         <div><strong>Owner:</strong> mời người, đổi role, thu hồi quyền, archive project.</div>
         <div><strong>Editor:</strong> import nguồn, transcode, reorder, comment, chỉnh nội dung project.</div>
         <div><strong>Reviewer / Client:</strong> chỉ xem, review và comment theo timeline.</div>
@@ -1671,7 +1673,7 @@ function membersModal(vals) {
           <select id="memberInviteDsmRole" onchange="state.inviteDsmRole=this.value;" style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
             ${vals.memberRoleOptions.map((opt) => `<option value="${opt.value}" ${(state.inviteDsmRole || "reviewer") === opt.value ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
           </select>
-          <button data-act="inviteDsmUser" ${(state.inviteDsmName || "").trim() ? "" : "disabled"} style="border:none;border-radius:12px;padding:0 16px;background:${(state.inviteDsmName || "").trim() ? "#2da8e2" : "var(--co-panel-2)"};color:${(state.inviteDsmName || "").trim() ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:13px;cursor:${(state.inviteDsmName || "").trim() ? "pointer" : "not-allowed"};">Mời DSM user</button>
+          <button data-act="inviteDsmUser" ${(state.inviteDsmName || "").trim() ? "" : "disabled"} style="border:none;border-radius:12px;padding:0 16px;background:${(state.inviteDsmName || "").trim() ? "#6c5cf6" : "var(--co-panel-2)"};color:${(state.inviteDsmName || "").trim() ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:13px;cursor:${(state.inviteDsmName || "").trim() ? "pointer" : "not-allowed"};">Mời DSM user</button>
         </div>
         <div style="margin-top:8px;color:var(--co-faint);font-size:11.5px;font-weight:600;line-height:1.5;">Nhập DSM username — placeholder user sẽ được tạo ngay. Khi user đó login DSM lần đầu, hồ sơ sẽ tự match.</div>
       </div>
@@ -1745,8 +1747,8 @@ function projectContextMenu() {
     <div data-act="openProject" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.open}Mở project</div>
     ${menu.canManage ? `<div data-act="editProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.edit}Đổi tên / sửa</div>` : ""}
     ${menu.isOwner ? (menu.isArchived
-      ? `<div data-act="restoreProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#35c389;font-size:13px;font-weight:700;">${ICON.restore}Khôi phục project</div>`
-      : `<div data-act="archiveProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#f5a623;font-size:13px;font-weight:700;">${ICON.archive}Archive project</div>` ) : ""}
+      ? `<div data-act="restoreProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#2bbe6e;font-size:13px;font-weight:700;">${ICON.restore}Khôi phục project</div>`
+      : `<div data-act="archiveProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#d9a45b;font-size:13px;font-weight:700;">${ICON.archive}Archive project</div>` ) : ""}
     ${menu.isOwner && !menu.isArchived ? `<div data-act="deleteProjectFromMenu" data-arg="${menu.projectId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">${ICON.trash}Xóa project</div>` : ""}
   </div>`;
 }
@@ -1761,7 +1763,7 @@ function sourceContextMenu() {
       <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.title)}</div>
     </div>
     <div data-act="openSource" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.play}Mở review</div>
-    <div data-act="openSourceTranscode" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#2da8e2;font-size:13px;font-weight:700;">${ICON.proxy}Transcode proxy</div>
+    <div data-act="openSourceTranscode" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#6c5cf6;font-size:13px;font-weight:700;">${ICON.proxy}Transcode proxy</div>
     <div data-act="editSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.edit}Đổi tên / sửa</div>
     <div data-act="deleteSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">${ICON.trash}Xóa video</div>
   </div>`;
@@ -1862,7 +1864,7 @@ function updateModal(vals) {
     ? ("Lỗi update feed: " + status.error)
     : (remoteMeta && remoteMeta.summary ? remoteMeta.summary : (status && status.checkAvailable ? "Chưa tìm thấy bản mới hơn." : "Update feed chưa sẵn sàng."));
   const changeItems = remoteMeta && remoteMeta.changes && remoteMeta.changes.length ? remoteMeta.changes : (local && local.changes) || [];
-  const statusTone = state.updateError ? "#ef4d57" : (status && status.updateAvailable ? "#f5a623" : "#35c389");
+  const statusTone = state.updateError ? "#ef4d57" : (status && status.updateAvailable ? "#d9a45b" : "#2bbe6e");
   const pollLabel = status && status.pollIntervalSeconds ? ("Auto poll mỗi " + Math.max(1, Math.round(status.pollIntervalSeconds / 60)) + " phút") : "Auto poll đang bật";
   return `
   <div data-act="closeUpdateModal" style="position:fixed;inset:0;background:rgba(4,6,10,0.62);backdrop-filter:blur(10px);z-index:92;display:grid;place-items:center;padding:24px;">
@@ -1885,7 +1887,7 @@ function updateModal(vals) {
             <div>FE đang chạy: ${esc((window.__BUILD_SHA || "unknown").slice(0, 12))}${
               (local && local.sha && window.__BUILD_SHA && local.sha.slice(0,12) !== window.__BUILD_SHA.slice(0,12))
                 ? ' <span style="color:#ef4d57;">⚠ KHÁC API — hãy hard reload (Cmd+Shift+R)</span>'
-                : ' <span style="color:#35c389;">✓ khớp</span>'
+                : ' <span style="color:#2bbe6e;">✓ khớp</span>'
             }</div>
             <div>Built: ${esc(local && local.builtAt ? local.builtAt : "không rõ")}</div>
             <div>Published: ${esc(local && local.publishedAt ? local.publishedAt : "không rõ")}</div>
@@ -1894,7 +1896,7 @@ function updateModal(vals) {
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:16px;padding:16px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Bản mới nhất</div>
-            <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(245,166,35,0.14)" : "rgba(53,195,137,0.14)"};color:${status && status.updateAvailable ? "#f5a623" : "#35c389"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Cần cập nhật" : "Đang mới nhất"}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:${status && status.updateAvailable ? "rgba(217,164,91,0.14)" : "rgba(43,190,110,0.14)"};color:${status && status.updateAvailable ? "#d9a45b" : "#2bbe6e"};font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;">${status && status.updateAvailable ? "Cần cập nhật" : "Đang mới nhất"}</span>
           </div>
           <div style="margin-top:8px;font-size:24px;font-weight:800;color:var(--co-text);">${esc(remoteVersion)}</div>
           <div style="margin-top:6px;color:${status && status.error ? "#ef4d57" : "var(--co-text-2)"};font-size:13px;font-weight:600;line-height:1.6;">${esc(remoteSummary)}</div>
@@ -1906,7 +1908,7 @@ function updateModal(vals) {
           </div>
         </div>
       </div>
-      <div style="margin-top:16px;padding:14px 16px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:14px;">
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
             <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Thay đổi gần đây</div>
@@ -1914,7 +1916,7 @@ function updateModal(vals) {
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button data-act="checkUpdateNow" ${state.updateBusy ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${state.updateBusy ? "wait" : "pointer"};">${state.updateBusy ? "Đang kiểm tra..." : "Kiểm tra ngay"}</button>
-            <button data-act="triggerUpdateNow" ${!vals.canManageUpdates || state.updateTriggerBusy ? "disabled" : ""} class="co-btn-blue" style="background:${vals.canManageUpdates ? "#2da8e2" : "var(--co-panel-2)"};border:none;color:${vals.canManageUpdates ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${!vals.canManageUpdates || state.updateTriggerBusy ? "not-allowed" : "pointer"};opacity:${!vals.canManageUpdates ? ".7" : "1"};">${state.updateTriggerBusy ? "Đang gửi lệnh..." : "Cập nhật ngay"}</button>
+            <button data-act="triggerUpdateNow" ${!vals.canManageUpdates || state.updateTriggerBusy ? "disabled" : ""} class="co-btn-blue" style="background:${vals.canManageUpdates ? "#6c5cf6" : "var(--co-panel-2)"};border:none;color:${vals.canManageUpdates ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:12.5px;padding:10px 14px;border-radius:999px;cursor:${!vals.canManageUpdates || state.updateTriggerBusy ? "not-allowed" : "pointer"};opacity:${!vals.canManageUpdates ? ".7" : "1"};">${state.updateTriggerBusy ? "Đang gửi lệnh..." : "Cập nhật ngay"}</button>
           </div>
         </div>
         <div style="margin-top:10px;color:var(--co-faint);font-size:11px;font-weight:600;line-height:1.6;">${vals.canManageUpdates ? "Owner có thể trigger update thủ công. Nếu updater không hỗ trợ trigger, hệ thống vẫn tiếp tục auto-poll image mới theo lịch." : "Chỉ owner mới có quyền trigger update thủ công."}</div>
@@ -1925,7 +1927,7 @@ function updateModal(vals) {
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
           ${changeItems.length ? changeItems.map((item) => `
             <div style="display:flex;gap:10px;align-items:flex-start;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#2da8e2;flex:0 0 8px;margin-top:7px;"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:#6c5cf6;flex:0 0 8px;margin-top:7px;"></span>
               <span>${esc(item)}</span>
             </div>
           `).join("") : `<div style="color:var(--co-muted);font-size:13px;font-weight:600;">Chưa có release note chi tiết.</div>`}
@@ -1944,9 +1946,9 @@ function auditBadge(action) {
 }
 function auditColor(action) {
   if (action.includes("deleted") || action.includes("archived")) return "#ef4d57";
-  if (action.includes("restored") || action.includes("created") || action.includes("login")) return "#35c389";
-  if (action.includes("update") || action.includes("edited") || action.includes("role")) return "#f5a623";
-  return "#2da8e2";
+  if (action.includes("restored") || action.includes("created") || action.includes("login")) return "#2bbe6e";
+  if (action.includes("update") || action.includes("edited") || action.includes("role")) return "#d9a45b";
+  return "#6c5cf6";
 }
 function auditLabel(e) {
   const who = (remote.users && remote.users[e.actorUserId] && remote.users[e.actorUserId].name) || e.actorUserId || "system";
@@ -1988,7 +1990,7 @@ function review(vals) {
             <span style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${esc(vals.sceneSub)}</span>
           </div>
           <div style="position:absolute;right:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);padding:5px 9px;border-radius:6px;pointer-events:none;">
-            <span style="width:7px;height:7px;border-radius:50%;background:#2da8e2;"></span>
+            <span style="width:7px;height:7px;border-radius:50%;background:#6c5cf6;"></span>
             <span style="color:#fff;font-weight:700;font-size:11px;">Proxy ${esc(vals.activeQualityLabel)}</span>
           </div>
           ${annotationOverlay()}
@@ -2010,24 +2012,24 @@ function review(vals) {
                 <div style="min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:${m.avatarBg};border:1.5px solid ${m.avatarBorder};display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,0.38);font-size:9px;font-weight:800;line-height:1;color:${m.avatarColor};">${esc(m.initial)}</div>
                 <div style="width:2px;height:4px;background:${m.color};opacity:.55;"></div>
                 <div style="width:11px;height:11px;border-radius:50%;background:${m.markerBg};border:2px solid var(--co-chrome);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);"><span style="width:3px;height:3px;border-radius:50%;background:${m.markerDot};"></span></div>
-                ${m.hasAnnotation ? `<div style="margin-top:2px;width:4px;height:4px;border-radius:50%;background:#f5a623;box-shadow:0 0 0 2px rgba(245,166,35,0.18);"></div>` : ``}
+                ${m.hasAnnotation ? `<div style="margin-top:2px;width:4px;height:4px;border-radius:50%;background:#d9a45b;box-shadow:0 0 0 2px rgba(217,164,91,0.18);"></div>` : ``}
               </div>
             `).join("")}
           </div>
           <div id="reviewTimelineBar" data-act="seekFromEvent" style="position:relative;height:38px;border-radius:7px;overflow:hidden;cursor:pointer;display:flex;">
             ${vals.thumbs.map((t) => `<div style="flex:1;background:${t.bg};"></div>`).join("")}
             <div id="reviewBufferedPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.bufferedPct}%;background:var(--co-border);pointer-events:none;"></div>
-            <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(45,168,226,0.22);border-right:2px solid #2da8e2;pointer-events:none;"></div>
-            <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(45,168,226,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(45,168,226,0.9);"></div></div>
+            <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(108,92,246,0.22);border-right:2px solid #6c5cf6;pointer-events:none;"></div>
+            <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(108,92,246,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(108,92,246,0.9);"></div></div>
           </div>
           <div style="display:flex;justify-content:flex-end;margin-top:7px;">
-            <div style="background:rgba(45,168,226,0.12);border:1px solid rgba(45,168,226,0.24);color:#2da8e2;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;font-variant-numeric:tabular-nums;">Hover preview: <span id="reviewTimelineHoverTc">${vals.timelineHoverTc}</span> · click trái để chọn</div>
+            <div style="background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.24);color:#6c5cf6;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;font-variant-numeric:tabular-nums;">Hover preview: <span id="reviewTimelineHoverTc">${vals.timelineHoverTc}</span> · click trái để chọn</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-top:13px;">
           <div style="display:flex;align-items:center;gap:4px;">
             <button data-act="frameBack" title="Lùi 1 frame ( , )" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.frameBack}</button>
-            <button data-act="togglePlay" data-role="play-toggle" class="co-btn-blue" style="width:42px;height:42px;display:grid;place-items:center;background:#2da8e2;border:none;color:#07111a;border-radius:50%;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.4);">${state.playing ? ICON.pauseBtn : ICON.playBtn}</button>
+            <button data-act="togglePlay" data-role="play-toggle" class="co-btn-blue" style="width:42px;height:42px;display:grid;place-items:center;background:#6c5cf6;border:none;color:#07111a;border-radius:50%;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.4);">${state.playing ? ICON.pauseBtn : ICON.playBtn}</button>
             <button data-act="frameFwd" title="Tiến 1 frame ( . )" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.frameFwd}</button>
           </div>
           <div style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--co-text);"><span id="reviewTcCurrentInline">${vals.tcCurrent}</span> <span style="color:var(--co-faint);font-weight:600;">/ <span id="reviewTcDuration">${vals.tcDuration}</span></span></div>
@@ -2036,7 +2038,7 @@ function review(vals) {
           <button data-act="cycleSafe" title="Khung an toàn — bấm để đổi 16:9 / 9:16 / 1:1" style="display:inline-flex;align-items:center;gap:7px;background:${vals.safeBg};border:1px solid var(--co-border-2);color:${vals.safeColor};font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">${ICON.safe}${vals.safeLabel}</button>
           <div style="position:relative;">
             <button data-act="toggleQualityMenu" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12.5px;padding:8px 12px;border-radius:8px;cursor:pointer;">
-              <span style="width:7px;height:7px;border-radius:50%;background:#2da8e2;"></span>${esc(vals.activeQualityLabel)} · ${esc(vals.activeQualityBitrate)}${ICON.chevDown}
+              <span style="width:7px;height:7px;border-radius:50%;background:#6c5cf6;"></span>${esc(vals.activeQualityLabel)} · ${esc(vals.activeQualityBitrate)}${ICON.chevDown}
             </button>
             ${state.showQualityMenu ? qualityMenu(vals) : ""}
           </div>
@@ -2052,7 +2054,7 @@ function qualityMenu(vals) {
   return `
     <div style="position:absolute;right:0;bottom:calc(100% + 8px);width:290px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:12px;padding:7px;box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:50;">
       <div style="padding:8px 10px 4px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Chất lượng phát</div>
-      <div style="padding:0 10px 8px;font-size:11px;font-weight:600;color:var(--co-muted);">Đường truyền <span style="color:${vals.speedColor};font-weight:700;">${vals.speedFmt.value} ${vals.speedFmt.unit}</span> → nên dùng <span style="color:#2da8e2;font-weight:700;">${vals.speedRec}</span></div>
+      <div style="padding:0 10px 8px;font-size:11px;font-weight:600;color:var(--co-muted);">Đường truyền <span style="color:${vals.speedColor};font-weight:700;">${vals.speedFmt.value} ${vals.speedFmt.unit}</span> → nên dùng <span style="color:#6c5cf6;font-weight:700;">${vals.speedRec}</span></div>
       ${vals.qualities.map((q) => `
         <div data-act="setQuality" data-arg="${q.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:9px;cursor:pointer;background:${q.rowBg};">
           <span style="width:16px;display:grid;place-items:center;">${q.isActive ? ICON.checkBig : ""}</span>
@@ -2063,7 +2065,7 @@ function qualityMenu(vals) {
           <span style="font-size:10.5px;font-weight:700;color:${q.tagColor};background:${q.tagBg};padding:3px 8px;border-radius:999px;white-space:nowrap;">${esc(q.tag)}</span>
         </div>
       `).join("")}
-      <div data-act="openTranscode" class="co-blue-hover" style="margin-top:4px;border-top:1px solid var(--co-border);padding:11px 10px 7px;display:flex;align-items:center;gap:9px;cursor:pointer;color:#2da8e2;font-weight:700;font-size:12.5px;">${ICON.cogs}Quản lý transcode & proxy ladder</div>
+      <div data-act="openTranscode" class="co-blue-hover" style="margin-top:4px;border-top:1px solid var(--co-border);padding:11px 10px 7px;display:flex;align-items:center;gap:9px;cursor:pointer;color:#6c5cf6;font-weight:700;font-size:12.5px;">${ICON.cogs}Quản lý transcode & proxy ladder</div>
     </div>`;
 }
 
@@ -2103,15 +2105,15 @@ function commentsPanel(vals) {
               <button data-act="toggleResolve" data-arg="${c.id}" title="Đánh dấu xong" style="width:26px;height:26px;display:grid;place-items:center;border-radius:7px;border:1px solid ${c.resolveBorder};background:${c.resolveBg};color:${c.resolveColor};cursor:pointer;">${ICON.check}</button>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
-              <button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(45,168,226,0.13);border:none;color:#2da8e2;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
-              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,0.13);border:none;color:#f5a623;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">${ICON.penTool}Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</button>` : ""}
+              <button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(108,92,246,0.13);border:none;color:#6c5cf6;font-variant-numeric:tabular-nums;font-weight:700;font-size:11.5px;padding:4px 9px;border-radius:7px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>${esc(c.tcLabel)}</button>
+              ${c.hasAnnotation ? `<button data-act="jumpTo" data-arg="${c.ms}" style="display:inline-flex;align-items:center;gap:6px;background:rgba(217,164,91,0.13);border:none;color:#d9a45b;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;padding:4px 9px;border-radius:7px;cursor:pointer;">${ICON.penTool}Chú thích @ ${esc(c.annotationTcLabel)} · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</button>` : ""}
             </div>
             ${c.isEditing ? `
               <div style="margin-top:10px;">
-                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel-2);border:1px solid rgba(45,168,226,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
+                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel-2);border:1px solid rgba(108,92,246,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
                   <button data-act="cancelEditComment" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">Hủy</button>
-                  <button data-act="saveEditComment" data-arg="${c.id}" class="co-btn-blue" style="background:#2da8e2;border:none;color:#07111a;font-weight:800;font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
+                  <button data-act="saveEditComment" data-arg="${c.id}" class="co-btn-blue" style="background:#6c5cf6;border:none;color:#07111a;font-weight:800;font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
                 </div>
               </div>
             ` : `<div style="margin-top:9px;font-size:13px;line-height:1.55;color:var(--co-comment);${c.contentStyle}">${esc(c.content)}</div>`}
@@ -2141,7 +2143,7 @@ function commentsPanel(vals) {
         </div>
         <div style="display:flex;gap:9px;align-items:flex-end;">
           <textarea id="commentInput" placeholder="Thêm comment tại timecode hiện tại…  ( ⌘↵ để gửi )" rows="2" style="flex:1;resize:none;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:10px;padding:10px 12px;color:var(--co-text);font-size:13px;line-height:1.45;outline:none;min-height:44px;">${esc(state.newComment)}</textarea>
-          <button data-act="postComment" class="co-btn-blue" style="width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;background:#2da8e2;border:none;border-radius:11px;color:#07111a;cursor:pointer;box-shadow:0 4px 14px rgba(45,168,226,0.35);">${ICON.send}</button>
+          <button data-act="postComment" class="co-btn-blue" style="width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;background:#6c5cf6;border:none;border-radius:11px;color:#07111a;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.35);">${ICON.send}</button>
         </div>
       </div>
     </aside>`;
@@ -2173,15 +2175,15 @@ function transcodeModal(vals) {
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:14px;color:var(--co-text);">${esc(l.label)} <span style="color:var(--co-faint);font-weight:600;font-size:12px;">${esc(l.res)}</span></div>
               <div style="color:var(--co-muted);font-size:12px;font-weight:600;margin-top:2px;">${esc(l.detail)}</div>
-              ${l.isProcessing ? `<div style="height:5px;border-radius:999px;background:var(--co-border-2);margin-top:8px;overflow:hidden;"><div style="width:${l.progress}%;height:100%;background:linear-gradient(90deg,#f5a623,#ffcb6b);"></div></div>` : ""}
+              ${l.isProcessing ? `<div style="height:5px;border-radius:999px;background:var(--co-border-2);margin-top:8px;overflow:hidden;"><div style="width:${l.progress}%;height:100%;background:linear-gradient(90deg,#d9a45b,#ffcb6b);"></div></div>` : ""}
             </div>
             <div style="flex:0 0 auto;">
               <span style="display:inline-block;font-size:11px;font-weight:700;color:${l.tagColor};background:${l.tagBg};padding:6px 11px;border-radius:999px;">${esc(l.tag)}</span>
-              ${l.canRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" class="co-btn-blue" style="display:block;margin-top:7px;background:#2da8e2;border:none;color:#07111a;font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:pointer;width:100%;">Tạo proxy</button>` : ""}
+              ${l.canRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" class="co-btn-blue" style="display:block;margin-top:7px;background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:pointer;width:100%;">Tạo proxy</button>` : ""}
             </div>
           </div>
         `).join("")}
-        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);border-radius:11px;">
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:11px;">
           ${ICON.info}<div style="font-size:12px;color:var(--co-text-2);font-weight:600;line-height:1.5;">HLS segment 4s · h.264 · AAC 128–192kbps. Worker dùng FFmpeg (NVENC nếu có GPU). Proxy lưu trên SSD cache, không đọc lại từ NAS mỗi lần phát.</div>
         </div>
       </div>
@@ -2237,7 +2239,7 @@ function createProjectModal() {
       <div style="padding:14px 22px 18px;border-top:1px solid var(--co-border);display:flex;align-items:center;gap:10px;justify-content:flex-end;">
         <button data-act="closeCreateProject" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:pointer;">Hủy</button>
         <button data-act="submitCreateProject" ${canSubmit ? "" : "disabled"}
-                style="background:${canSubmit ? "#2da8e2" : "var(--co-panel-2)"};color:${canSubmit ? "#07111a" : "var(--co-faint)"};border:none;font-weight:800;font-size:13px;padding:9px 18px;border-radius:9px;cursor:${canSubmit ? "pointer" : "not-allowed"};">
+                style="background:${canSubmit ? "#6c5cf6" : "var(--co-panel-2)"};color:${canSubmit ? "#07111a" : "var(--co-faint)"};border:none;font-weight:800;font-size:13px;padding:9px 18px;border-radius:9px;cursor:${canSubmit ? "pointer" : "not-allowed"};">
           ${s.createProjectBusy ? "Đang tạo…" : "Tạo project"}
         </button>
       </div>
@@ -2274,7 +2276,7 @@ function importModal(vals) {
       </div>
       <div style="flex:1;overflow-y:auto;padding:12px 14px;">
         ${vals.nasError ? `<div style="margin-bottom:10px;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(vals.nasError)}</div>` : ""}
-        ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(45,168,226,0.08);border:1px solid rgba(45,168,226,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
+        ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${!vals.nasLoading && vals.nasList.length === 0 ? `<div style="text-align:center;color:var(--co-muted);font-size:12px;font-weight:600;padding:30px 12px;">Thư mục này chưa có file video hoặc tài khoản DSM hiện tại không có quyền xem.</div>` : ""}
           ${vals.nasList.map((it, i) => it.isFolder ? `
@@ -2350,7 +2352,7 @@ function computeVals() {
   const statusNav = navDefs.map((n) => {
     const active = s.view === "projects" && s.statusFilter === n.key;
     return { ...n, count: counts[n.key],
-      bg: active ? "rgba(45,168,226,0.13)" : "transparent",
+      bg: active ? "rgba(108,92,246,0.13)" : "transparent",
       color: active ? "var(--co-text)" : "var(--co-muted)",
       countColor: active ? "var(--co-accent-ink)" : "var(--co-faint)" };
   });
@@ -2401,11 +2403,11 @@ function computeVals() {
       role: member.role,
       name: user.name || member.userId,
       initial: user.initial || (user.name || "?").charAt(0).toUpperCase(),
-      color: user.color || "#2da8e2",
+      color: user.color || "#6c5cf6",
       meta: user.email || "Thành viên project",
       badge: roleLabel[member.role] || member.role,
-      badgeBg: member.role === "owner" ? "rgba(45,168,226,0.16)" : member.role === "client" ? "rgba(53,195,137,0.16)" : "var(--co-hover)",
-      badgeColor: member.role === "owner" ? "#2da8e2" : member.role === "client" ? "#35c389" : "var(--co-text-2)",
+      badgeBg: member.role === "owner" ? "rgba(108,92,246,0.16)" : member.role === "client" ? "rgba(43,190,110,0.16)" : "var(--co-hover)",
+      badgeColor: member.role === "owner" ? "#6c5cf6" : member.role === "client" ? "#2bbe6e" : "var(--co-text-2)",
       roleOptions: ["owner", "editor", "reviewer", "client"].map((value) => ({ value, label: roleLabel[value], selected: value === member.role })),
     };
   });
@@ -2434,7 +2436,7 @@ function computeVals() {
       statusLabel: src.status === "processing" ? ((src.progress || 0) > 0 ? ("Proxy " + (src.progress || 0) + "% · bản gốc sẵn sàng") : "Đang tạo proxy · bản gốc sẵn sàng") : st.label,
       statusColor: st.color, statusBg: st.bg, comments: src.comments,
       dragOpacity: s.dragId === src.id ? 0.4 : 1,
-      rowBorder: s.dragId === src.id ? "rgba(45,168,226,0.6)" : "var(--co-border)",
+      rowBorder: s.dragId === src.id ? "rgba(108,92,246,0.6)" : "var(--co-border)",
     };
   });
   const nProjReady = projSources.filter((x) => x.status === "ready").length;
@@ -2442,8 +2444,8 @@ function computeVals() {
 
   const statusOptions = order.map((k) => ({
     key: k, label: SM[k].label, color: SM[k].color,
-    labelColor: k === projStatus ? "#2da8e2" : "var(--co-text)",
-    rowBg: k === projStatus ? "rgba(45,168,226,0.1)" : "transparent",
+    labelColor: k === projStatus ? "#6c5cf6" : "var(--co-text)",
+    rowBg: k === projStatus ? "rgba(108,92,246,0.1)" : "transparent",
   }));
 
   // "source" = play the original NAS file directly (no transcode). This is the
@@ -2464,12 +2466,12 @@ function computeVals() {
   const transcodeRuntimeMessage = normalizeTranscodeRuntimeMessage(transcodeRuntime);
   const qualities = qualityList.map((q) => {
     const isActive = q.id === s.quality;
-    let tag = "Sẵn sàng", tagColor = "#35c389", tagBg = "rgba(53,195,137,0.14)";
+    let tag = "Sẵn sàng", tagColor = "#2bbe6e", tagBg = "rgba(43,190,110,0.14)";
     if (q.id === "source") { tag = "Bản gốc"; tagColor = "#ef4d57"; tagBg = "rgba(239,77,87,0.16)"; }
-    else if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang tạo proxy"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; }
-    else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#2da8e2"; tagBg = "rgba(45,168,226,0.14)"; }
-    return { ...q, isActive, labelColor: isActive ? "#2da8e2" : "var(--co-text)",
-      rowBg: isActive ? "rgba(45,168,226,0.1)" : "transparent", tag, tagColor, tagBg };
+    else if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang tạo proxy"; tagColor = "#d9a45b"; tagBg = "rgba(217,164,91,0.14)"; }
+    else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#6c5cf6"; tagBg = "rgba(108,92,246,0.14)"; }
+    return { ...q, isActive, labelColor: isActive ? "#6c5cf6" : "var(--co-text)",
+      rowBg: isActive ? "rgba(108,92,246,0.1)" : "transparent", tag, tagColor, tagBg };
   });
   const ladderSource = { badge: sourceResLabel || "SRC", label: "Source", res: sourceResText, detail: (selectedSrc ? selectedSrc.codec + " · " + selectedSrc.size : "Video source trên NAS"), status: "nas" };
   const ladder = [ladderSource, ...s.qualities].map((l) => {
@@ -2478,8 +2480,8 @@ function computeVals() {
     const lastError = String(l.lastError || "").trim();
     const workerUnavailable = !!(transcodeRuntime && transcodeRuntime.status !== "memory" && transcodeRuntime.canTranscode === false);
     if (l.status === "nas") { tag = "NAS only"; tagColor = "#8896ab"; tagBg = "var(--co-border)"; }
-    else if (l.status === "ready") { tag = "Sẵn sàng"; tagColor = "#35c389"; tagBg = "rgba(53,195,137,0.14)"; }
-    else if (l.status === "processing") { tag = (l.progress || 0) > 0 ? ((l.progress || 0) + "%") : "Đang chờ"; tagColor = "#f5a623"; tagBg = "rgba(245,166,35,0.14)"; isProcessing = true; }
+    else if (l.status === "ready") { tag = "Sẵn sàng"; tagColor = "#2bbe6e"; tagBg = "rgba(43,190,110,0.14)"; }
+    else if (l.status === "processing") { tag = (l.progress || 0) > 0 ? ((l.progress || 0) + "%") : "Đang chờ"; tagColor = "#d9a45b"; tagBg = "rgba(217,164,91,0.14)"; isProcessing = true; }
     else if (l.status === "failed") {
       tag = /not mounted|mount root|khong thay|không thấy|khong du quyen|không đủ quyền/i.test(lastError) ? "Lỗi mount NAS" : "Transcode lỗi";
       tagColor = "#ef4d57";
@@ -2500,8 +2502,8 @@ function computeVals() {
     return { id: l.id, badge: l.badge || l.label.replace("p", ""), label: l.label, res: l.res,
       detail,
       tag, tagColor, tagBg, canRequest, isProcessing, progress: l.progress || 0,
-      iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(45,168,226,0.14)",
-      iconColor: isSrc ? "#ef4d57" : "#2da8e2",
+      iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(108,92,246,0.14)",
+      iconColor: isSrc ? "#ef4d57" : "#6c5cf6",
       rowBg: isSrc ? "rgba(239,77,87,0.05)" : "var(--co-hover)",
       rowBorder: isSrc ? "rgba(239,77,87,0.18)" : "var(--co-border)" };
   });
@@ -2509,7 +2511,7 @@ function computeVals() {
   const mapComment = (c) => {
     const au = A[c.who] || A.me;
     return { id: c.id, color: au.color, initial: au.initial, name: au.name,
-      roleTag: au.role, roleColor: au.role ? "#35c389" : "transparent",
+      roleTag: au.role, roleColor: au.role ? "#2bbe6e" : "transparent",
       content: c.content, ago: c.ago, resolved: c.resolved,
       annotation: c.annotation || null,
       hasAnnotation: !!(c.annotation && ((c.annotation.strokes && c.annotation.strokes.length) || (c.annotation.texts && c.annotation.texts.length))),
@@ -2520,9 +2522,9 @@ function computeVals() {
       cardBg: c.resolved ? "rgba(255,255,255,0.015)" : "var(--co-panel)",
       cardBorder: c.resolved ? "var(--co-hover)" : "var(--co-border)",
       contentStyle: c.resolved ? "opacity:.5;text-decoration:line-through;text-decoration-color:rgba(255,255,255,0.25)" : "",
-      resolveBg: c.resolved ? "#35c389" : "transparent",
+      resolveBg: c.resolved ? "#2bbe6e" : "transparent",
       resolveColor: c.resolved ? "#07090e" : "#5d6b82",
-      resolveBorder: c.resolved ? "#35c389" : "var(--co-border-2)",
+      resolveBorder: c.resolved ? "#2bbe6e" : "var(--co-border-2)",
       menuOpen: s.commentMenuId === c.id,
       isEditing: s.editingCommentId === c.id,
       editingText: s.editingCommentId === c.id ? s.editingCommentText : c.content,
@@ -2542,7 +2544,7 @@ function computeVals() {
     initial: c.initial || "U",
     hasAnnotation: !!c.hasAnnotation,
     avatarBg: c.color,
-    avatarBorder: c.hasAnnotation ? "#f5a623" : "var(--co-chrome)",
+    avatarBorder: c.hasAnnotation ? "#d9a45b" : "var(--co-chrome)",
     avatarColor: "#07090e",
     markerBg: c.resolved ? "var(--co-panel-2)" : c.color,
     markerDot: c.resolved ? c.color : "#07090e",
@@ -2554,7 +2556,7 @@ function computeVals() {
     thumbs.push({ bg: selectedSrc && selectedSrc.posterUrl ? `center/cover no-repeat url(${selectedSrc.posterUrl})` : "linear-gradient(160deg,#1c2432,#334861)" });
   }
 
-  const tabBg = (on) => on ? "#2da8e2" : "transparent";
+  const tabBg = (on) => on ? "#6c5cf6" : "transparent";
   const tabColor = (on) => on ? "#07111a" : "#8896ab";
 
   const remoteVersions = (window.__versionsByAsset && window.__versionsByAsset[s.selectedId]) || null;
@@ -2568,11 +2570,11 @@ function computeVals() {
       note,
       meta: v.meta || ((remote.users && remote.users[v.authorUserId] ? remote.users[v.authorUserId].name : "Editor") + " · vừa qua"),
       tag: v.tag || "Ready",
-      bg: v.bg || "linear-gradient(135deg,#1c5876,#2da8e2)",
-      labelColor: id === s.version ? "#2da8e2" : "var(--co-text)",
-      rowBg: id === s.version ? "rgba(45,168,226,0.1)" : "transparent",
-      tagColor: "#35c389",
-      tagBg: "rgba(53,195,137,0.14)",
+      bg: v.bg || "linear-gradient(135deg,#1c5876,#6c5cf6)",
+      labelColor: id === s.version ? "#6c5cf6" : "var(--co-text)",
+      rowBg: id === s.version ? "rgba(108,92,246,0.1)" : "transparent",
+      tagColor: "#2bbe6e",
+      tagBg: "rgba(43,190,110,0.14)",
     };
   });
 
@@ -2604,17 +2606,17 @@ function computeVals() {
       resolutionLabel: ch.resolutionLabel || "",
       meta: [ch.sizeLabel || "—", ch.codec || "unknown", ch.resolutionLabel || null, fmtDur(ch.durationMs || 0)].filter(Boolean).join(" · "),
       checked: on,
-      checkBg: on ? "#2da8e2" : "transparent",
-      checkBorder: on ? "#2da8e2" : "var(--co-border-2)",
+      checkBg: on ? "#6c5cf6" : "transparent",
+      checkBorder: on ? "#6c5cf6" : "var(--co-border-2)",
       checkColor: on ? "#07090e" : "transparent",
-      rowBg: on ? "rgba(45,168,226,0.08)" : "transparent",
+      rowBg: on ? "rgba(108,92,246,0.08)" : "transparent",
       _meta: { path: ch.path, name: ch.name, size: ch.sizeLabel || "—", codec: ch.codec || "unknown", dur: ch.durationMs || 0, folder: folderLabel, resolutionLabel: ch.resolutionLabel || "" },
     };
   });
   const importCount = Object.keys(s.importSel).length;
 
   const speedVal = s.speedTesting ? s.speedDisplay : s.speedMbps;
-  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#35c389", rec: "1080p" } : { label: "Ổn", color: "#2da8e2", rec: "720p" };
+  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#2bbe6e", rec: "1080p" } : { label: "Ổn", color: "#6c5cf6", rec: "720p" };
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
@@ -2633,8 +2635,8 @@ function computeVals() {
     };
   const updateStatus = remote.updateStatus || s.updateStatus || null;
   const updateBadge = updateStatus && updateStatus.updateAvailable
-    ? { label: "Update", color: "#f5a623", bg: "rgba(245,166,35,0.14)" }
-    : { label: "Current", color: "#35c389", bg: "rgba(53,195,137,0.14)" };
+    ? { label: "Update", color: "#d9a45b", bg: "rgba(217,164,91,0.14)" }
+    : { label: "Current", color: "#2bbe6e", bg: "rgba(43,190,110,0.14)" };
 
   return {
     projectName: selProject.name, filterTitle, statusNav, projectGroups,
@@ -2645,8 +2647,8 @@ function computeVals() {
     detailStatusLabel: SM[projStatus].label, detailStatusColor: SM[projStatus].color, detailStatusBg: SM[projStatus].bg,
     detailMeta: projSources.length + " nguồn · " + nProjReady + " có proxy · " + nProjComments + " comment · cập nhật " + selProject.updated,
     statusOptions, sources,
-    listBtnBg: s.sourceView === "list" ? "#2da8e2" : "transparent", listBtnColor: s.sourceView === "list" ? "#07111a" : "var(--co-muted)",
-    gridBtnBg: s.sourceView === "grid" ? "#2da8e2" : "transparent", gridBtnColor: s.sourceView === "grid" ? "#07111a" : "var(--co-muted)",
+    listBtnBg: s.sourceView === "list" ? "#6c5cf6" : "transparent", listBtnColor: s.sourceView === "list" ? "#07111a" : "var(--co-muted)",
+    gridBtnBg: s.sourceView === "grid" ? "#6c5cf6" : "transparent", gridBtnColor: s.sourceView === "grid" ? "#07111a" : "var(--co-muted)",
     selTitle: selSrc ? selSrc.title : "",
     versionLabel: (versions.find((v) => v.id === s.version) || versions[0] || { label: "V1" }).label,
     versions,
@@ -2660,8 +2662,8 @@ function computeVals() {
     posterUrl: selectedSrc && selectedSrc.posterUrl ? selectedSrc.posterUrl : "",
     sceneLabel: selSrc ? selSrc.title : "Video",
     sceneSub: [selectedSrc && selectedSrc.codec, selectedSrc && selectedSrc.resolutionLabel, selectedSrc && selectedSrc.size].filter(Boolean).join(" · "),
-    safeBg: s.safeAspect !== "off" ? "rgba(45,168,226,0.16)" : "var(--co-panel-2)",
-    safeColor: s.safeAspect !== "off" ? "#2da8e2" : "var(--co-text-2)",
+    safeBg: s.safeAspect !== "off" ? "rgba(108,92,246,0.16)" : "var(--co-panel-2)",
+    safeColor: s.safeAspect !== "off" ? "#6c5cf6" : "var(--co-text-2)",
     safeLabel: s.safeAspect === "off" ? "Safe" : ("Safe " + s.safeAspect),
     thumbs, markers: markerLayout.items, markerRailHeight: markerLayout.railHeight, markerWrapPaddingTop: markerLayout.paddingTop,
     activeQualityLabel: activeQ.label, activeQualityBitrate: activeQ.bitrate, qualities,
@@ -2673,15 +2675,15 @@ function computeVals() {
     tabOpenBg: tabBg(s.filter === "open"), tabOpenColor: tabColor(s.filter === "open"),
     tabDoneBg: tabBg(s.filter === "done"), tabDoneColor: tabColor(s.filter === "done"),
     attachLabel: s.attachTc ? ("Gắn @ " + fmtTc(s.currentMs)) : "Không gắn timecode",
-    attachBg: s.attachTc ? "rgba(45,168,226,0.13)" : "var(--co-hover)",
-    attachBorder: s.attachTc ? "rgba(45,168,226,0.3)" : "var(--co-border-2)",
-    attachIcon: s.attachTc ? "#2da8e2" : "#8896ab",
+    attachBg: s.attachTc ? "rgba(108,92,246,0.13)" : "var(--co-hover)",
+    attachBorder: s.attachTc ? "rgba(108,92,246,0.3)" : "var(--co-border-2)",
+    attachIcon: s.attachTc ? "#6c5cf6" : "#8896ab",
     nasCrumbs: crumbs, nasList, importCount,
     nasLoading: s.nasLoading,
     nasError: s.nasError,
     nasRootLabel: "DSM / Shared Folder",
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
-    importBtnBg: importCount > 0 ? "#2da8e2" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
+    importBtnBg: importCount > 0 ? "#6c5cf6" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
     importCountLabel: importCount + " nguồn đã chọn · có thể tạo proxy thủ công sau import",
     speedValue: speedVal, speedColor: tier.color, speedTier: tier.label, speedRec: tier.rec,
     // Pretty-print Mbps → "240 Mbps" or "1.2 Gbps" for header pill + speed panel.
@@ -2691,15 +2693,15 @@ function computeVals() {
     // Zones at 0-22 / 22-40 / 40-100% of scale = weak / ok / strong.
     speedScaleMax: (speedVal >= 1000 ? (Math.ceil(speedVal / 100) / 10).toFixed(1) + " Gbps" : Math.max(60, Math.ceil(speedVal * 1.1 / 10) * 10) + " Mbps"),
     speedPct: Math.min(100, (speedVal / Math.max(60, speedVal * 1.1)) * 100),
-    speedBorder: s.showSpeedPanel ? "rgba(45,168,226,0.5)" : "var(--co-border-2)",
+    speedBorder: s.showSpeedPanel ? "rgba(108,92,246,0.5)" : "var(--co-border-2)",
     autoAbrLabel: autoAbrOn ? ("Đang bật · target " + autoQualityTarget + " · lần gần nhất " + (s.lastAutoQuality || activeQ.label)) : ("Đang tắt · giữ " + activeQ.label + " do chọn tay"),
-    autoAbrColor: autoAbrOn ? "#35c389" : "var(--co-muted)",
+    autoAbrColor: autoAbrOn ? "#2bbe6e" : "var(--co-muted)",
     autoAbrBtnLabel: autoAbrOn ? "Tắt auto" : "Bật lại",
-    autoAbrBtnBg: autoAbrOn ? "rgba(53,195,137,0.12)" : "rgba(245,166,35,0.12)",
-    autoAbrBtnBorder: autoAbrOn ? "rgba(53,195,137,0.28)" : "rgba(245,166,35,0.28)",
+    autoAbrBtnBg: autoAbrOn ? "rgba(43,190,110,0.12)" : "rgba(217,164,91,0.12)",
+    autoAbrBtnBorder: autoAbrOn ? "rgba(43,190,110,0.28)" : "rgba(217,164,91,0.28)",
     autoAbrBtnColor: autoAbrOn ? "#71d7a6" : "#f5c76a",
     projectMembers, memberInviteOptions, memberRoleOptions,
-    inviteBtnBg: inviteReady ? "#2da8e2" : "var(--co-panel-2)",
+    inviteBtnBg: inviteReady ? "#6c5cf6" : "var(--co-panel-2)",
     inviteBtnColor: inviteReady ? "#07111a" : "var(--co-faint)",
     isArchived: !!(selProject && selProject.archivedAt),
     isOwner: (selProject && selProject.myRole === "owner") || !remote.me,
@@ -2710,7 +2712,7 @@ function computeVals() {
     notificationCount: Object.values(s.notificationsByProject || {}).reduce((sum, count) => sum + count, 0),
     notificationTitle: Object.keys(s.notificationsByProject || {}).length ? "Có comment mới ở project khác" : "Chưa có comment mới",
     meInitial: (remote.me && remote.me.initial) || "M",
-    meColor: (remote.me && remote.me.color) || "#2da8e2",
+    meColor: (remote.me && remote.me.color) || "#6c5cf6",
     updateStatus,
     updateBadgeLabel: updateBadge.label,
     updateBadgeColor: updateBadge.color,
@@ -3176,7 +3178,7 @@ function showUpdateReloadBanner(remoteSha) {
   if (document.getElementById("coopUpdateBanner")) return;
   const el = document.createElement("div");
   el.id = "coopUpdateBanner";
-  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;background:#2da8e2;color:#07111a;font-weight:800;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(45,168,226,0.45);display:flex;align-items:center;gap:10px;";
+  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;background:#6c5cf6;color:#07111a;font-weight:800;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(108,92,246,0.45);display:flex;align-items:center;gap:10px;";
   el.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#07111a;"></span>Có bản cập nhật mới — đang tải lại trong giây lát…';
   document.body.appendChild(el);
 }
@@ -3554,10 +3556,10 @@ function closeEventStream() {
 
 function setupOverlay() {
   return `
-  <div style="position:fixed;inset:0;background:radial-gradient(circle at 25% 15%,rgba(45,168,226,0.22),transparent 42%),linear-gradient(160deg,#07090e,#0b0e15);z-index:220;overflow:auto;padding:24px;">
+  <div style="position:fixed;inset:0;background:radial-gradient(circle at 25% 15%,rgba(108,92,246,0.22),transparent 42%),linear-gradient(160deg,#07090e,#0b0e15);z-index:220;overflow:auto;padding:24px;">
     <div style="max-width:760px;margin:0 auto;background:#11151e;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(150deg,#2da8e2,#1878b9);display:grid;place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
+        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
         <div>
           <div style="font-weight:800;font-size:20px;color:#e9eef6;">Thiết lập Coopeditor</div>
           <div style="color:#8896ab;font-size:12px;font-weight:600;">Cấu hình này sẽ được lưu trong volume ứng dụng, không cần chỉnh <code>.env</code>.</div>
@@ -3591,10 +3593,10 @@ function setupOverlay() {
         ${setupToggle("setupDsmInsecure", "DSM dùng self-signed cert", setup.dsmInsecure)}
       </div>
       ${setup.error ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;margin:12px 0;">${esc(setup.error)}</div>` : ""}
-      ${setup.restarting ? `<div style="background:rgba(53,195,137,0.12);border:1px solid rgba(53,195,137,0.3);color:#a9f2ca;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;margin:12px 0;">Đã lưu cấu hình. API đang khởi động lại để áp dụng thiết lập…</div>` : ""}
+      ${setup.restarting ? `<div style="background:rgba(43,190,110,0.12);border:1px solid rgba(43,190,110,0.3);color:#a9f2ca;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;margin:12px 0;">Đã lưu cấu hình. API đang khởi động lại để áp dụng thiết lập…</div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:18px;">
         <div style="color:#5d6b82;font-size:11px;font-weight:600;line-height:1.6;">Sau khi lưu, container API sẽ tự restart và worker sẽ tự nhận cấu hình mới từ volume <code>/data</code>.</div>
-        <button data-act="applySetup" ${setup.busy || setup.restarting ? "disabled" : ""} style="background:${setup.busy || setup.restarting ? "rgba(45,168,226,0.6)" : "#2da8e2"};color:#07111a;font-weight:800;font-size:14px;padding:12px 18px;border:none;border-radius:10px;cursor:${setup.busy || setup.restarting ? "wait" : "pointer"};">${setup.busy ? "Đang lưu…" : "Lưu cấu hình"}</button>
+        <button data-act="applySetup" ${setup.busy || setup.restarting ? "disabled" : ""} style="background:${setup.busy || setup.restarting ? "rgba(108,92,246,0.6)" : "#6c5cf6"};color:#07111a;font-weight:800;font-size:14px;padding:12px 18px;border:none;border-radius:10px;cursor:${setup.busy || setup.restarting ? "wait" : "pointer"};">${setup.busy ? "Đang lưu…" : "Lưu cấu hình"}</button>
       </div>
     </div>
   </div>`;
@@ -3987,13 +3989,13 @@ function deleteCommentById(commentId) {
 
 function loginOverlay() {
   return `
-  <div style="position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,rgba(45,168,226,0.25),transparent 40%),linear-gradient(160deg,#07090e,#0b0e15);z-index:200;display:grid;place-items:center;padding:24px;">
+  <div style="position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,rgba(108,92,246,0.25),transparent 40%),linear-gradient(160deg,#07090e,#0b0e15);z-index:200;display:grid;place-items:center;padding:24px;">
     <div style="width:100%;max-width:380px;background:#11151e;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(150deg,#2da8e2,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(45,168,226,0.4);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
-        <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em;color:#e9eef6;">Coop<span style="color:#2da8e2;">editor</span></div>
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(108,92,246,0.4);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
+        <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em;color:#e9eef6;">Coop<span style="color:#6c5cf6;">editor</span></div>
       </div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:#2da8e2;text-transform:uppercase;">Đăng nhập DSM</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:#6c5cf6;text-transform:uppercase;">Đăng nhập DSM</div>
       <h2 style="margin:5px 0 4px;font-size:18px;font-weight:800;color:#e9eef6;">${auth.needsOtp ? "Nhập mã 2FA" : "Tài khoản Synology DSM"}</h2>
       <div style="color:#8896ab;font-size:12px;font-weight:600;line-height:1.5;margin-bottom:18px;">${auth.needsOtp ? "DSM yêu cầu xác thực 2 bước — nhập mã OTP từ ứng dụng authenticator." : "Đăng nhập bằng tài khoản DSM để truy cập NAS theo đúng quyền của bạn."}</div>
       ${!auth.needsOtp ? `
@@ -4008,7 +4010,7 @@ function loginOverlay() {
       `}
       ${!remote.connected ? `<div style="background:rgba(255,180,60,0.1);border:1px solid rgba(255,180,60,0.35);color:#ffb43c;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;line-height:1.5;">Không kết nối được tới máy chủ${remote.error ? ` (${esc(remote.error)})` : ""}. Đang thử lại tự động… <span style="display:block;margin-top:4px;font-weight:500;color:#c89345;">Nếu vừa cài lại stack, đợi 30-60s cho postgres khởi động xong.</span><button data-act="retryBoot" style="margin-top:8px;background:transparent;border:1px solid rgba(255,180,60,0.5);color:#ffb43c;font-weight:700;font-size:11px;padding:6px 10px;border-radius:7px;cursor:pointer;">Thử lại ngay</button></div>` : ""}
       ${auth.error ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;">${esc(auth.error)}</div>` : ""}
-      <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(45,168,226,0.4)" : "#2da8e2"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(45,168,226,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
+      <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(108,92,246,0.4)" : "#6c5cf6"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(108,92,246,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
       ${auth.needsOtp ? `<button data-act="cancelOtp" style="margin-top:10px;width:100%;background:transparent;color:#8896ab;font-weight:700;font-size:12px;padding:8px;border:1px solid rgba(255,255,255,0.1);border-radius:9px;cursor:pointer;">Huỷ — đăng nhập lại</button>` : ""}
       <div style="margin-top:14px;color:#5d6b82;font-size:11px;font-weight:600;line-height:1.5;text-align:center;">DSM session lưu cookie httpOnly · không bao giờ lộ ra client.</div>
     </div>

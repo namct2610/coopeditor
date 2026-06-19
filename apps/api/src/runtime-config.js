@@ -51,6 +51,7 @@ export function publicRuntimeSummary() {
         pollIntervalSeconds: clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
         feedConfigured: !!(process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
         triggerConfigured: !!(process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
+        triggerTokenConfigured: !!(process.env.UPDATE_TRIGGER_TOKEN || ""),
       },
     };
   }
@@ -78,6 +79,7 @@ export function publicRuntimeSummary() {
       pollIntervalSeconds: (cfg.updater && cfg.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
       feedConfigured: !!((cfg.updater && cfg.updater.feedUrl) || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL),
       triggerConfigured: !!((cfg.updater && cfg.updater.triggerUrl) || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL),
+      triggerTokenConfigured: !!((cfg.updater && cfg.updater.triggerToken) || process.env.UPDATE_TRIGGER_TOKEN || ""),
     },
   };
 }

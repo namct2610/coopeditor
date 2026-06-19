@@ -51,11 +51,14 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "";
   process.env.UPDATE_TRIGGER_URL = "";
+  process.env.UPDATE_TRIGGER_TOKEN = "super-secret-token";
 
   const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?summary=" + Date.now());
   const summary = mod.publicRuntimeSummary();
   assert.equal(summary.updater.feedUrl, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
   assert.equal(summary.updater.triggerUrl, "http://watchtower:8080/v1/update");
+  assert.equal(summary.updater.triggerTokenConfigured, true);
+  assert.equal("triggerToken" in summary.updater, false);
 });
 
 test("normalizeRuntimeConfig rejects Synology host paths for dsmMountRoot", async () => {
