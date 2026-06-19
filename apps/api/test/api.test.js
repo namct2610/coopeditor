@@ -106,7 +106,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.30");
+  assert.equal(r.json.version, "0.2.32");
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -114,7 +114,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.30");
+  assert.equal(r.json.local.version, "0.2.32");
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
@@ -391,6 +391,29 @@ test("comments: list + post + resolve", async () => {
 
   const finalState = await http("/asset-versions/p1s1_v3/comments");
   assert.equal(finalState.json.length, baselineCount);
+});
+
+test("comments reject payloads that exceed the max length", async () => {
+  const tooLong = "x".repeat(4001);
+  const created = await http("/asset-versions/p1s1_v3/comments", {
+    method: "POST",
+    body: { content: tooLong, timestampMs: 1234 },
+  });
+  assert.equal(created.status, 400);
+  assert.match(String(created.json && created.json.error || ""), /4000|ký tự|ki tu/i);
+
+  const existing = await http("/asset-versions/p1s1_v3/comments", {
+    method: "POST",
+    body: { content: "short comment", timestampMs: 1500 },
+  });
+  assert.equal(existing.status, 201);
+
+  const edited = await http("/comments/" + existing.json.id, {
+    method: "PATCH",
+    body: { content: tooLong },
+  });
+  assert.equal(edited.status, 400);
+  assert.match(String(edited.json && edited.json.error || ""), /4000|ký tự|ki tu/i);
 });
 
 test("shared comment link is rate-limited per token/ip", async () => {

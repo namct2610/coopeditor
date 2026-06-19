@@ -12,6 +12,7 @@ const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
 const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
 const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_COMMENT_CONTENT_CHARS = 4000;
 
 import * as store from "./store-index.js";
 import { db, initPg } from "./db.js";
@@ -117,6 +118,17 @@ function parseProjectThumbDataUrl(dataUrl) {
     throw new Error("Project thumbnail vượt quá 2 MB");
   }
   return { contentType, body };
+}
+
+function normalizeCommentContent(raw, { suffix = "" } = {}) {
+  if (typeof raw !== "string") throw new Error("content required");
+  const content = raw.trim();
+  if (!content) throw new Error("content required");
+  const normalizedSuffix = String(suffix || "");
+  if ((content + normalizedSuffix).length > MAX_COMMENT_CONTENT_CHARS) {
+    throw new Error("Comment vượt quá " + MAX_COMMENT_CONTENT_CHARS + " ký tự");
+  }
+  return content + normalizedSuffix;
 }
 
 async function saveProjectThumbDataUrl(projectId, dataUrl) {
@@ -821,8 +833,14 @@ async function handle(req, res, url) {
     if (m === "POST") {
       const body = await readJson(req).catch(() => null);
       if (!body || typeof body.content !== "string" || typeof body.timestampMs !== "number") return bad(res, "content and timestampMs required");
+      let content = "";
+      try {
+        content = normalizeCommentContent(body.content);
+      } catch (err) {
+        return bad(res, err.message || "content required");
+      }
       const annotation = validateAnnotation(body.annotation);
-      const c = await store.addComment({ assetVersionId: vid, authorUserId: sess.userId, content: body.content, timestampMs: body.timestampMs, frameNumber: body.frameNumber, parentId: body.parentId, annotation });
+      const c = await store.addComment({ assetVersionId: vid, authorUserId: sess.userId, content, timestampMs: body.timestampMs, frameNumber: body.frameNumber, parentId: body.parentId, annotation });
       await publishProjectEvent(projectId, { type: "comment", action: "created", comment: c });
       await audit.record({ actorUserId: sess.userId, action: "comment.created", resourceType: "comment", resourceId: c.id, projectId, payload: { timestampMs: c.timestampMs, parentId: c.parentId, hasAnnotation: !!annotation, snippet: c.content.slice(0, 120) } });
       if (mailer.enabled()) notifyCommentByEmail({ comment: c, projectId, authorUserId: sess.userId }).catch((err) => req.log.error({ err: err.message }, "comment mail enqueue failed"));
@@ -839,8 +857,12 @@ async function handle(req, res, url) {
     const body = await readJson(req).catch(() => null);
     if (!body) return bad(res, "Invalid body");
     if (typeof body.content === "string") {
-      const content = body.content.trim();
-      if (!content) return bad(res, "content required");
+      let content = "";
+      try {
+        content = normalizeCommentContent(body.content);
+      } catch (err) {
+        return bad(res, err.message || "content required");
+      }
       const c = await store.setCommentContent(mat[1], content);
       if (!c) return bad(res, "Comment not found", 404);
       await publishProjectEvent(projectId, { type: "comment", action: "updated", comment: c });
@@ -1246,10 +1268,16 @@ async function handleSharedComment(req, res, token) {
   if (link.assetId && version.assetId !== link.assetId) return bad(res, "Version not in shared asset", 403);
   // Use the link's owner (createdBy) as authorUserId; suffix the content with guest_label so it's clear who wrote it.
   const guestSuffix = link.guestLabel ? ` — ${link.guestLabel} (qua link share)` : ` — (qua link share)`;
+  let content = "";
+  try {
+    content = normalizeCommentContent(body.content, { suffix: guestSuffix });
+  } catch (err) {
+    return bad(res, err.message || "content required");
+  }
   const c = await store.addComment({
     assetVersionId: body.assetVersionId,
     authorUserId: link.createdBy,
-    content: body.content.trim() + guestSuffix,
+    content,
     timestampMs: body.timestampMs,
     frameNumber: body.frameNumber,
     parentId: body.parentId,

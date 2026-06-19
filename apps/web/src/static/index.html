@@ -904,7 +904,7 @@ function postComment() {
   const annotation = ((state.annotationStrokes && state.annotationStrokes.length) || (state.annotationTexts && state.annotationTexts.length))
     ? { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() }
     : null;
-  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
+  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", authorKey: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
   state.newComment = "";
   render();
 }
@@ -1261,6 +1261,40 @@ function computeProxyCacheSummary(storage) {
   };
 }
 
+function hydrateProxyCache(cache, { loading = false, error = "" } = {}) {
+  if (!cache) return null;
+  const totalBytes = Number(cache.totalBytes || 0);
+  const renditionCount = Number(cache.renditionCount || 0);
+  const orphanCount = Number(cache.orphanCount || 0);
+  const totalLabel = cache.totalLabel || fmtBytes(totalBytes);
+  const countLabel = cache.countLabel
+    || (renditionCount ? (renditionCount + " proxy đã lưu") : "Chưa có proxy nào");
+  let detailLabel = cache.detailLabel || "";
+  if (error) {
+    detailLabel = totalBytes > 0
+      ? ("Chưa làm mới được số liệu · đang hiển thị cache gần nhất")
+      : "Mở trang quản lý để xem lỗi chi tiết";
+  } else if (loading) {
+    detailLabel = totalBytes > 0
+      ? "Đang làm mới dung lượng proxy từ MinIO…"
+      : "Đang đồng bộ dung lượng từ MinIO…";
+  } else if (!detailLabel) {
+    const detailParts = [];
+    if (orphanCount) detailParts.push(orphanCount + " orphan");
+    if (cache.backend) detailParts.push("lưu trên " + cache.backend);
+    if (cache.note) detailParts.push(cache.note);
+    detailLabel = detailParts.join(" · ") || "Nhấn để mở trang quản lý proxy";
+  }
+  return {
+    ...cache,
+    totalBytes,
+    totalLabel,
+    countLabel,
+    detailLabel,
+    label: cache.label || (totalLabel + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy")),
+  };
+}
+
 function updateProxyCache(cache) {
   window.__proxyCache = cache || null;
   persistProxyCache(window.__proxyCache);
@@ -1321,7 +1355,8 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
   for (const comment of comments || []) {
     if (!comment) continue;
     const bucket = Math.round(Number(comment.ms || 0) / frameBucketMs);
-    const key = (comment.name || "user") + "::" + (comment.initial || "U") + "::" + bucket;
+    const authorKey = String(comment.authorKey || comment.name || comment.initial || "user");
+    const key = authorKey + "::" + bucket;
     if (!grouped.has(key)) {
       grouped.set(key, {
         ms: Number(comment.ms || 0),
@@ -2599,7 +2634,7 @@ function computeVals() {
 
   const mapComment = (c) => {
     const au = A[c.who] || A.me;
-    return { id: c.id, color: au.color, initial: au.initial, name: au.name,
+    return { id: c.id, color: au.color, initial: au.initial, name: au.name, authorKey: c.authorKey || c.who || c.id,
       roleTag: au.role, roleColor: au.role ? "#2bbe6e" : "transparent",
       content: c.content, ago: c.ago, resolved: c.resolved,
       annotation: c.annotation || null,
@@ -2698,18 +2733,33 @@ function computeVals() {
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
   const proxySummary = s.proxyStorageSummary || null;
-  const proxyCache = window.__proxyCache
-    || computeProxyCacheSummary(s.proxyStorage)
-    || computeProxyCacheSummary(proxySummary)
-    || {
-      totalBytes: 0,
-      pct: 0,
-      label: s.proxyStorageError || s.proxyStorageSummaryError
-        ? "Không đọc được proxy storage"
-        : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
-          ? "Đang tải dung lượng proxy…"
-          : "Đang chờ đồng bộ proxy storage…"),
-    };
+  const liveProxyCache = computeProxyCacheSummary(s.proxyStorage) || computeProxyCacheSummary(proxySummary);
+  const proxyCache = hydrateProxyCache(liveProxyCache, {
+    loading: s.proxyStorageLoading || s.proxyStorageSummaryLoading,
+    error: s.proxyStorageError || s.proxyStorageSummaryError,
+  }) || hydrateProxyCache(window.__proxyCache, {
+    loading: s.proxyStorageLoading || s.proxyStorageSummaryLoading,
+    error: s.proxyStorageError || s.proxyStorageSummaryError,
+  }) || {
+    totalBytes: 0,
+    pct: 0,
+    totalLabel: "—",
+    countLabel: s.proxyStorageError || s.proxyStorageSummaryError
+      ? "Không đọc được proxy storage"
+      : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
+        ? "Đang tải dung lượng proxy…"
+        : "Đang chờ đồng bộ proxy storage…"),
+    detailLabel: s.proxyStorageError || s.proxyStorageSummaryError
+      ? "Mở trang quản lý để xem lỗi chi tiết"
+      : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
+        ? "Đang đồng bộ dung lượng từ MinIO…"
+        : "Nhấn để mở trang quản lý proxy"),
+    label: s.proxyStorageError || s.proxyStorageSummaryError
+      ? "Không đọc được proxy storage"
+      : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
+        ? "Đang tải dung lượng proxy…"
+        : "Đang chờ đồng bộ proxy storage…"),
+  };
   const updateStatus = remote.updateStatus || s.updateStatus || null;
   const updateBadge = updateStatus && updateStatus.updateAvailable
     ? { label: "Update", color: "#d9a45b", bg: "rgba(217,164,91,0.14)" }
@@ -4416,7 +4466,7 @@ function applyRemoteToState() {
         who: mapAuthor(r.authorUserId), content: r.content,
       }));
       return {
-        id: c.id, who: mapAuthor(c.authorUserId), ms: c.timestampMs, content: c.content,
+        id: c.id, who: mapAuthor(c.authorUserId), authorKey: c.authorUserId || c.id, ms: c.timestampMs, content: c.content,
         resolved: !!c.resolved, ago: "vừa qua", replies, annotation: c.annotation || null,
       };
     });

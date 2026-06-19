@@ -1,10 +1,10 @@
 {
-  "version": "0.2.31",
-  "summary": "Sửa chẩn đoán mount NAS cho worker để transcode không còn chạy giả khi container chưa thấy /nas.",
+  "version": "0.2.32",
+  "summary": "Làm chắc hơn phần proxy sidebar, marker timeline và chặn comment payload quá dài để giảm rủi ro vận hành.",
   "changes": [
-    "Worker bootstrap giờ fail-fast nếu runtime đã cấu hình nhưng bind mount NAS chưa sẵn sàng, tránh nhận job transcode trong trạng thái online giả.",
-    "Compose NAS mẫu được chốt rõ DSM_MOUNT_ROOT=/nas và ví dụ bind mount Team Folder cụ thể như /volume1/PCNgon:/nas:ro cho cả API lẫn worker.",
-    "Bổ sung test regression cho chế độ startup nghiêm ngặt của worker và cập nhật hướng dẫn deploy NAS để dễ xử lý lỗi Source path not mounted."
+    "Sidebar Bộ nhớ proxy giờ ưu tiên số liệu mới nhất từ API, vẫn giữ được dung lượng cache gần nhất khi request lỗi hoặc đang refresh thay vì rơi về 0 B gây hiểu nhầm.",
+    "Marker avatar trên timeline được nhóm theo đúng tác giả thay vì chỉ dựa vào tên viết tắt, giảm gộp nhầm khi nhiều người có cùng initials hoặc cùng mốc comment.",
+    "API chặn comment quá 4000 ký tự ở cả luồng nội bộ lẫn share link để giảm rủi ro payload bẩn/DoS nhẹ và giữ DB/UI ổn định hơn."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }
