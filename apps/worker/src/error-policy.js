@@ -1,4 +1,4 @@
-const PERMANENT_TRANSODE_ERROR_RE = /ENOENT|EACCES|not mounted|source file not found|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg/i;
+const PERMANENT_TRANSODE_ERROR_RE = /ENOENT|EACCES|not mounted|source file not found|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim/i;
 
 export function isPermanentTranscodeError(err) {
   const text = String(err && err.message || err || "");

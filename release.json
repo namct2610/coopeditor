@@ -1,10 +1,10 @@
 {
-  "version": "0.2.34",
-  "summary": "Làm chắc hơn proxy sidebar và timeline comment/annotation để UI không mất dấu khi backend hoặc MinIO chập chờn.",
+  "version": "0.2.35",
+  "summary": "Làm chắc hàng đợi transcode để job mount lỗi hoặc job trùng không bị sống lại và đè nhau trong worker.",
   "changes": [
-    "Backend proxy storage giờ giữ snapshot tốt gần nhất nếu MinIO tạm thời không phản hồi, giúp sidebar và trang quản lý không rơi về trạng thái trắng hoặc 0 B sai lệch.",
-    "Frontend giữ lại proxy cache gần nhất khi request lỗi, đồng thời hiển thị rõ trạng thái snapshot gần nhất để người dùng biết số liệu đang là fallback.",
-    "Timeline marker và annotation overlay giờ đọc cả reply có timecode/chú thích; reply trong comments panel cũng có nút nhảy timecode để bám đúng mốc review."
+    "Thêm migration dọn active transcode job bị trùng cho cùng rendition và tạo unique partial index ở mức database để chặn race condition enqueue.",
+    "enqueueTranscode trên Postgres giờ dùng INSERT ... ON CONFLICT DO NOTHING, tránh cùng một proxy bị bơm nhiều job queued/running khi người dùng bấm lặp hoặc nhiều request tới cùng lúc.",
+    "Worker policy giờ xem duplicate/superseded job là permanent failure, nên các job trùng cũ sẽ không bị auto-requeue lại mỗi lần worker restart."
   ],
   "publishedAt": "2026-06-19T00:00:00.000Z"
 }

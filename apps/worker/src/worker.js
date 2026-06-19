@@ -187,8 +187,8 @@ try {
            next_run_at=now(),
            started_at=NULL
      WHERE status='running'
-        OR (status='failed' AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg)'))
-        OR (status='queued' AND attempts >= max_attempts AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg)'))
+        OR (status='failed' AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
+        OR (status='queued' AND attempts >= max_attempts AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
     RETURNING id
   `);
   if (r.rowCount > 0) {

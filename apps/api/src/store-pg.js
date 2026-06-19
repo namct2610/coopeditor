@@ -519,13 +519,8 @@ function aliasUserId(raw) {
 export async function enqueueTranscode(renditionId) {
   await q(`
     INSERT INTO transcode_jobs (rendition_id)
-    SELECT $1
-    WHERE NOT EXISTS (
-      SELECT 1
-        FROM transcode_jobs
-       WHERE rendition_id = $1
-         AND status IN ('queued', 'running')
-    )`, [renditionId]);
+    VALUES ($1)
+    ON CONFLICT DO NOTHING`, [renditionId]);
   // notify the worker(s) so they can wake up immediately
   await q(`SELECT pg_notify('coopeditor_jobs', $1)`, [renditionId]).catch(() => {});
 }
