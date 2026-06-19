@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { detectWorkerMountHealth } from "../src/runtime-status.js";
+import { detectWorkerMountHealth, ensureWorkerMountReady } from "../src/runtime-status.js";
 
 test("detectWorkerMountHealth reports ready for an existing directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "co-worker-mount-"));
@@ -40,4 +40,12 @@ test("detectWorkerMountHealth falls back to /nas for legacy host-path configs", 
   assert.equal(status.dsmMountRoot, root);
   assert.equal(status.mountReady, true);
   assert.match(status.mountError, /fallback|dsmmountroot|\/nas|luu lai/i);
+});
+
+test("ensureWorkerMountReady throws the same mount diagnostic when NAS mount is missing", async () => {
+  const missing = join(tmpdir(), "co-worker-mount-missing-" + Date.now());
+  await assert.rejects(
+    () => ensureWorkerMountReady({ DSM_MOUNT_ROOT: missing }),
+    /chưa thấy DSM mount root|khong thay DSM mount root/i,
+  );
 });

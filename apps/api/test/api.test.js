@@ -5,6 +5,9 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdtemp } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { WebSocket } from "ws";
@@ -13,6 +16,7 @@ import { createSignedPlaybackToken } from "../src/hls-proxy.js";
 const PORT = 4399;
 const BASE = "http://localhost:" + PORT;
 let proc;
+let appDataDir = "";
 
 async function waitReady(tries = 60) {
   for (let i = 0; i < tries; i++) {
@@ -33,10 +37,12 @@ async function http(path, opts = {}) {
 }
 
 before(async () => {
+  appDataDir = await mkdtemp(join(tmpdir(), "coopeditor-api-test-"));
   proc = spawn(process.execPath, [fileURLToPath(new URL("../src/server.js", import.meta.url))], {
     env: {
       ...process.env,
       PORT: String(PORT),
+      APP_DATA_DIR: appDataDir,
       DSM_DEV_LOGIN: "1",
       ALLOWED_ORIGINS: "http://localhost:3000",
       HLS_CDN_PUBLIC_URL: "https://cdn.example.com/api/hls",
@@ -215,6 +221,27 @@ test("project templates can be listed, created, and instantiated", async () => {
   assert.equal(fromBlank.json.team.length, 1);
   assert.equal(fromBlank.json.team[0].id, "u_minh");
   assert.equal(fromBlank.json.myRole, "owner");
+});
+
+test("project thumbnail accepts safe image data URLs and rejects SVG payloads", async () => {
+  const png1x1 = "data:image/png;base64,"
+    + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sotm1cAAAAASUVORK5CYII=";
+  const ok = await http("/projects/p1", { method: "PATCH", body: { thumbDataUrl: png1x1 } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.thumbUrl, "/projects/p1/thumb");
+
+  const project = await http("/projects/p1");
+  assert.equal(project.status, 200);
+  assert.equal(project.json.thumbUrl, "/projects/p1/thumb");
+
+  const badSvg = await http("/projects/p1", {
+    method: "PATCH",
+    body: {
+      thumbDataUrl: "data:image/svg+xml;base64," + Buffer.from("<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>").toString("base64"),
+    },
+  });
+  assert.equal(badSvg.status, 400);
+  assert.match(String(badSvg.json && badSvg.json.error || ""), /PNG|JPEG|WebP|thumbnail/i);
 });
 
 test("project members can be listed and invited", async () => {

@@ -30,7 +30,7 @@ import { tmpdir } from "node:os";
 import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { isPermanentTranscodeError, shouldAutoRequeueFailedJob } from "./error-policy.js";
-import { createWorkerRuntimeReporter } from "./runtime-status.js";
+import { createWorkerRuntimeReporter, detectWorkerMountHealth } from "./runtime-status.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
 
@@ -140,10 +140,38 @@ const runtimeReporter = createWorkerRuntimeReporter(pool, {
   hwaccel: HW || "none",
   codecLadder: CODEC_LADDER,
 });
-await runtimeReporter.reportOnce().catch((err) => {
+const initialMountStatus = await runtimeReporter.reportOnce().catch((err) => {
   console.warn("[worker] runtime status bootstrap failed:", err.message);
+  return null;
 });
 runtimeReporter.start();
+
+let mountHealthCache = {
+  checkedAt: initialMountStatus ? Date.now() : 0,
+  status: initialMountStatus,
+  warningAt: 0,
+};
+
+async function currentMountHealth(force = false) {
+  const now = Date.now();
+  if (!force && mountHealthCache.status && now - mountHealthCache.checkedAt < 5000) {
+    return mountHealthCache.status;
+  }
+  const status = await detectWorkerMountHealth(process.env);
+  mountHealthCache = {
+    checkedAt: now,
+    status,
+    warningAt: mountHealthCache.warningAt,
+  };
+  return status;
+}
+
+function logMountWait(status) {
+  const now = Date.now();
+  if (now - mountHealthCache.warningAt < 30000) return;
+  mountHealthCache.warningAt = now;
+  console.warn("[worker] waiting for NAS mount:", status.mountError || ("DSM mount root " + (status.dsmMountRoot || "/nas") + " not ready"));
+}
 
 // Auto-requeue at boot: any job that was orphaned mid-run (worker crashed,
 // pod restarted, host rebooted) sits in status='running' forever otherwise.
@@ -247,6 +275,11 @@ async function updateRendition(rid, patch) {
 }
 
 async function loadJob() {
+  const mount = await currentMountHealth();
+  if (!mount.mountReady) {
+    logMountWait(mount);
+    return null;
+  }
   // claim one queued job whose backoff has expired
   const { rows } = await pool.query(`
     UPDATE transcode_jobs SET status='running', started_at=now(), attempts = attempts + 1

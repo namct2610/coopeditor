@@ -10,6 +10,8 @@ import { join } from "node:path";
 const SPEEDTEST_NOISE = randomBytes(256 * 1024);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
+const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
+const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 import * as store from "./store-index.js";
 import { db, initPg } from "./db.js";
@@ -96,9 +98,31 @@ function projectThumbRecordPath(projectId) {
   return join(PROJECT_THUMB_DIR, projectId + ".txt");
 }
 
+function parseProjectThumbDataUrl(dataUrl) {
+  const raw = String(dataUrl || "").trim();
+  const match = raw.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) throw new Error("Project thumbnail phải là data URL base64 hợp lệ");
+  const contentType = String(match[1] || "").trim().toLowerCase();
+  if (!ALLOWED_PROJECT_THUMB_TYPES.has(contentType)) {
+    throw new Error("Project thumbnail chỉ hỗ trợ PNG, JPEG hoặc WebP");
+  }
+  let body = null;
+  try {
+    body = Buffer.from(match[2], "base64");
+  } catch (_) {
+    throw new Error("Project thumbnail base64 không hợp lệ");
+  }
+  if (!body || !body.length) throw new Error("Project thumbnail rỗng");
+  if (body.length > MAX_PROJECT_THUMB_BYTES) {
+    throw new Error("Project thumbnail vượt quá 2 MB");
+  }
+  return { contentType, body };
+}
+
 async function saveProjectThumbDataUrl(projectId, dataUrl) {
+  const parsed = parseProjectThumbDataUrl(dataUrl);
   await mkdir(PROJECT_THUMB_DIR, { recursive: true });
-  await writeFile(projectThumbRecordPath(projectId), String(dataUrl || "").trim(), "utf8");
+  await writeFile(projectThumbRecordPath(projectId), "data:" + parsed.contentType + ";base64," + parsed.body.toString("base64"), "utf8");
 }
 
 async function clearProjectThumb(projectId) {
@@ -108,10 +132,7 @@ async function clearProjectThumb(projectId) {
 async function loadProjectThumb(projectId) {
   try {
     const raw = String(await readFile(projectThumbRecordPath(projectId), "utf8") || "").trim();
-    if (!raw.startsWith("data:")) return null;
-    const match = raw.match(/^data:([^;,]+);base64,(.+)$/);
-    if (!match) return null;
-    return { contentType: match[1], body: Buffer.from(match[2], "base64") };
+    return parseProjectThumbDataUrl(raw);
   } catch (_) {
     return null;
   }
@@ -462,8 +483,12 @@ async function handle(req, res, url) {
       if (!body) return bad(res, "Invalid body");
       if (Object.prototype.hasOwnProperty.call(body, "thumbDataUrl")) {
         const thumbDataUrl = typeof body.thumbDataUrl === "string" ? body.thumbDataUrl.trim() : "";
-        if (thumbDataUrl) await saveProjectThumbDataUrl(projectId, thumbDataUrl);
-        else await clearProjectThumb(projectId);
+        try {
+          if (thumbDataUrl) await saveProjectThumbDataUrl(projectId, thumbDataUrl);
+          else await clearProjectThumb(projectId);
+        } catch (err) {
+          return bad(res, (err && err.message) || "Project thumbnail không hợp lệ");
+        }
       }
       const patch = { ...body };
       delete patch.thumbDataUrl;

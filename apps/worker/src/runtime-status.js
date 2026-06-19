@@ -62,6 +62,14 @@ export async function detectWorkerMountHealth(env = process.env) {
   }
 }
 
+export async function ensureWorkerMountReady(env = process.env) {
+  const mount = await detectWorkerMountHealth(env);
+  if (!mount.mountReady) {
+    throw new Error(mount.mountError || ("Worker chưa thấy DSM mount root " + (mount.dsmMountRoot || DEFAULT_MOUNT_ROOT) + "."));
+  }
+  return mount;
+}
+
 export function createWorkerRuntimeReporter(pool, {
   workerId = process.env.WORKER_RUNTIME_ID || process.env.HOSTNAME || ("worker-" + process.pid),
   hostname = process.env.HOSTNAME || "",
