@@ -1466,16 +1466,22 @@ function projectsHub(vals) {
 }
 
 function projectDetail(vals) {
+  // Synoframe project browser header: slim breadcrumb + name with status pill
+  // + minimal toolbar on right (members / view toggle / import / Share).
   return `
-  <main style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 40px;">
-    <div data-act="goProjects" class="co-text-hover" style="display:inline-flex;align-items:center;gap:7px;color:var(--co-muted);font-weight:700;font-size:12.5px;cursor:pointer;margin-bottom:14px;">${ICON.back}Tất cả project</div>
+  <main style="flex:1;min-width:0;overflow-y:auto;padding:18px 28px 40px;">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--co-muted);font-size:13px;font-weight:600;margin-bottom:18px;">
+      <span data-act="goProjects" class="co-text-hover" style="cursor:pointer;">All Projects</span>
+      <span style="color:var(--co-faint);">/</span>
+      <span style="color:var(--co-text);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.projectName)}</span>
+    </div>
     <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
       <div style="min-width:0;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.02em;">${esc(vals.projectName)}</h1>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <h1 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;">${esc(vals.projectName)}</h1>
           <div style="position:relative;">
-            <button data-act="toggleStatusMenu" style="display:inline-flex;align-items:center;gap:7px;background:${vals.detailStatusBg};border:1px solid var(--co-border-2);color:${vals.detailStatusColor};font-weight:700;font-size:12px;padding:6px 11px;border-radius:999px;cursor:pointer;">
-              <span style="width:7px;height:7px;border-radius:50%;background:${vals.detailStatusColor};"></span>${esc(vals.detailStatusLabel)}${ICON.chevDownSmall}
+            <button data-act="toggleStatusMenu" style="display:inline-flex;align-items:center;gap:7px;background:${vals.detailStatusBg};border:1px solid var(--co-border);color:${vals.detailStatusColor};font-weight:600;font-size:11.5px;padding:5px 10px;border-radius:999px;cursor:pointer;">
+              <span style="width:6px;height:6px;border-radius:50%;background:${vals.detailStatusColor};"></span>${esc(vals.detailStatusLabel)}${ICON.chevDownSmall}
             </button>
             ${state.showStatusMenu ? `
               <div data-act="closeStatusMenu" style="position:fixed;inset:0;z-index:55;"></div>
@@ -1484,35 +1490,36 @@ function projectDetail(vals) {
                 ${vals.statusOptions.map((o) => `
                   <div data-act="setProjectStatus" data-arg="${o.key}" class="co-hover" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;background:${o.rowBg};">
                     <span style="width:9px;height:9px;border-radius:3px;background:${o.color};"></span>
-                    <span style="font-weight:700;font-size:13px;color:${o.labelColor};">${esc(o.label)}</span>
+                    <span style="font-weight:600;font-size:13px;color:${o.labelColor};">${esc(o.label)}</span>
                   </div>
                 `).join("")}
               </div>
             ` : ""}
           </div>
         </div>
-        <div style="color:var(--co-muted);font-size:13px;font-weight:600;margin-top:7px;">${esc(vals.detailMeta)}</div>
+        <div style="color:var(--co-muted);font-size:12.5px;font-weight:500;margin-top:5px;">${esc(vals.detailMeta)}</div>
       </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
-        <button data-act="toggleMembers" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.team}Quyền truy cập</button>
-        ${vals.canManageProject ? `
-          <button data-act="toggleAudit" class="co-border-hover" title="Xem nhật ký hoạt động" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.clock}Audit</button>
-        ` : ""}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button data-act="toggleMembers" class="co-hover" title="Thành viên / phân quyền" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;">${ICON.team}</button>
+        ${vals.canManageProject ? `<button data-act="toggleAudit" class="co-hover" title="Audit log" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;">${ICON.clock}</button>` : ""}
         ${vals.isOwner ? (
           vals.isArchived
-            ? `<button data-act="restoreProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#2bbe6e;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.restore}Khôi phục</button>`
-            : `<button data-act="archiveProject" class="co-border-hover" title="Ẩn project khỏi workspace, có thể khôi phục" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#d9a45b;font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.archive}Archive</button>`
+            ? `<button data-act="restoreProject" class="co-hover" title="Khôi phục" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:#2bbe6e;cursor:pointer;">${ICON.restore}</button>`
+            : `<button data-act="archiveProject" class="co-hover" title="Archive project" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:#d9a45b;cursor:pointer;">${ICON.archive}</button>`
         ) : ""}
-        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;">${ICON.edit}Sửa project</button>` : ""}
-        <div style="display:flex;gap:3px;background:var(--co-panel);padding:4px;border-radius:10px;border:1px solid var(--co-border);">
-          <button data-act="setListView" title="Danh sách" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
-          <button data-act="setGridView" title="Lưới album" style="width:34px;height:30px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
+        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-hover" title="Sửa project" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;">${ICON.edit}</button>` : ""}
+        <div style="display:flex;gap:2px;background:var(--co-panel);padding:3px;border-radius:9px;">
+          <button data-act="setListView" title="Danh sách" style="width:32px;height:28px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
+          <button data-act="setGridView" title="Lưới album" style="width:32px;height:28px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.gridBtnBg};color:${vals.gridBtnColor};">${ICON.grid}</button>
         </div>
-        <button data-act="openImport" class="co-btn-blue" style="display:inline-flex;align-items:center;gap:8px;background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:13px;padding:9px 15px;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">${ICON.import}Import từ NAS</button>
+        <button data-act="openImport" title="Import nguồn từ NAS" class="co-hover" style="width:36px;height:34px;display:grid;place-items:center;background:var(--co-panel);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;">${ICON.import}</button>
+        <button data-act="toggleMembers" title="Share (mở phân quyền)" style="height:34px;border-radius:9px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:8px;padding:0 14px;cursor:pointer;font-weight:600;font-size:13px;color:#fff;box-shadow:0 4px 14px rgba(108,92,246,0.3);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/></svg>Share
+        </button>
       </div>
     </div>
-    <div style="display:inline-flex;align-items:center;gap:8px;margin:18px 0 12px;color:var(--co-muted);font-size:12px;font-weight:600;background:rgba(108,92,246,0.07);border:1px solid rgba(108,92,246,0.16);padding:8px 13px;border-radius:999px;">
-      ${ICON.reorder}<span>Thứ tự dựng (timeline) — <span style="color:var(--co-accent-ink);font-weight:700;">kéo thả</span> để sắp xếp lại các nguồn theo đúng mạch edit</span>
+    <div style="display:inline-flex;align-items:center;gap:8px;margin:14px 0 14px;color:var(--co-faint);font-size:11.5px;font-weight:500;">
+      ${ICON.reorder}<span>Thứ tự dựng (timeline) — kéo thả để sắp xếp lại các nguồn theo mạch edit</span>
     </div>
     ${state.sourceView === "list" ? sourceListView(vals) : sourceGridView(vals)}
   </main>`;
