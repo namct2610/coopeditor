@@ -2561,9 +2561,6 @@ function review(vals) {
             <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(108,92,246,0.22);border-right:2px solid #6c5cf6;pointer-events:none;"></div>
             <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(108,92,246,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(108,92,246,0.9);"></div></div>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:7px;">
-            <div style="background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.24);color:#6c5cf6;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;font-variant-numeric:tabular-nums;">Hover preview: <span id="reviewTimelineHoverTc">${vals.timelineHoverTc}</span> · click trái để chọn</div>
-          </div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-top:13px;">
           <div style="display:flex;align-items:center;gap:4px;">
@@ -2574,14 +2571,23 @@ function review(vals) {
           <div style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--co-text);"><span id="reviewTcCurrentInline">${vals.tcCurrent}</span> <span style="color:var(--co-faint);font-weight:600;">/ <span id="reviewTcDuration">${vals.tcDuration}</span></span></div>
           <div style="display:flex;align-items:center;gap:8px;color:var(--co-muted);">${ICON.vol}<div style="width:70px;height:4px;border-radius:999px;background:var(--co-border-2);"><div style="width:72%;height:100%;border-radius:999px;background:var(--co-text-2);"></div></div></div>
           <div style="flex:1"></div>
-          <button data-act="cycleSafe" title="Khung an toàn — bấm để đổi 16:9 / 9:16 / 1:1" style="display:inline-flex;align-items:center;gap:7px;background:${vals.safeBg};border:1px solid var(--co-border-2);color:${vals.safeColor};font-weight:700;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer;">${ICON.safe}${vals.safeLabel}</button>
+          <button title="Phụ đề (sắp có)" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-faint);border-radius:8px;cursor:pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 15h3M13 15h4M7 11h2M11 11h6"/></svg>
+          </button>
+          <button data-act="cycleSafe" title="Khung an toàn — đổi 16:9 / 9:16 / 1:1" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:${vals.safeColor};border-radius:8px;cursor:pointer;">${ICON.safe}</button>
+          <button title="Annotation focus (sắp có)" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-faint);border-radius:8px;cursor:pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M12 2c-4 0-7 3-7 7 0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          </button>
+          <button title="Sáng / màu (sắp có)" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-faint);border-radius:8px;cursor:pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>
+          </button>
           <div style="position:relative;">
-            <button data-act="toggleQualityMenu" class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text);font-weight:700;font-size:12.5px;padding:8px 12px;border-radius:8px;cursor:pointer;">
-              <span style="width:7px;height:7px;border-radius:50%;background:#6c5cf6;"></span>${esc(vals.activeQualityLabel)} · ${esc(vals.activeQualityBitrate)}${ICON.chevDown}
+            <button data-act="toggleQualityMenu" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid rgba(108,92,246,0.5);color:#b9aeff;font-weight:700;font-size:11.5px;padding:5px 10px;border-radius:7px;cursor:pointer;letter-spacing:0.04em;">
+              ${esc(vals.activeQualityLabel)}${ICON.chevDownSmall}
             </button>
             ${state.showQualityMenu ? qualityMenu(vals) : ""}
           </div>
-          <button data-act="toggleSafe" class="co-border-hover" style="width:36px;height:36px;display:grid;place-items:center;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.full}</button>
+          <button data-act="toggleSafe" title="Toàn màn hình" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.full}</button>
         </div>
       </div>
     </div>
@@ -2693,6 +2699,7 @@ function commentsPanel(vals) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Revert"><path d="M3 3v5h5"></path><path d="M3.5 8a9 9 0 1 0 2.2-3.3L3 8"></path></svg>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Attach"><path d="M21 11 12 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.6-2.6l8-8"></path></svg>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="width:17px;height:17px;cursor:pointer" title="Emoji"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14a4 4 0 0 0 7 0"></path><circle cx="9" cy="10" r=".6" fill="currentColor"></circle><circle cx="15" cy="10" r=".6" fill="currentColor"></circle></svg>
+            <svg data-act="toggleAnnotationMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:17px;height:17px;cursor:pointer" title="Chú thích trên frame"><path d="M12 3v5M12 16v5M3 12h5M16 12h5"></path><circle cx="12" cy="12" r="3"></circle></svg>
             <div style="flex:1"></div>
             <span style="display:inline-flex;align-items:center;gap:5px;background:var(--co-panel-2);border-radius:7px;padding:5px 9px;font-size:11.5px;font-weight:600;color:var(--co-text-2);cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"></path></svg>Public${ICON.chevDown}</span>
             <button data-act="postComment" style="width:32px;height:32px;border-radius:8px;background:#6c5cf6;border:none;display:grid;place-items:center;cursor:pointer;color:#fff;box-shadow:0 4px 14px rgba(108,92,246,0.35);">${ICON.send}</button>
