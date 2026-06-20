@@ -26,6 +26,7 @@ thành namespace GitHub thật của bạn.
 ## File dùng cho NAS
 
 - [docker-compose.nas-auto.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas-auto.yml)
+- [docker-compose.nas-clean.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas-clean.yml)
 - [docker-compose.watchtower.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.watchtower.yml)
 - [Caddyfile.nas](/Users/etecman/Documents/Frame%20Editor/Caddyfile.nas)
 

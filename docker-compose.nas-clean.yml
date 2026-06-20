@@ -1,0 +1,177 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: coopeditor-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: frame
+      POSTGRES_PASSWORD: frame
+      POSTGRES_DB: coopeditor
+    volumes:
+      - coopeditor_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frame"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: coopeditor-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - coopeditor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: coopeditor-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: coopeditor-minio
+      MINIO_ROOT_PASSWORD: coopeditor-minio-secret
+    volumes:
+      - coopeditor_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: coopeditor-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 coopeditor-minio coopeditor-minio-secret;
+      mc mb --ignore-existing local/coopeditor-proxy;
+      "
+
+  api:
+    image: ghcr.io/namct2610/coopeditor-api:latest
+    container_name: coopeditor-api
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    environment:
+      DATABASE_URL: postgres://frame:frame@postgres:5432/coopeditor
+      EVENT_BUS_DRIVER: pg
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: coopeditor_events
+      APP_DATA_DIR: /data
+      DSM_MOUNT_ROOT: /nas
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: coopeditor-proxy
+      MINIO_ACCESS_KEY: coopeditor-minio
+      MINIO_SECRET_KEY: coopeditor-minio-secret
+      HOST: 0.0.0.0
+      UPDATE_FEED_URL: https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json
+      UPDATE_TRIGGER_URL: http://watchtower:8080/v1/update
+      UPDATE_TRIGGER_TOKEN: coopeditor-local-update
+      UPDATE_POLL_INTERVAL_SECONDS: "900"
+    command: >
+      sh -c "
+        node apps/api/src/migrate.js &&
+        node apps/api/src/bootstrap.js
+      "
+    volumes:
+      - coopeditor_app_data:/data
+      # Sua host path nay thanh Team Folder / Shared Folder thuc te cua anh.
+      # Vi du: /volume1/PCNgon:/nas:ro
+      - /volume1/PCNgon:/nas:ro
+
+  worker:
+    image: ghcr.io/namct2610/coopeditor-worker:latest
+    container_name: coopeditor-worker
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    environment:
+      DATABASE_URL: postgres://frame:frame@postgres:5432/coopeditor
+      EVENT_BUS_DRIVER: pg
+      REDIS_URL: redis://redis:6379
+      EVENT_BUS_STREAM_KEY: coopeditor_events
+      APP_DATA_DIR: /data
+      DSM_MOUNT_ROOT: /nas
+      FFMPEG_PATH: /usr/bin/ffmpeg
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: coopeditor-proxy
+      MINIO_ACCESS_KEY: coopeditor-minio
+      MINIO_SECRET_KEY: coopeditor-minio-secret
+    volumes:
+      - coopeditor_app_data:/data
+      # Phai giong 100% service api.
+      - /volume1/PCNgon:/nas:ro
+
+  web:
+    image: ghcr.io/namct2610/coopeditor-web:latest
+    container_name: coopeditor-web
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    environment:
+      HOST: 0.0.0.0
+
+  gateway:
+    image: caddy:2-alpine
+    container_name: coopeditor-gateway
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    ports:
+      # Neu 8080 trung dich vu khac tren NAS, doi so ben trai, vi du 18080:80
+      - "8080:80"
+    volumes:
+      - ./Caddyfile.nas:/etc/caddy/Caddyfile:ro
+
+  watchtower:
+    image: docker.io/containrrr/watchtower:latest
+    container_name: coopeditor-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_POLL_INTERVAL: "900"
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_TOKEN: coopeditor-local-update
+      WATCHTOWER_HTTP_API_PERIODIC_POLLS: "true"
+
+volumes:
+  coopeditor_postgres_data:
+  coopeditor_redis_data:
+  coopeditor_minio_data:
+  coopeditor_app_data:
