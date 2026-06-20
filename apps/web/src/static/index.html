@@ -211,6 +211,12 @@ const state = {
   // 2-pane settings layout. runtimeSummary cached from /api/setup/status.
   settingsSection: "profile",
   runtimeSummary: null,
+  // Owner-only full config from /admin/runtime-config (secrets masked).
+  runtimeConfigFull: null,
+  settingsDirty: {},   // {"oidc.clientId": "newvalue", ...} — un-saved field edits
+  settingsSaving: false,
+  settingsError: "",
+  settingsFlash: "",
   // Proxy storage management state — list of {renditionId, bytes, projectName, ...}
   showProxyStorage: false,
   proxyStorage: null,
@@ -431,6 +437,56 @@ async function goSettings() {
   // Lazy-load runtime config so the page boots showing whatever data is fresh.
   if (!state.runtimeSummary) {
     try { state.runtimeSummary = await apiPublic("/setup/status"); render(); } catch (_) {}
+  }
+  // Owner-only: fetch full config so integration forms have something to bind.
+  if (!state.runtimeConfigFull) {
+    try {
+      const res = await api("/admin/runtime-config");
+      state.runtimeConfigFull = (res && res.config) || {};
+      render();
+    } catch (_) { /* non-owner gets 403 — read-only stubs already render fine */ }
+  }
+}
+
+// Global field handler — inline oninput="" callbacks reach this. Keeps the
+// dirty object flat ("oidc.clientId" → value) so reading + diffing stays
+// trivial; settingsSave nests it back into the patch body.
+window.__settingsFieldChange = function (dottedKey, value) {
+  state.settingsDirty = { ...(state.settingsDirty || {}), [dottedKey]: value };
+  state.settingsError = "";
+  state.settingsFlash = "";
+  scheduleRender();
+};
+
+async function saveSettingsChanges() {
+  const dirty = state.settingsDirty || {};
+  if (Object.keys(dirty).length === 0) return;
+  // Re-nest the flat dotted keys back into { oidc: { clientId: "..." }, smtp: { ... } }.
+  const patch = {};
+  for (const [k, v] of Object.entries(dirty)) {
+    const parts = k.split(".");
+    let cur = patch;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur[parts[i]] || typeof cur[parts[i]] !== "object") cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = v;
+  }
+  state.settingsSaving = true;
+  state.settingsError = "";
+  render();
+  try {
+    const res = await api("/admin/runtime-config", { method: "PATCH", body: patch });
+    state.runtimeSummary = res && res.summary ? res.summary : state.runtimeSummary;
+    // Refresh masked full config so the inputs reflect what was saved.
+    try { const after = await api("/admin/runtime-config"); state.runtimeConfigFull = (after && after.config) || {}; } catch (_) {}
+    state.settingsDirty = {};
+    state.settingsFlash = "Đã lưu — cấu hình áp dụng ngay, không cần restart.";
+  } catch (err) {
+    state.settingsError = (err && err.message) || "Lưu thất bại";
+  } finally {
+    state.settingsSaving = false;
+    render();
   }
 }
 function openProject(pid) { pause(); setState({ view: "project", selectedProjectId: pid, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
@@ -1244,30 +1300,77 @@ function settingsContent(sec, rc, me, vals) {
         <button data-act="toggleUpdateModal" style="background:#6c5cf6;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">🔄 Mở Update Center</button>
       </div>`;
   }
+  const raw = state.runtimeConfigFull || {};
   if (sec === "oidc") {
-    return integrationStub("OIDC SSO", rc.oidcEnabled, "Đăng nhập qua Keycloak / Auth0 / Google. Sửa block oidc {} trong runtime-config.json.");
+    return integrationForm("OIDC SSO", rc.oidcEnabled, "Đăng nhập qua Keycloak / Auth0 / Google bên cạnh DSM. Sửa rồi nhấn Lưu — config áp dụng ngay không cần restart.", [
+      { key: "issuerUrl", label: "Issuer URL", path: ["oidc","issuerUrl"], placeholder: "https://auth.example.com/realms/coopeditor" },
+      { key: "clientId", label: "Client ID", path: ["oidc","clientId"], placeholder: "coopeditor" },
+      { key: "clientSecret", label: "Client secret", path: ["oidc","clientSecret"], type: "password", placeholder: "(giữ nguyên nếu ***)" },
+      { key: "redirectUri", label: "Redirect URI", path: ["oidc","redirectUri"], placeholder: rc.publicUrl ? (rc.publicUrl + "/api/auth/oidc/callback") : "https://coopeditor.example.com/api/auth/oidc/callback" },
+      { key: "scopes", label: "Scopes", path: ["oidc","scopes"], placeholder: "openid email profile" },
+    ], raw);
   }
   if (sec === "smtp") {
-    return integrationStub("Email (SMTP)", rc.smtpEnabled, "Gửi notification email mỗi khi có comment mới. Sửa block smtp.url trong runtime-config.json.");
+    return integrationForm("Email (SMTP)", rc.smtpEnabled, "Gửi email khi có comment mới. SMTP URL có dạng smtps://user:pass@host:465", [
+      { key: "url", label: "SMTP URL", path: ["smtp","url"], placeholder: "smtps://user:pass@smtp.example.com:465" },
+      { key: "from", label: "From address", path: ["smtp","from"], placeholder: "Coopeditor <no-reply@example.com>" },
+      { key: "digestMinutes", label: "Digest interval (phút)", path: ["smtp","digestMinutes"], type: "number", placeholder: "0 = gửi ngay" },
+    ], raw);
   }
   if (sec === "webhooks") {
-    return integrationStub("Slack / Discord webhooks", rc.webhookEnabled, "Bắn notification realtime tới channel. Sửa block webhooks {} trong runtime-config.json.");
+    return integrationForm("Slack / Discord webhooks", rc.webhookEnabled, "Bắn notification realtime tới channel khi có comment / project event.", [
+      { key: "slackWebhookUrl", label: "Slack webhook URL", path: ["webhooks","slackWebhookUrl"], placeholder: "https://hooks.slack.com/services/..." },
+      { key: "discordWebhookUrl", label: "Discord webhook URL", path: ["webhooks","discordWebhookUrl"], placeholder: "https://discord.com/api/webhooks/..." },
+    ], raw);
   }
   if (sec === "hls") {
-    return integrationStub("HLS CDN", rc.hlsCdnEnabled, "Phục vụ HLS qua CDN bên ngoài thay vì API proxy. Sửa block hls {} trong runtime-config.json.");
+    return integrationForm("HLS CDN", rc.hlsCdnEnabled, "Khi bật, FE fetch HLS playlist + segment trực tiếp từ CDN public, không qua API proxy. Cần signing secret để bảo vệ link.", [
+      { key: "cdnPublicUrl", label: "CDN public URL", path: ["hls","cdnPublicUrl"], placeholder: "https://cdn.example.com/coopeditor-proxy" },
+      { key: "cdnSigningSecret", label: "Signing secret", path: ["hls","cdnSigningSecret"], type: "password", placeholder: "(giữ nguyên nếu ***)" },
+      { key: "cdnTokenTtlSeconds", label: "Token TTL (giây)", path: ["hls","cdnTokenTtlSeconds"], type: "number", placeholder: "300" },
+    ], raw);
   }
   return "";
 }
 
-function integrationStub(title, enabled, desc) {
+// Render an integration edit form. `fields` describes path + label + type.
+// raw = state.runtimeConfigFull from /admin/runtime-config (secrets masked).
+function integrationForm(title, enabled, desc, fields, raw) {
+  const dirty = state.settingsDirty || {};
+  const busy = state.settingsSaving;
+  const err = state.settingsError;
+  const flash = state.settingsFlash;
+  const fieldVal = (f) => {
+    const dottedKey = f.path.join(".");
+    if (Object.prototype.hasOwnProperty.call(dirty, dottedKey)) return dirty[dottedKey];
+    let cur = raw;
+    for (const seg of f.path) cur = cur && typeof cur === "object" ? cur[seg] : undefined;
+    return cur == null ? "" : String(cur);
+  };
   return `
-    <div style="max-width:960px;">
+    <div style="max-width:720px;">
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="font-size:19px;font-weight:700;">${esc(title)}</div>
         <span style="font-size:11px;font-weight:700;color:${enabled ? "#2bbe6e" : "var(--co-faint)"};background:${enabled ? "rgba(43,190,110,0.16)" : "var(--co-hover)"};padding:3px 9px;border-radius:999px;">${enabled ? "ENABLED" : "OFF"}</span>
       </div>
-      <div style="font-size:13.5px;color:var(--co-faint);margin:6px 0 16px;">${esc(desc)}</div>
-      <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;color:var(--co-muted);font-size:13px;">UI form chỉnh trực tiếp sẽ được bổ sung. Trong lúc đó: ssh vào NAS → sửa <span style="font-family:ui-monospace,monospace;color:var(--co-text-2);">/data/runtime-config.json</span> → restart api container.</div>
+      <div style="font-size:13.5px;color:var(--co-faint);margin:6px 0 18px;">${esc(desc)}</div>
+      ${err ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:12px;">${esc(err)}</div>` : ""}
+      ${flash ? `<div style="background:rgba(43,190,110,0.13);border:1px solid rgba(43,190,110,0.3);color:#2bbe6e;font-size:12.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:12px;">${esc(flash)}</div>` : ""}
+      <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+        ${fields.map((f) => `
+          <label style="display:flex;flex-direction:column;gap:5px;">
+            <span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--co-faint);">${esc(f.label)}</span>
+            <input type="${f.type || "text"}" value="${esc(fieldVal(f))}" placeholder="${esc(f.placeholder || "")}"
+                   oninput="window.__settingsFieldChange&&window.__settingsFieldChange('${f.path.join(".")}',this.value)"
+                   style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:9px;padding:10px 12px;color:var(--co-text);font-size:13.5px;outline:none;font-family:${f.type === "password" || f.path.join(".").includes("Secret") ? "ui-monospace,monospace" : "inherit"};" />
+          </label>
+        `).join("")}
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
+          <button data-act="settingsCancel" ${Object.keys(dirty).length === 0 ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border);color:var(--co-text-2);font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;cursor:${Object.keys(dirty).length ? "pointer" : "not-allowed"};opacity:${Object.keys(dirty).length ? "1" : "0.5"};">Hủy thay đổi</button>
+          <button data-act="settingsSave" ${busy || Object.keys(dirty).length === 0 ? "disabled" : ""} style="background:${busy || Object.keys(dirty).length === 0 ? "var(--co-panel-2)" : "#6c5cf6"};border:none;color:${busy || Object.keys(dirty).length === 0 ? "var(--co-faint)" : "#fff"};font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:${busy || Object.keys(dirty).length === 0 ? "not-allowed" : "pointer"};">${busy ? "Đang lưu…" : "Lưu thay đổi"}</button>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--co-faint);margin-top:10px;">Field có giá trị <code style="background:var(--co-hover);padding:1px 5px;border-radius:4px;">***</code> nghĩa là secret đang được giữ — đừng sửa nếu không muốn đổi.</div>
     </div>`;
 }
 
@@ -3169,7 +3272,9 @@ function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
     case "goSettings": return goSettings();
-    case "setSettingsSection": return setState({ settingsSection: arg });
+    case "setSettingsSection": return setState({ settingsSection: arg, settingsDirty: {}, settingsError: "", settingsFlash: "" });
+    case "settingsSave": return saveSettingsChanges();
+    case "settingsCancel": return setState({ settingsDirty: {}, settingsError: "", settingsFlash: "" });
     case "focusWorkspaceSearch": {
       goProjects();
       setTimeout(() => { const el = document.getElementById("workspaceSearch"); if (el) el.focus(); }, 0);

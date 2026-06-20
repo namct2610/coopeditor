@@ -37,7 +37,7 @@ import * as shareLinks from "./share-links.js";
 import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
-import { DEFAULT_UPDATE_FEED_URL, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig } from "./runtime-config.js";
+import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
@@ -1041,6 +1041,58 @@ async function handle(req, res, url) {
   if (p === "/admin/update-trigger" && m === "POST") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
     return send(res, 200, await triggerUpdateRun());
+  }
+
+  // Settings page: read the full runtime-config.json (owner-only). The
+  // /setup/status response is a sanitized summary; this endpoint returns the
+  // raw JSON so edit forms can populate fields. Secrets are masked.
+  if (p === "/admin/runtime-config" && m === "GET") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    const cfg = readRuntimeConfig() || {};
+    // Mask secret-shaped fields so a leaked GET response never reveals them.
+    const masked = JSON.parse(JSON.stringify(cfg));
+    const maskField = (obj, key) => { if (obj && typeof obj[key] === "string" && obj[key]) obj[key] = "***"; };
+    if (masked.oidc) { maskField(masked.oidc, "clientSecret"); }
+    if (masked.smtp) {
+      // smtp.url often carries "smtps://user:password@host" — strip credentials
+      if (typeof masked.smtp.url === "string" && masked.smtp.url) {
+        try { const u = new URL(masked.smtp.url); if (u.username || u.password) { u.username = "***"; u.password = "***"; masked.smtp.url = u.toString(); } } catch (_) {}
+      }
+    }
+    if (masked.hls) { maskField(masked.hls, "cdnSigningSecret"); }
+    if (masked.updater) { maskField(masked.updater, "triggerToken"); }
+    return send(res, 200, { config: masked, configPath: readRuntimeConfig() ? undefined : null });
+  }
+
+  // Owner edits a subset of runtime config from the Settings UI. Server-side
+  // merges patch into current config, validates via normalizeRuntimeConfig,
+  // writes JSON to disk, and re-applies env so the change is live without
+  // restarting the api container.
+  if (p === "/admin/runtime-config" && m === "PATCH") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    const body = await readJson(req).catch(() => null);
+    if (!body || typeof body !== "object") return bad(res, "Invalid body");
+    const current = readRuntimeConfig() || {};
+    // Deep-merge: top-level fields replace, nested objects (oidc/smtp/…) merge
+    // shallowly so partial updates keep untouched keys.
+    const merged = { ...current };
+    for (const [k, v] of Object.entries(body)) {
+      if (v && typeof v === "object" && !Array.isArray(v) && current[k] && typeof current[k] === "object") {
+        merged[k] = { ...current[k], ...v };
+        // "***" sentinel = "keep existing value" (don't overwrite a secret we masked in GET)
+        for (const sk of Object.keys(v)) if (v[sk] === "***") merged[k][sk] = current[k][sk];
+      } else {
+        merged[k] = v;
+      }
+    }
+    try {
+      const written = writeRuntimeConfig(merged);
+      applyRuntimeEnvFromConfig(written);
+      await audit.record({ actorUserId: sess.userId, action: "runtime.config_updated", resourceType: "runtime_config", resourceId: "runtime", payload: { keys: Object.keys(body) } });
+      return send(res, 200, { ok: true, summary: publicRuntimeSummary() });
+    } catch (err) {
+      return bad(res, "Sửa cấu hình thất bại: " + (err && err.message || "lỗi không xác định"), 400);
+    }
   }
 
   if (p === "/proxy-storage-summary" && m === "GET") {
