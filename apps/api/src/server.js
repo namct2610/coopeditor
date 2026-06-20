@@ -1102,6 +1102,7 @@ async function handle(req, res, url) {
       return send(res, 200, {
         backend: payload.backend,
         bucket: payload.bucket || null,
+        stale: !!payload.stale,
         totalBytes: payload.totalBytes || 0,
         orphanCount: payload.orphanCount || 0,
         orphanBytes: payload.orphanBytes || 0,

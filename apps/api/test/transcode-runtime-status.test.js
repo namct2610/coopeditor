@@ -25,3 +25,20 @@ test("summarizeTranscodeWorkers reports warning when mount fallback is active", 
   assert.equal(summary.status, "warning");
   assert.match(summary.message, /fallback|\/nas/i);
 });
+
+test("summarizeTranscodeWorkers explains offline worker when API mount is ready", () => {
+  const summary = summarizeTranscodeWorkers([], {
+    apiMount: {
+      mountReady: true,
+      dsmMountRoot: "/nas",
+      mountError: "",
+    },
+    latestMountFailure: {
+      error: "Source path not mounted in worker: /nas/502. Case G200/C1967.MP4",
+    },
+  });
+  assert.equal(summary.status, "offline");
+  assert.match(summary.message, /API đang thấy DSM mount root \/nas/i);
+  assert.match(summary.message, /Source path not mounted in worker/i);
+  assert.equal(summary.diagnostics.apiMount.mountReady, true);
+});

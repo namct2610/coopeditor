@@ -1,10 +1,10 @@
 {
-  "version": "0.2.38",
-  "summary": "Bổ sung guard chặn cross-site mutation cho API dùng session cookie và chốt worker permanent-failure dứt khoát hơn khi NAS mount lỗi.",
+  "version": "0.2.39",
+  "summary": "Bổ sung chẩn đoán worker/transcode rõ hơn khi NAS mount lệch và giữ ngữ cảnh stale cho proxy storage summary.",
   "changes": [
-    "API gio chặn request POST/PATCH/DELETE cross-site bằng cách kiểm tra Origin, Referer và Sec-Fetch-Site, giảm rủi ro CSRF cho các thao tác dùng session cookie trên NAS/Tailscale.",
-    "Worker gio ghi thẳng permanent failure kiểu source path not mounted / source file not found / permission denied về max_attempts, giúp trạng thái transcode rõ ràng hơn và không để job mount-lỗi nhìn như còn retry được.",
-    "Bo test duoc mo rong cho security mutation guard va worker failure policy, giup cac fix nay co evidence ro rang trong cac lan audit tiep theo."
+    "Transcode runtime status gio phan biet ro truong hop worker khong gui heartbeat nhung API van thay DSM mount root, giup UI goi y dung huong recreate coopeditor-worker sau khi sua volume NAS.",
+    "Neu job transcode gan nhat chet vi source path not mounted / source file not found, thong diep runtime se kem loi do de khoanh ngay vao worker mount thay vi bao offline mo ho.",
+    "Proxy storage summary API nay giu ca co stale, giup sidebar va trang quan ly proxy khong mat ngu canh khi he thong dang hien snapshot cache gan nhat."
   ],
-  "publishedAt": "2026-06-19T00:00:00.000Z"
+  "publishedAt": "2026-06-20T00:00:00.000Z"
 }
