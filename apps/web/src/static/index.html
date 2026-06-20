@@ -173,6 +173,7 @@ const state = {
   selectedProjectId: "",
   sourceView: "grid",
   hubView: "grid",
+  projectFolder: "assets",
   dragId: null,
   showStatusMenu: false,
   projectStatus: {},
@@ -1840,12 +1841,72 @@ function projectListRows(projects) {
   </div>`;
 }
 
+function projectNavPanel(vals) {
+  const selProject = state.projects.find((p) => p.id === state.activeProject) || {};
+  const memberCount = (vals.members || []).length || (selProject.members || []).length || 0;
+  const cover = selProject.cover || "#1d1d22";
+  const coverIsImg = typeof cover === "string" && (cover.startsWith("http") || cover.startsWith("/"));
+  const folder = state.projectFolder || "assets";
+  const item = (id, label, icon, hasChildren, indent) => {
+    const active = folder === id;
+    const padL = indent ? "9px 10px 9px 34px" : "9px 10px";
+    return `<div data-act="setProjectFolder" data-arg="${id}" class="co-hover" style="display:flex;align-items:center;gap:10px;padding:${padL};border-radius:9px;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-text-2)"};background:${active ? "var(--co-hover)" : "transparent"};font-weight:${active ? "600" : "500"};font-size:13.5px;">
+      ${!indent ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--co-faint);">${hasChildren ? '<path d="m6 9 6 6 6-6"/>' : '<path d="m9 6 6 6-6 6"/>'}</svg>` : ""}
+      ${icon}
+      <span>${esc(label)}</span>
+    </div>`;
+  };
+  return `<aside style="width:280px;flex:0 0 280px;border-right:1px solid var(--co-border);display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;background:var(--co-bg);">
+    <div data-act="goProjects" class="co-hover" style="display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:10px;cursor:pointer;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:11px;background:${coverIsImg ? `center/cover no-repeat url(${esc(cover)})` : cover};flex:0 0 40px;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.projectName)}</div>
+        <div style="font-size:12px;color:var(--co-faint);">${memberCount} ${memberCount === 1 ? "Member" : "Members"}</div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:var(--co-faint);"><path d="m8 9 4-4 4 4M8 15l4 4 4-4"/></svg>
+    </div>
+    ${item("assets", "Assets", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="9" cy="12" r="1.4"/><path d="m6 18 4-3 3 2 3-3 3 3"/></svg>`, true, false)}
+    ${item("collections", "Collections", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>`, false, false)}
+    ${item("nas", "NAS Sources", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><circle cx="6.8" cy="7.5" r=".7" fill="currentColor"/><circle cx="6.8" cy="16.5" r=".7" fill="currentColor"/></svg>`, false, true)}
+    ${item("trash", "Recently Deleted", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>`, false, true)}
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid var(--co-border);margin:0 -4px;padding-top:14px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);padding:0 10px 10px;">Share Links</div>
+      <div data-act="toggleMembers" class="co-hover" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;color:var(--co-text-2);">
+        <div style="width:38px;height:28px;border-radius:6px;background:var(--co-panel);display:grid;place-items:center;color:var(--co-faint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></div>
+        <span style="font-size:13.5px;">All Share Links</span>
+      </div>
+    </div>
+  </aside>`;
+}
+
 function projectDetail(vals) {
   // Synoframe project header: 56px top bar = breadcrumb + Team pill + days-left
   // + search + 3 panel toggles. Status menu + action icons live in a slim
   // sub-row beneath. Big H1 removed — the project name is the breadcrumb's
   // current segment.
+  const folder = state.projectFolder || "assets";
+  let body;
+  if (folder === "nas" && vals.nasLibrary) {
+    body = `<div style="padding:0 28px 40px;color:var(--co-muted);font-size:13px;">
+      <div style="font-size:14px;font-weight:700;color:var(--co-text);margin:8px 0 10px;">NAS Library</div>
+      <div style="font-size:12.5px;line-height:1.55;">Cấu hình NAS mount đang trỏ vào <code style="background:var(--co-panel);padding:1px 5px;border-radius:4px;">${esc(vals.nasLibrary.mount || "—")}</code>. Bấm <strong>Import</strong> trên thanh công cụ để chọn file mới.</div>
+    </div>`;
+  } else if (folder === "collections") {
+    body = `<div style="padding:30px 28px;text-align:center;color:var(--co-faint);font-size:13px;">Collections — sắp ra mắt. Nhóm các nguồn lại với nhau để review theo chủ đề.</div>`;
+  } else if (folder === "trash") {
+    body = `<div style="padding:30px 28px;text-align:center;color:var(--co-faint);font-size:13px;">Recently Deleted — nguồn xoá sẽ giữ ở đây 30 ngày trước khi purge hẳn.</div>`;
+  } else {
+    body = `<div style="padding:0 28px 40px;">
+      <div style="display:inline-flex;align-items:center;gap:8px;margin:10px 0 14px;color:var(--co-faint);font-size:11.5px;font-weight:500;">
+        ${ICON.reorder}<span>Thứ tự dựng — kéo thả để sắp xếp các nguồn theo mạch edit</span>
+      </div>
+      ${state.sourceView === "list" ? sourceListView(vals) : sourceGridView(vals)}
+    </div>`;
+  }
   return `
+  <div style="flex:1;display:flex;min-width:0;min-height:0;">
+    ${projectNavPanel(vals)}
   <main style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column;">
     <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--co-border);">
       <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;">
@@ -1900,13 +1961,9 @@ function projectDetail(vals) {
         ${vals.canManageProject && !vals.isArchived ? `<button data-act="openImport" class="co-hover" title="Import từ NAS" style="width:32px;height:30px;display:grid;place-items:center;background:transparent;border:none;border-radius:8px;color:var(--co-faint);cursor:pointer;">${ICON.import}</button>` : ""}
       </div>
     </div>
-    <div style="padding:0 28px 40px;">
-      <div style="display:inline-flex;align-items:center;gap:8px;margin:10px 0 14px;color:var(--co-faint);font-size:11.5px;font-weight:500;">
-        ${ICON.reorder}<span>Thứ tự dựng — kéo thả để sắp xếp các nguồn theo mạch edit</span>
-      </div>
-      ${state.sourceView === "list" ? sourceListView(vals) : sourceGridView(vals)}
-    </div>
-  </main>`;
+    ${body}
+  </main>
+  </div>`;
 }
 
 function sourceEmptyState(vals) {
@@ -3581,6 +3638,7 @@ function handleAct(act, arg, e, node) {
     case "setGridView": return setState({ sourceView: "grid" });
     case "setHubGrid": return setState({ hubView: "grid" });
     case "setHubList": return setState({ hubView: "list" });
+    case "setProjectFolder": return setState({ projectFolder: arg || "assets" });
     case "cycleStatusFilter": {
       const order = ["all", ...Object.keys(SM)];
       const i = order.indexOf(state.statusFilter);
