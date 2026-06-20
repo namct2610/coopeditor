@@ -1263,25 +1263,27 @@ function settingsContent(sec, rc, me, vals) {
       </div>`;
   }
   if (sec === "system") {
-    return `
-      <div style="max-width:960px;">
-        <div style="font-size:19px;font-weight:700;">Runtime configuration</div>
-        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 20px;">Cấu hình DSM + system paths. Sửa qua <span style="font-family:ui-monospace,monospace;color:var(--co-text-2);">runtime-config.json</span> trên NAS, restart api container.</div>
-        <div style="background:var(--co-panel);border-radius:13px;overflow:hidden;">
-          ${settingsKv("Configured", rc.configured ? "yes" : "no")}
-          ${settingsKv("Config path", rc.configPath, "File JSON trên NAS")}
-          ${settingsKv("App data dir", rc.appDataDir)}
-          ${settingsKv("Public URL", rc.publicUrl, "URL public của Coopeditor")}
-          ${settingsKv("DSM host", rc.dsmHost)}
-          ${settingsKv("DSM mount root", rc.dsmMountRoot, "Mount của /volume1 trong container API")}
-          ${settingsKv("DSM dev login", rc.dsmDevLogin ? "ON" : "off")}
-        </div>
-        <div style="font-size:16px;font-weight:700;margin:24px 0 10px;">Transcode worker</div>
-        <div style="background:var(--co-panel);border-radius:13px;overflow:hidden;">
-          ${settingsKv("Hardware accel", (rc.transcode && rc.transcode.hwaccel) || "auto", "qsv / vaapi / nvenc / (CPU)")}
-          ${settingsKv("Codec ladder", rc.transcode && rc.transcode.codecLadder)}
-          ${settingsKv("Worker concurrency", rc.transcode && rc.transcode.workerConcurrency)}
-        </div>
+    return integrationForm("Runtime — DSM + URL", true,
+      "URL public + kết nối DSM. publicUrl bắt buộc; dsmHost cần thiết để login DSM (hoặc bật dev login để bypass khi test).", [
+        { key: "publicUrl", label: "Public URL", path: ["publicUrl"], placeholder: "https://coopeditor.example.com" },
+        { key: "dsmHost", label: "DSM host", path: ["dsmHost"], placeholder: "https://nas.local:5001" },
+        { key: "dsmMountRoot", label: "DSM mount trong container API", path: ["dsmMountRoot"], placeholder: "/nas" },
+        { key: "dsmDevLogin", label: "Dev login (bypass DSM — chỉ test)", path: ["dsmDevLogin"], type: "checkbox" },
+        { key: "dsmInsecure", label: "Cho phép TLS self-signed (DSM)", path: ["dsmInsecure"], type: "checkbox" },
+      ], state.runtimeConfigFull || {}) + `
+      <div style="max-width:720px;margin-top:24px;">
+        ${integrationForm("Transcode worker", true,
+          "hwaccel='qsv'/'vaapi'/'nvenc' → bật GPU; bỏ trống → CPU libx264. workerConcurrency = số job song song. Áp dụng ngay không cần restart worker.", [
+            { key: "hwaccel", label: "Hardware accel (qsv / vaapi / nvenc / blank)", path: ["transcode","hwaccel"], placeholder: "qsv" },
+            { key: "codecLadder", label: "Codec ladder (h264 / h265 / mixed)", path: ["transcode","codecLadder"], placeholder: "h264" },
+            { key: "workerConcurrency", label: "Worker concurrency", path: ["transcode","workerConcurrency"], type: "number", placeholder: "2" },
+            { key: "maxConcurrency", label: "Max concurrency (cap autoscale)", path: ["transcode","maxConcurrency"], type: "number", placeholder: "3" },
+          ], state.runtimeConfigFull || {})}
+      </div>
+      <div style="max-width:720px;margin-top:24px;background:var(--co-panel);border-radius:13px;padding:18px 20px;font-size:12.5px;color:var(--co-faint);line-height:1.6;">
+        <strong style="color:var(--co-text-2);">System paths (read-only):</strong><br>
+        Config: <code style="color:var(--co-text-2);font-family:ui-monospace,monospace;">${esc(rc.configPath || "—")}</code><br>
+        App data: <code style="color:var(--co-text-2);font-family:ui-monospace,monospace;">${esc(rc.appDataDir || "—")}</code>
       </div>`;
   }
   if (sec === "proxy") {
@@ -1345,6 +1347,7 @@ function integrationForm(title, enabled, desc, fields, raw) {
     if (Object.prototype.hasOwnProperty.call(dirty, dottedKey)) return dirty[dottedKey];
     let cur = raw;
     for (const seg of f.path) cur = cur && typeof cur === "object" ? cur[seg] : undefined;
+    if (f.type === "checkbox") return !!cur;
     return cur == null ? "" : String(cur);
   };
   return `
@@ -1357,14 +1360,22 @@ function integrationForm(title, enabled, desc, fields, raw) {
       ${err ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:12px;">${esc(err)}</div>` : ""}
       ${flash ? `<div style="background:rgba(43,190,110,0.13);border:1px solid rgba(43,190,110,0.3);color:#2bbe6e;font-size:12.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:12px;">${esc(flash)}</div>` : ""}
       <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
-        ${fields.map((f) => `
-          <label style="display:flex;flex-direction:column;gap:5px;">
+        ${fields.map((f) => {
+          const dottedKey = f.path.join(".");
+          if (f.type === "checkbox") {
+            const checked = !!fieldVal(f);
+            return `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="checkbox" ${checked ? "checked" : ""} onchange="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.checked)" style="width:18px;height:18px;accent-color:#6c5cf6;cursor:pointer;" />
+              <span style="font-size:13px;color:var(--co-text);">${esc(f.label)}</span>
+            </label>`;
+          }
+          return `<label style="display:flex;flex-direction:column;gap:5px;">
             <span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--co-faint);">${esc(f.label)}</span>
             <input type="${f.type || "text"}" value="${esc(fieldVal(f))}" placeholder="${esc(f.placeholder || "")}"
-                   oninput="window.__settingsFieldChange&&window.__settingsFieldChange('${f.path.join(".")}',this.value)"
-                   style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:9px;padding:10px 12px;color:var(--co-text);font-size:13.5px;outline:none;font-family:${f.type === "password" || f.path.join(".").includes("Secret") ? "ui-monospace,monospace" : "inherit"};" />
-          </label>
-        `).join("")}
+                   oninput="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.value)"
+                   style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:9px;padding:10px 12px;color:var(--co-text);font-size:13.5px;outline:none;font-family:${f.type === "password" || dottedKey.includes("Secret") ? "ui-monospace,monospace" : "inherit"};" />
+          </label>`;
+        }).join("")}
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
           <button data-act="settingsCancel" ${Object.keys(dirty).length === 0 ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border);color:var(--co-text-2);font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;cursor:${Object.keys(dirty).length ? "pointer" : "not-allowed"};opacity:${Object.keys(dirty).length ? "1" : "0.5"};">Hủy thay đổi</button>
           <button data-act="settingsSave" ${busy || Object.keys(dirty).length === 0 ? "disabled" : ""} style="background:${busy || Object.keys(dirty).length === 0 ? "var(--co-panel-2)" : "#6c5cf6"};border:none;color:${busy || Object.keys(dirty).length === 0 ? "var(--co-faint)" : "#fff"};font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:${busy || Object.keys(dirty).length === 0 ? "not-allowed" : "pointer"};">${busy ? "Đang lưu…" : "Lưu thay đổi"}</button>
