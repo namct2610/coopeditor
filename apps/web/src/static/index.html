@@ -207,6 +207,10 @@ const state = {
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
+  // Player side panel — "comments" (default) or "fields" (asset metadata).
+  playerPanelTab: "comments",
+  replyingTo: null,        // parent comment id when composing a reply
+  replyingToTcLabel: "",    // cached tc label so reply UI shows parent's time
   // Settings page (Synoframe pass 7) — section currently visible in the
   // 2-pane settings layout. runtimeSummary cached from /api/setup/status.
   settingsSection: "profile",
@@ -2508,7 +2512,13 @@ function qualityMenu(vals) {
 function commentsPanel(vals) {
   return `
     <aside style="width:340px;flex:0 0 340px;background:var(--co-chrome);border-left:1px solid var(--co-border);display:flex;flex-direction:column;min-height:0;">
-      <!-- Synoframe-style header: just the 3 tabs (no separate "Comments" heading) -->
+      <!-- Synoframe spec: Comments / Fields top-level tabs, then per-mode header -->
+      <div style="display:flex;padding:12px 14px 0;gap:6px;">
+        <div data-act="setPlayerPanel" data-arg="comments" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "comments" ? "rgba(108,92,246,0.14)" : "transparent"};color:${state.playerPanelTab === "comments" ? "var(--co-text)" : "var(--co-muted)"};">Comments</div>
+        <div data-act="setPlayerPanel" data-arg="fields" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "fields" ? "rgba(108,92,246,0.14)" : "transparent"};color:${state.playerPanelTab === "fields" ? "var(--co-text)" : "var(--co-muted)"};">Fields</div>
+      </div>
+      ${state.playerPanelTab === "fields" ? fieldsPanel(vals) : `
+      <!-- Comments filter sub-tabs -->
       <div style="display:flex;padding:14px 14px 6px;gap:6px;">
         <div data-act="filterAll" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabAllBg};color:${vals.tabAllColor};">Tất cả ${vals.countAll}</div>
         <div data-act="filterOpen" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabOpenBg};color:${vals.tabOpenColor};">Chưa xong ${vals.countOpen}</div>
@@ -2560,7 +2570,7 @@ function commentsPanel(vals) {
                 `).join("")}
               </div>
             ` : ""}
-            <div data-stop="1" style="margin:9px 0 0 35px;font-size:12.5px;color:var(--co-faint);cursor:pointer;display:inline-block;" class="co-text-hover">Reply</div>
+            <div data-stop="1" data-act="startReply" data-arg="${c.id}" style="margin:9px 0 0 35px;font-size:12.5px;color:${state.replyingTo === c.id ? "#6c5cf6" : "var(--co-faint)"};cursor:pointer;display:inline-block;" class="co-text-hover">${state.replyingTo === c.id ? "✕ Hủy reply" : "Reply"}</div>
           </div>
         `).join("")}
         ${vals.emptyState ? `
@@ -2572,6 +2582,7 @@ function commentsPanel(vals) {
       </div>
       <!-- Synoframe composer: tc tag + inline input, toolbar row with icons + send -->
       <div style="flex:0 0 auto;border-top:1px solid var(--co-border);padding:12px 14px;background:var(--co-chrome);">
+        ${state.replyingTo ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.25);border-radius:9px;padding:6px 10px;margin-bottom:8px;font-size:11.5px;color:#b9aeff;font-weight:600;">↳ Reply${state.replyingToTcLabel ? ` @ ${esc(state.replyingToTcLabel)}` : ""} <button data-act="startReply" data-arg="${esc(state.replyingTo)}" style="margin-left:auto;background:transparent;border:none;color:#b9aeff;cursor:pointer;font-weight:700;font-size:13px;">✕</button></div>` : ""}
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:11px;padding:10px 12px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span data-act="toggleAttach" title="${esc(vals.attachLabel)}" id="commentAttachLabel" style="font-variant-numeric:tabular-nums;background:${state.attachTc ? "rgba(217,164,91,0.16)" : "var(--co-hover)"};color:${state.attachTc ? "#d9a45b" : "var(--co-faint)"};border-radius:5px;padding:2px 6px;font-size:11px;font-weight:600;flex:0 0 auto;cursor:pointer;">${state.attachTc ? esc(vals.tcCurrent) : "no tc"}</span>
@@ -2587,7 +2598,68 @@ function commentsPanel(vals) {
           </div>
         </div>
       </div>
+      `}
     </aside>`;
+}
+
+// Fields tab — asset metadata + version status + actions. Layout follows
+// Synoframe.dc.html lines 566-589.
+function fieldsPanel(vals) {
+  const src = selectedSource() || {};
+  const renditions = (state._currentVersionId && REMOTE_RENDITIONS && REMOTE_RENDITIONS[state._currentVersionId]) || [];
+  const resLabel = src.resolutionLabel || (src.width && src.height ? `${src.width}×${src.height}` : "—");
+  const bitrate = src.bitrateKbps ? `${(src.bitrateKbps / 1000).toFixed(2)} Mbps` : "—";
+  const ready = renditions.filter((r) => r.status === "ready").length;
+  const rendStatus = renditions.length ? `${ready}/${renditions.length} proxy sẵn sàng` : "Chưa có proxy";
+  return `
+  <div style="flex:1;overflow-y:auto;padding:16px 14px 18px;">
+    <div style="font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(src.title || "—")}</div>
+    <div style="font-size:12.5px;color:var(--co-faint);margin:4px 0 16px;">${esc(rendStatus)}</div>
+    <!-- Codec / Resolution / Bitrate compact card -->
+    <div style="display:flex;gap:10px;background:var(--co-panel);border-radius:11px;padding:13px;margin-bottom:14px;">
+      <div style="flex:1;"><div style="font-size:10.5px;color:var(--co-faint);letter-spacing:0.06em;text-transform:uppercase;">Codec</div><div style="font-size:13px;font-weight:600;margin-top:3px;">${esc(src.codec || "—")}</div></div>
+      <div style="flex:1;"><div style="font-size:10.5px;color:var(--co-faint);letter-spacing:0.06em;text-transform:uppercase;">Resolution</div><div style="font-size:13px;font-weight:600;margin-top:3px;">${esc(resLabel)}</div></div>
+      <div style="flex:1;"><div style="font-size:10.5px;color:var(--co-faint);letter-spacing:0.06em;text-transform:uppercase;">Bitrate</div><div style="font-size:13px;font-weight:600;margin-top:3px;">${esc(bitrate)}</div></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <div style="flex:1;background:var(--co-panel);border-radius:10px;padding:12px;">
+        <div style="font-size:11px;color:var(--co-faint);margin-bottom:8px;">Tác giả</div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="width:22px;height:22px;border-radius:6px;background:${esc((remote.me && remote.me.color) || "#6c5cf6")};display:grid;place-items:center;font-size:10px;font-weight:700;color:#0a0a0d;">${esc((remote.me && remote.me.initial) || "?")}</span>
+          <span style="font-size:12.5px;color:var(--co-text);">${esc((remote.me && remote.me.name) || "—")}</span>
+        </div>
+      </div>
+      <div style="flex:1;background:var(--co-panel);border-radius:10px;padding:12px;">
+        <div style="font-size:11px;color:var(--co-faint);margin-bottom:8px;">Trạng thái proxy</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:${ready === renditions.length && renditions.length ? "rgba(43,190,110,0.16)" : "rgba(217,164,91,0.16)"};color:${ready === renditions.length && renditions.length ? "#2bbe6e" : "#d9a45b"};border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;">
+          <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>
+          ${ready === renditions.length && renditions.length ? "Đầy đủ" : (renditions.length ? "Đang chờ" : "Chưa tạo")}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:13.5px;font-weight:600;margin-bottom:8px;">All Fields</div>
+    <div style="background:var(--co-panel);border-radius:10px;overflow:hidden;">
+      ${[
+        ["NAS path", src.nasPath || "—"],
+        ["Duration", src.dur ? fmtDur(src.dur) : "—"],
+        ["FPS", src.fps || vals.frameRate || "—"],
+        ["File size", src.size || "—"],
+        ["Frame rate", src.frameRate ? src.frameRate + " fps" : "—"],
+        ["Source id", src.id || "—"],
+        ["Version id", state._currentVersionId || "—"],
+        ["Project id", state.selectedProjectId || "—"],
+      ].map(([k, v]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 13px;border-bottom:1px solid var(--co-border);font-size:12.5px;">
+          <span style="color:var(--co-faint);">${esc(k)}</span>
+          <span style="color:var(--co-text);font-family:ui-monospace,monospace;font-size:11.5px;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:right;" title="${esc(String(v))}">${esc(String(v))}</span>
+        </div>
+      `).join("")}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button data-act="openTranscode" style="flex:1;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:600;font-size:12.5px;padding:9px;border-radius:9px;cursor:pointer;">Quản lý proxy ladder</button>
+      ${vals.canManageProject ? `<button data-act="editSource" data-arg="${esc(src.id || "")}" style="flex:1;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:600;font-size:12.5px;padding:9px;border-radius:9px;cursor:pointer;">Đổi tên</button>` : ""}
+    </div>
+  </div>`;
 }
 
 function transcodeModal(vals) {
@@ -3284,6 +3356,15 @@ function handleAct(act, arg, e, node) {
     case "goProjects": return goProjects();
     case "goSettings": return goSettings();
     case "setSettingsSection": return setState({ settingsSection: arg, settingsDirty: {}, settingsError: "", settingsFlash: "" });
+    case "setPlayerPanel": return setState({ playerPanelTab: arg });
+    case "startReply": {
+      if (state.replyingTo === arg) return setState({ replyingTo: null, replyingToTcLabel: "" });
+      const parent = (state.comments || []).find((c) => c.id === arg);
+      const tcLabel = parent ? fmtTc(parent.ms || 0) : "";
+      setState({ replyingTo: arg, replyingToTcLabel: tcLabel });
+      setTimeout(() => { const el = document.getElementById("commentInput"); if (el) el.focus(); }, 0);
+      return;
+    }
     case "settingsSave": return saveSettingsChanges();
     case "settingsCancel": return setState({ settingsDirty: {}, settingsError: "", settingsFlash: "" });
     case "focusWorkspaceSearch": {
@@ -4334,10 +4415,11 @@ async function toggleShowArchived() {
 
 // ---- mutations (write-through) ----
 
-async function remotePostComment(versionId, content, timestampMs, frameNumber, annotation) {
+async function remotePostComment(versionId, content, timestampMs, frameNumber, annotation, parentId) {
   if (!remote.me) return;
   const body = { content, timestampMs, frameNumber };
   if (annotation && ((annotation.strokes && annotation.strokes.length) || (annotation.texts && annotation.texts.length))) body.annotation = annotation;
+  if (parentId) body.parentId = parentId;
   try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body }); await refreshComments(versionId); render(); } catch (_) {}
 }
 async function remoteToggleResolve(commentId, resolved) {
@@ -4887,10 +4969,13 @@ postComment = function () {
   const annotation = ((state.annotationStrokes && state.annotationStrokes.length) || (state.annotationTexts && state.annotationTexts.length))
     ? { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() }
     : null;
+  const parentId = state.replyingTo;
   _origPostComment();
   if (remote.me && state._currentVersionId && text) {
-    remotePostComment(state._currentVersionId, text, Math.round(state.currentMs), Math.round(state.currentMs / 1000 * state.fps), annotation);
+    remotePostComment(state._currentVersionId, text, Math.round(state.currentMs), Math.round(state.currentMs / 1000 * state.fps), annotation, parentId);
   }
+  // Clear reply target after sending
+  if (parentId) { state.replyingTo = null; state.replyingToTcLabel = ""; }
   // After post: clear annotation + exit drawing mode for a clean next comment
   if (annotation) {
     state.annotationStrokes = [];
