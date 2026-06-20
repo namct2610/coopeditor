@@ -2597,7 +2597,9 @@ function commentsPanel(vals) {
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:11px;padding:10px 12px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span data-act="toggleAttach" title="${esc(vals.attachLabel)}" id="commentAttachLabel" style="font-variant-numeric:tabular-nums;background:${state.attachTc ? "rgba(217,164,91,0.16)" : "var(--co-hover)"};color:${state.attachTc ? "#d9a45b" : "var(--co-faint)"};border-radius:5px;padding:2px 6px;font-size:11px;font-weight:600;flex:0 0 auto;cursor:pointer;">${state.attachTc ? esc(vals.tcCurrent) : "no tc"}</span>
-            <textarea id="commentInput" placeholder="Leave your comment..." rows="1" style="flex:1;resize:none;background:transparent;border:none;outline:none;color:var(--co-text);font-size:13.5px;line-height:1.45;min-height:22px;max-height:120px;">${esc(state.newComment)}</textarea>
+            <textarea id="commentInput" placeholder="${state.replyingTo ? "Trả lời…" : "Viết bình luận…"}" rows="1"
+              oninput="this.style.height='auto';this.style.height=Math.min(120,this.scrollHeight)+'px';"
+              style="flex:1;resize:none;background:transparent;border:none;outline:none;color:var(--co-text);font-size:13.5px;line-height:1.45;min-height:22px;max-height:120px;overflow-y:auto;">${esc(state.newComment)}</textarea>
           </div>
           <div style="display:flex;align-items:center;gap:14px;margin-top:10px;color:var(--co-faint);">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Revert"><path d="M3 3v5h5"></path><path d="M3.5 8a9 9 0 1 0 2.2-3.3L3 8"></path></svg>
@@ -3563,7 +3565,10 @@ document.addEventListener("change", (e) => {
   }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.target && e.target.id === "commentInput" && (e.metaKey || e.ctrlKey) && e.key === "Enter") {
+  // Comment composer: Enter sends, Shift+Enter inserts a newline. Cmd/Ctrl+Enter
+  // still sends for users used to that shortcut. IME composition is respected so
+  // Vietnamese typing doesn't fire mid-character.
+  if (e.target && e.target.id === "commentInput" && e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     postComment();
     return;
