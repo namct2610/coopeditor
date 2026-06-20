@@ -207,6 +207,10 @@ const state = {
   showTranscode: false,
   showImport: false,
   showUpdateModal: false,
+  // Settings page (Synoframe pass 7) — section currently visible in the
+  // 2-pane settings layout. runtimeSummary cached from /api/setup/status.
+  settingsSection: "profile",
+  runtimeSummary: null,
   // Proxy storage management state — list of {renditionId, bytes, projectName, ...}
   showProxyStorage: false,
   proxyStorage: null,
@@ -421,6 +425,14 @@ function bindReviewVideo() {
 
 // ---- navigation ----
 function goProjects() { pause(); setState({ view: "projects", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
+async function goSettings() {
+  pause();
+  setState({ view: "settings", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false });
+  // Lazy-load runtime config so the page boots showing whatever data is fresh.
+  if (!state.runtimeSummary) {
+    try { state.runtimeSummary = await apiPublic("/setup/status"); render(); } catch (_) {}
+  }
+}
 function openProject(pid) { pause(); setState({ view: "project", selectedProjectId: pid, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function openSource(id) {
   pause();
@@ -1105,9 +1117,158 @@ function leftRail(vals) {
     <div data-act="openImport" title="Thêm media từ NAS" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--co-muted);">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><circle cx="6.8" cy="7.5" r=".7" fill="currentColor"/><circle cx="6.8" cy="16.5" r=".7" fill="currentColor"/></svg>
     </div>
+    <div data-act="goSettings" title="Cài đặt" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:${state.view === "settings" ? "var(--co-text)" : "var(--co-muted)"};background:${state.view === "settings" ? "rgba(108,92,246,0.14)" : "transparent"};">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .4 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.4 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.8.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .4-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.4-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.4H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.4 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </div>
     <div style="flex:1"></div>
     <div data-act="doLogout" title="${esc((remote.me && remote.me.name) || "Tài khoản")} — Đăng xuất" style="width:36px;height:36px;border-radius:10px;background:${vals.meColor};display:grid;place-items:center;cursor:pointer;color:#0a0a0d;font-weight:700;font-size:12.5px;margin-top:4px;">${esc(vals.meInitial)}</div>
   </nav>`;
+}
+
+// Settings page — Synoframe layout: 264px nav rail + content area.
+// Sections currently render in read-only mode pulling from /api/setup/status
+// (publicRuntimeSummary). Edit forms wired per section as backend supports.
+function settingsPage(vals) {
+  const sec = state.settingsSection || "profile";
+  const rc = vals.runtimeSummary || {};
+  const me = remote.me || {};
+  const sections = [
+    { group: "TÀI KHOẢN", items: [
+      { id: "profile", label: "Profile" },
+      { id: "notifications", label: "Notifications" },
+    ]},
+    { group: "HỆ THỐNG", items: [
+      { id: "system", label: "Cấu hình runtime" },
+      { id: "proxy", label: "Proxy storage" },
+      { id: "update", label: "Update Center" },
+    ]},
+    { group: "INTEGRATIONS", items: [
+      { id: "oidc", label: "OIDC SSO", flag: rc.oidcEnabled },
+      { id: "smtp", label: "Email (SMTP)", flag: rc.smtpEnabled },
+      { id: "webhooks", label: "Slack / Discord", flag: rc.webhookEnabled },
+      { id: "hls", label: "HLS CDN", flag: rc.hlsCdnEnabled },
+    ]},
+  ];
+  return `
+  <div style="flex:1;display:flex;min-height:0;background:var(--co-bg);">
+    <div style="width:264px;flex:0 0 264px;border-right:1px solid var(--co-border);display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;">
+      ${sections.map((grp) => `
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--co-faint);padding:14px 10px 8px;">${esc(grp.group)}</div>
+        ${grp.items.map((it) => {
+          const active = sec === it.id;
+          return `<div data-act="setSettingsSection" data-arg="${it.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-text-2)"};background:${active ? "rgba(108,92,246,0.12)" : "transparent"};font-size:13.5px;font-weight:${active ? "600" : "500"};">
+            <span style="flex:1;">${esc(it.label)}</span>
+            ${typeof it.flag === "boolean" ? `<span style="font-size:10px;font-weight:700;color:${it.flag ? "#2bbe6e" : "var(--co-faint)"};">${it.flag ? "ON" : "off"}</span>` : ""}
+          </div>`;
+        }).join("")}
+      `).join("")}
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:34px 40px;">
+      ${settingsContent(sec, rc, me, vals)}
+    </div>
+  </div>`;
+}
+
+function settingsKv(label, value, meta) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.05);">
+    <div><div style="font-size:13.5px;font-weight:600;color:var(--co-text);">${esc(label)}</div>${meta ? `<div style="font-size:12px;color:var(--co-faint);margin-top:3px;">${esc(meta)}</div>` : ""}</div>
+    <div style="font-size:13px;color:var(--co-muted);font-family:ui-monospace,monospace;">${esc(value || "—")}</div>
+  </div>`;
+}
+
+function settingsContent(sec, rc, me, vals) {
+  if (sec === "profile") {
+    return `
+      <div style="max-width:960px;">
+        <div style="font-size:19px;font-weight:700;">Personal Info</div>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 20px;">Hồ sơ DSM của bạn — đồng bộ tự động khi đăng nhập.</div>
+        <div style="background:var(--co-panel);border-radius:13px;padding:22px;display:flex;align-items:center;gap:22px;margin-bottom:24px;">
+          <div style="width:88px;height:88px;border-radius:50%;background:${esc(me.color || "#6c5cf6")};display:grid;place-items:center;font-size:26px;font-weight:700;color:#0a0a0d;">${esc(me.initial || "?")}</div>
+          <div><div style="font-size:18px;font-weight:700;">${esc(me.name || "Chưa xác định")}</div><div style="font-size:13.5px;color:var(--co-muted);margin-top:4px;">${esc(me.email || "Không có email DSM")}</div></div>
+        </div>
+        <div style="font-size:16px;font-weight:700;margin-top:14px;">Authentication</div>
+        <div style="background:var(--co-panel);border-radius:13px;overflow:hidden;margin:10px 0 24px;">
+          ${settingsKv("DSM UID", me.dsmUid)}
+          ${settingsKv("User ID nội bộ", me.id)}
+          ${settingsKv("Role", me.role)}
+        </div>
+        <button data-act="doLogout" style="background:var(--co-panel-2);border:1px solid var(--co-border);color:var(--co-text);font-weight:600;font-size:13px;padding:9px 16px;border-radius:9px;cursor:pointer;">Đăng xuất phiên hiện tại</button>
+      </div>`;
+  }
+  if (sec === "notifications") {
+    return `
+      <div style="max-width:960px;">
+        <div style="font-size:19px;font-weight:700;">Notifications</div>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 16px;">Email + webhook đã cấu hình ở Hệ thống · Integrations.</div>
+        <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;">
+          <div style="font-size:13.5px;font-weight:600;">Email (SMTP)</div>
+          <div style="font-size:12.5px;color:var(--co-muted);margin-top:3px;">${rc.smtpEnabled ? "Đang bật — comment mới sẽ gửi email theo người watch." : "Chưa cấu hình. Vào tab Integrations → Email (SMTP)."}</div>
+        </div>
+      </div>`;
+  }
+  if (sec === "system") {
+    return `
+      <div style="max-width:960px;">
+        <div style="font-size:19px;font-weight:700;">Runtime configuration</div>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 20px;">Cấu hình DSM + system paths. Sửa qua <span style="font-family:ui-monospace,monospace;color:var(--co-text-2);">runtime-config.json</span> trên NAS, restart api container.</div>
+        <div style="background:var(--co-panel);border-radius:13px;overflow:hidden;">
+          ${settingsKv("Configured", rc.configured ? "yes" : "no")}
+          ${settingsKv("Config path", rc.configPath, "File JSON trên NAS")}
+          ${settingsKv("App data dir", rc.appDataDir)}
+          ${settingsKv("Public URL", rc.publicUrl, "URL public của Coopeditor")}
+          ${settingsKv("DSM host", rc.dsmHost)}
+          ${settingsKv("DSM mount root", rc.dsmMountRoot, "Mount của /volume1 trong container API")}
+          ${settingsKv("DSM dev login", rc.dsmDevLogin ? "ON" : "off")}
+        </div>
+        <div style="font-size:16px;font-weight:700;margin:24px 0 10px;">Transcode worker</div>
+        <div style="background:var(--co-panel);border-radius:13px;overflow:hidden;">
+          ${settingsKv("Hardware accel", (rc.transcode && rc.transcode.hwaccel) || "auto", "qsv / vaapi / nvenc / (CPU)")}
+          ${settingsKv("Codec ladder", rc.transcode && rc.transcode.codecLadder)}
+          ${settingsKv("Worker concurrency", rc.transcode && rc.transcode.workerConcurrency)}
+        </div>
+      </div>`;
+  }
+  if (sec === "proxy") {
+    return `
+      <div style="max-width:960px;">
+        <div style="font-size:19px;font-weight:700;">Proxy storage</div>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 18px;">Quản lý HLS proxy trên MinIO — xem dung lượng theo rendition, xoá để giải phóng SSD cache.</div>
+        <button data-act="openProxyStorage" style="background:#6c5cf6;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">📦 Mở proxy storage manager</button>
+      </div>`;
+  }
+  if (sec === "update") {
+    return `
+      <div style="max-width:960px;">
+        <div style="font-size:19px;font-weight:700;">Update Center</div>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 18px;">Kiểm tra release mới, trigger Watchtower pull. Hiện đang chạy SHA <code style="background:var(--co-panel);padding:2px 6px;border-radius:5px;font-size:11px;">${esc((window.__BUILD_SHA || "?").slice(0, 12))}</code>.</div>
+        <button data-act="toggleUpdateModal" style="background:#6c5cf6;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">🔄 Mở Update Center</button>
+      </div>`;
+  }
+  if (sec === "oidc") {
+    return integrationStub("OIDC SSO", rc.oidcEnabled, "Đăng nhập qua Keycloak / Auth0 / Google. Sửa block oidc {} trong runtime-config.json.");
+  }
+  if (sec === "smtp") {
+    return integrationStub("Email (SMTP)", rc.smtpEnabled, "Gửi notification email mỗi khi có comment mới. Sửa block smtp.url trong runtime-config.json.");
+  }
+  if (sec === "webhooks") {
+    return integrationStub("Slack / Discord webhooks", rc.webhookEnabled, "Bắn notification realtime tới channel. Sửa block webhooks {} trong runtime-config.json.");
+  }
+  if (sec === "hls") {
+    return integrationStub("HLS CDN", rc.hlsCdnEnabled, "Phục vụ HLS qua CDN bên ngoài thay vì API proxy. Sửa block hls {} trong runtime-config.json.");
+  }
+  return "";
+}
+
+function integrationStub(title, enabled, desc) {
+  return `
+    <div style="max-width:960px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:19px;font-weight:700;">${esc(title)}</div>
+        <span style="font-size:11px;font-weight:700;color:${enabled ? "#2bbe6e" : "var(--co-faint)"};background:${enabled ? "rgba(43,190,110,0.16)" : "var(--co-hover)"};padding:3px 9px;border-radius:999px;">${enabled ? "ENABLED" : "OFF"}</span>
+      </div>
+      <div style="font-size:13.5px;color:var(--co-faint);margin:6px 0 16px;">${esc(desc)}</div>
+      <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;color:var(--co-muted);font-size:13px;">UI form chỉnh trực tiếp sẽ được bổ sung. Trong lúc đó: ssh vào NAS → sửa <span style="font-family:ui-monospace,monospace;color:var(--co-text-2);">/data/runtime-config.json</span> → restart api container.</div>
+    </div>`;
 }
 
 function topBar(vals) {
@@ -2901,6 +3062,7 @@ function computeVals() {
     updateBadgeLabel: updateBadge.label,
     updateBadgeColor: updateBadge.color,
     updateBadgeBg: updateBadge.bg,
+    runtimeSummary: state.runtimeSummary || (remote.setup && remote.setup.configured ? remote.setup : null),
   };
 }
 
@@ -2931,6 +3093,7 @@ function render() {
         ${topBar(vals)}
         ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${sidebar(vals)}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
         ${state.view === "review" ? review(vals) : ""}
+        ${state.view === "settings" ? settingsPage(vals) : ""}
       </div>
     </div>
     ${state.showMembers ? membersModal(vals) : ""}
@@ -3005,6 +3168,8 @@ window.addEventListener("hashchange", () => {
 function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
+    case "goSettings": return goSettings();
+    case "setSettingsSection": return setState({ settingsSection: arg });
     case "focusWorkspaceSearch": {
       goProjects();
       setTimeout(() => { const el = document.getElementById("workspaceSearch"); if (el) el.focus(); }, 0);
