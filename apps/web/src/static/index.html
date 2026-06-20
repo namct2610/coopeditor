@@ -976,7 +976,18 @@ function postComment() {
   const annotation = ((state.annotationStrokes && state.annotationStrokes.length) || (state.annotationTexts && state.annotationTexts.length))
     ? { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() }
     : null;
-  state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", authorKey: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
+  const parentId = state.replyingTo || null;
+  if (parentId) {
+    // Optimistic local insert as a nested reply under the parent. When the
+    // server round-trip comes back, refreshComments re-derives the tree from
+    // REMOTE_COMMENTS so the placeholder is replaced cleanly.
+    const reply = { who: "me", color: (remote.me && remote.me.color) || "#6c5cf6", name: (remote.me && remote.me.name) || "Bạn", content: text };
+    state.comments = state.comments.map((c) => c.id === parentId
+      ? { ...c, replies: [...(c.replies || []), reply] }
+      : c);
+  } else {
+    state.comments = [...state.comments, { id: "n" + Date.now(), who: "me", authorKey: "me", ms: state.attachTc ? Math.round(state.currentMs) : 0, content: text, resolved: false, ago: "vừa xong", replies: [], annotation }];
+  }
   state.newComment = "";
   render();
 }
