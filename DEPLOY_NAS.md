@@ -56,12 +56,14 @@ Khi bấm lưu:
 
 Để import file thật và cho FFmpeg đọc được source thật:
 
-1. `api` và `worker` phải mount NAS volume vào container.
-   File compose hiện đã mount sẵn:
+1. `api` và `worker` phải mount đúng Team Folder / Shared Folder vào container.
+   Ví dụ với Team Folder `PCNgon`, file compose đúng phải là:
 
 ```yaml
-- /volume1:/nas:ro
+- /volume1/PCNgon:/nas:ro
 ```
+
+   Không mount cả `/volume1` nếu anh chỉ muốn import trong một thư mục cụ thể.
 
 2. Trong setup wizard, điền:
 
