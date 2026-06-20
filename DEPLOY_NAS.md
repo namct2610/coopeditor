@@ -29,6 +29,7 @@ thành namespace GitHub thật của bạn.
 - [docker-compose.nas-clean.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas-clean.yml)
 - [docker-compose.watchtower.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.watchtower.yml)
 - [Caddyfile.nas](/Users/etecman/Documents/Frame%20Editor/Caddyfile.nas)
+- [Caddyfile.nas-clean](/Users/etecman/Documents/Frame%20Editor/Caddyfile.nas-clean)
 
 ## Cách chạy
 
