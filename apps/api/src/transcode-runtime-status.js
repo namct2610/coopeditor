@@ -1,5 +1,6 @@
 import * as store from "./store-index.js";
 import { db } from "./db.js";
+import { configPath, readRuntimeConfig } from "./runtime-config.js";
 import { stat } from "node:fs/promises";
 
 const WORKER_HEARTBEAT_STALE_MS = 45_000;
@@ -113,6 +114,9 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   const latestWorker = workers[0] || null;
   const apiMount = diagnostics.apiMount || null;
   const latestMountFailure = diagnostics.latestMountFailure || null;
+  const runtimeConfigPresent = diagnostics.runtimeConfigPresent == null
+    ? !!readRuntimeConfig()
+    : !!diagnostics.runtimeConfigPresent;
 
   let status = "offline";
   let message = "Chưa có worker online. Kiểm tra container coopeditor-worker đã chạy và gửi heartbeat chưa.";
@@ -139,6 +143,10 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
         + ", nên nhiều khả năng container coopeditor-worker chưa được recreate sau khi thêm volume NAS hoặc đang crash trước khi gửi heartbeat.";
     } else if (apiMount && apiMount.mountError) {
       message += " " + apiMount.mountError;
+    }
+    if (runtimeConfigPresent) {
+      message += " API đã có runtime config tại " + configPath()
+        + ", nên cũng cần kiểm tra container worker có mount cùng app-data volume vào /data hay không.";
     }
     if (latestMountFailure && latestMountFailure.error) {
       message += " Job lỗi gần nhất: " + latestMountFailure.error;

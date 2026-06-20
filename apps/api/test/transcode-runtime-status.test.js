@@ -33,12 +33,14 @@ test("summarizeTranscodeWorkers explains offline worker when API mount is ready"
       dsmMountRoot: "/nas",
       mountError: "",
     },
+    runtimeConfigPresent: true,
     latestMountFailure: {
       error: "Source path not mounted in worker: /nas/502. Case G200/C1967.MP4",
     },
   });
   assert.equal(summary.status, "offline");
   assert.match(summary.message, /API đang thấy DSM mount root \/nas/i);
+  assert.match(summary.message, /app-data volume vào \/data|runtime config/i);
   assert.match(summary.message, /Source path not mounted in worker/i);
   assert.equal(summary.diagnostics.apiMount.mountReady, true);
 });
