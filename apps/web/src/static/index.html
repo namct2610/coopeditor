@@ -1670,7 +1670,9 @@ function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
   const minGapPx = Math.max(24, Math.min(42, Math.round(safeWidth * 0.032)));
   const edgePaddingPx = 12;
   const avatarHalfPx = 14;
+  const annotationBadgeOverflowPx = 8;
   const laneEnds = [];
+  const hasAnnotationBadge = (items || []).some((item) => !!(item && item.hasAnnotation));
   const markers = [...items]
     .map((item, index) => {
       const rawLeftPx = (Number(item.leftPct || 0) / 100) * safeWidth;
@@ -1700,14 +1702,15 @@ function computeTimelineMarkerLanes(items, timelineWidthPx = 0) {
     .sort((a, b) => a._index - b._index)
     .map(({ _index, leftPx, ...item }) => item);
   const laneCount = Math.max(1, laneEnds.length);
-  // Each lane is a 22px round avatar (Synoframe spec) with no tail/stem.
-  // Reserve laneCount × 22 height above the timeline bar so circles never
-  // overlap the seek thumbs.
+  const reservedBottomPx = hasAnnotationBadge ? annotationBadgeOverflowPx : 2;
+  // Each lane is a 22px round avatar. Reserve a little extra vertical room
+  // when the annotation badge is present so the badge never sits on top of the
+  // timeline bar or seek needle.
   return {
     items: markers,
     laneCount,
-    railHeight: 22 + Math.max(0, laneCount - 1) * 22,
-    paddingTop: 22 + Math.max(0, laneCount - 1) * 22,
+    railHeight: 22 + Math.max(0, laneCount - 1) * 22 + reservedBottomPx,
+    paddingTop: 22 + Math.max(0, laneCount - 1) * 22 + reservedBottomPx,
   };
 }
 
@@ -1727,12 +1730,12 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
         color: comment.color,
         initial: comment.initial || "U",
         hasAnnotation: !!comment.hasAnnotation,
-        avatarBg: comment.color,
+        avatarBg: comment.color || "#7c92ff",
         avatarBorder: comment.hasAnnotation ? "#d9a45b" : "var(--co-chrome)",
         avatarColor: "#07090e",
-        markerBg: comment.resolved ? "var(--co-panel-2)" : comment.color,
-        markerDot: comment.resolved ? comment.color : "#07090e",
-        tip: comment.name + " · " + comment.tcLabel + (comment.hasAnnotation ? " · có chú thích" : ""),
+        markerBg: comment.resolved ? "var(--co-panel-2)" : (comment.color || "#7c92ff"),
+        markerDot: comment.resolved ? (comment.color || "#7c92ff") : "#07090e",
+        tip: (comment.name || "User") + " · " + comment.tcLabel + (comment.hasAnnotation ? " · có chú thích" : ""),
         count: 1,
         annotationCount: comment.hasAnnotation ? 1 : 0,
         commentCount: 1,
@@ -1751,7 +1754,7 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
     existing.resolvedCount += comment.resolved ? 1 : 0;
     existing.markerBg = existing.resolvedCount >= existing.count ? "var(--co-panel-2)" : existing.color;
     existing.markerDot = existing.resolvedCount >= existing.count ? existing.color : "#07090e";
-    existing.tip = comment.name + " · " + comment.tcLabel
+    existing.tip = (comment.name || "User") + " · " + comment.tcLabel
       + (existing.count > 1 ? (" · " + existing.count + " bình luận") : "")
       + (existing.annotationCount ? (" · " + existing.annotationCount + " chú thích") : "");
   }
@@ -5177,9 +5180,15 @@ function applyRemoteToState() {
   window.__versionsByAsset = REMOTE_VERSIONS_BY_ASSET;
   if (!REMOTE_PROJECTS) return;
   const transformedProjects = REMOTE_PROJECTS.map((p) => ({
-    id: p.id, name: p.name, status: p.status, client: p.client, updated: p.updatedAt,
+    id: p.id, name: p.name, status: p.status, client: p.client,
+    updated: p.updatedAt || p.updated || "",
+    createdAt: p.createdAt || "",
+    storage: p.storage || "",
     thumbUrl: p.thumbUrl ? apiMediaUrl(p.thumbUrl) : "",
-    team: (p.team || []).map((u) => [u.initial, u.color]),
+    a: p.paletteA || p.a || "#15171c",
+    b: p.paletteB || p.b || "#3a4453",
+    team: (p.team || []).map((u) => Array.isArray(u) ? u : [u.initial, u.color]),
+    members: p.members || [],
     // Fields below the original shape didn't have but downstream code reads
     // (computeVals → canManageAccess / canManageUpdates / canManageProject).
     // Without these, owner-gated UI (proxy storage manager, DSM picker,
@@ -5193,6 +5202,7 @@ function applyRemoteToState() {
     byProj[pid] = REMOTE_SOURCES[pid].sort((a, b) => a.position - b.position).map((s) => ({
       id: s.id, title: s.title, dur: s.durationMs, codec: s.codec, size: s.sizeLabel,
       width: s.width || 0, height: s.height || 0, resolutionLabel: s.resolutionLabel || "",
+      nasPath: s.nasPath || s.path || "",
       posterUrl: apiMediaUrl("/assets/" + s.id + "/poster"),
       playbackUrl: apiMediaUrl("/assets/" + s.id + "/source"),
       status: s.status, progress: s.progress, versions: s.versionsCount, comments: s.commentsCount,
