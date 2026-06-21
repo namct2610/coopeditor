@@ -1,5 +1,5 @@
 #!/bin/bash
-# Coopeditor NAS auto-update — chạy 1 lệnh để pull image mới + rolling restart.
+# Coopeditor NAS auto-update — 1 lệnh để pull image mới + force restart.
 #
 # Cách dùng (bằng tay):
 #   bash /volume1/docker/coopeditor/scripts/nas-update.sh
@@ -10,8 +10,9 @@
 #     Schedule: Daily 03:00
 #     Run command: bash /volume1/docker/coopeditor/scripts/nas-update.sh
 #
-# Script idempotent: nếu không có image mới, exit nhanh; có image mới → pull,
-# rolling restart, verify, log status. Không bao giờ touch volume data.
+# Khác với "docker compose up -d" trần: script này luôn force-recreate 3
+# container app (web/api/worker) nếu image digest đổi, kể cả khi Watchtower
+# đã pull image trong nền (compose up không tự restart trong case đó).
 
 set -euo pipefail
 
@@ -25,6 +26,9 @@ COMPOSE_FLAGS="-f $COMPOSE_FILE"
 [ -f docker-compose.override.yml ] && COMPOSE_FLAGS="$COMPOSE_FLAGS -f docker-compose.override.yml"
 LOG_FILE="${LOG_FILE:-/tmp/coopeditor-update.log}"
 GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:8080/api/version}"
+WEB_URL="${WEB_URL:-http://127.0.0.1:8080/}"
+
+APP_SERVICES=(web api worker)
 
 log() {
   local msg="[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"
@@ -37,17 +41,49 @@ fail() {
   exit 1
 }
 
-# 1. Ghi nhận SHA đang chạy trước khi pull
-BEFORE_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4 || echo unknown)"
-log "Bắt đầu update — SHA hiện tại: ${BEFORE_SHA:0:12}"
+image_digest() {
+  # In ra digest sha256 ngắn của image đang gắn với container `coopeditor-<svc>`.
+  # Nếu container chưa tồn tại → "none".
+  local svc="$1"
+  local cid
+  cid="$(docker compose $COMPOSE_FLAGS ps -q "$svc" 2>/dev/null || true)"
+  if [ -z "$cid" ]; then echo "none"; return; fi
+  docker inspect --format='{{.Image}}' "$cid" 2>/dev/null | sed 's|sha256:||' | cut -c1-12 || echo unknown
+}
 
-# 2. Pull image mới từ GHCR. docker compose pull idempotent: không có gì mới → 0 byte.
+# 1. Snapshot SHA + image digest trước khi pull
+BEFORE_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4 || echo unknown)"
+declare -A BEFORE_DIGEST
+for svc in "${APP_SERVICES[@]}"; do
+  BEFORE_DIGEST[$svc]="$(image_digest "$svc")"
+done
+log "Bắt đầu update — API SHA: ${BEFORE_SHA:0:12} · web=${BEFORE_DIGEST[web]} api=${BEFORE_DIGEST[api]} worker=${BEFORE_DIGEST[worker]}"
+
+# 2. Pull image mới từ GHCR (idempotent).
 log "Pull image mới từ ghcr.io..."
 docker compose $COMPOSE_FLAGS pull --quiet 2>&1 | tee -a "$LOG_FILE" || fail "docker compose pull thất bại"
 
-# 3. Recreate container cho image vừa pull. Compose chỉ restart container nào image đổi.
-log "Recreate container có image mới..."
-docker compose $COMPOSE_FLAGS up -d 2>&1 | tee -a "$LOG_FILE" || fail "docker compose up -d thất bại"
+# 3. So digest container đang chạy với digest image:latest sau pull. Service
+# nào lệch → force recreate. Compose "up -d" trần không làm được điều này
+# nếu Watchtower đã pull xong rồi (lúc đó container vẫn ref digest cũ).
+TO_RECREATE=()
+for svc in "${APP_SERVICES[@]}"; do
+  IMG="$(docker compose $COMPOSE_FLAGS config --format json 2>/dev/null | grep -oE "\"image\":\"[^\"]*coopeditor-$svc[^\"]*\"" | head -1 | cut -d'"' -f4)"
+  [ -z "$IMG" ] && continue
+  LATEST_DIGEST="$(docker inspect --format='{{.Id}}' "$IMG" 2>/dev/null | sed 's|sha256:||' | cut -c1-12 || echo unknown)"
+  if [ "$LATEST_DIGEST" != "${BEFORE_DIGEST[$svc]}" ] && [ "$LATEST_DIGEST" != "unknown" ]; then
+    log "→ $svc: ${BEFORE_DIGEST[$svc]} → $LATEST_DIGEST (sẽ recreate)"
+    TO_RECREATE+=("$svc")
+  fi
+done
+
+if [ ${#TO_RECREATE[@]} -gt 0 ]; then
+  log "Force recreate: ${TO_RECREATE[*]}"
+  docker compose $COMPOSE_FLAGS up -d --force-recreate --no-deps "${TO_RECREATE[@]}" 2>&1 | tee -a "$LOG_FILE" || fail "force recreate thất bại"
+else
+  # Vẫn chạy up -d để bắt service nào down hoặc config thay đổi.
+  docker compose $COMPOSE_FLAGS up -d 2>&1 | tee -a "$LOG_FILE" || fail "docker compose up -d thất bại"
+fi
 
 # 4. Đợi API healthy
 log "Đợi API healthy..."
@@ -58,12 +94,16 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# 5. Verify SHA mới
+# 5. Verify SHA mới + check index.html không cache stale
 AFTER_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4 || echo unknown)"
-if [ "$AFTER_SHA" = "$BEFORE_SHA" ]; then
+INDEX_CACHE="$(curl -fsSI --max-time 5 "$WEB_URL" 2>/dev/null | grep -i '^cache-control:' | tr -d '\r' || echo "")"
+
+if [ "$AFTER_SHA" = "$BEFORE_SHA" ] && [ ${#TO_RECREATE[@]} -eq 0 ]; then
   log "Không có image mới — đã ở SHA ${AFTER_SHA:0:12}."
 else
   log "✓ Update OK — SHA mới: ${AFTER_SHA:0:12} (cũ: ${BEFORE_SHA:0:12})"
+  log "  index.html ${INDEX_CACHE:-(no cache-control header)}"
+  log "  → Hãy hard-reload trình duyệt (Ctrl+Shift+R hoặc Cmd+Shift+R) để bỏ cache local."
 fi
 
 # 6. Dọn image cũ để khỏi đầy disk (tuỳ chọn, an toàn)
