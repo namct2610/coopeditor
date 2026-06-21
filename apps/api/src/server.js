@@ -271,6 +271,12 @@ async function canBrowseNasLibrary(userId) {
   return !!(members && members.some((member) => member.role === "owner" || member.role === "editor"));
 }
 
+async function listVisibleUsersForUser(userId) {
+  if (await canBrowseNasLibrary(userId)) return await store.listUsers();
+  const self = await store.getUser(userId);
+  return self ? [self] : [];
+}
+
 async function requireCommentWriteAccess(res, commentId, projectId, userId) {
   const [member, comment] = await Promise.all([
     store.getProjectMember(projectId, userId),
@@ -1037,7 +1043,7 @@ async function handle(req, res, url) {
     catch (err) { return bad(res, "Khong doc duoc danh sach thu muc NAS: " + (err && err.message), 502); }
   }
 
-  if (p === "/users" && m === "GET") return send(res, 200, await store.listUsers());
+  if (p === "/users" && m === "GET") return send(res, 200, await listVisibleUsersForUser(sess.userId));
 
   if (p === "/admin/update-status" && m === "GET") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);

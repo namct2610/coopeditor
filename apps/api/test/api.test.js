@@ -636,6 +636,26 @@ test("workspace and project APIs are filtered by membership", async () => {
   await http("/auth/dsm/login", { method: "POST", body: { account: "minh", passwd: "x" } });
 });
 
+test("users directory is scoped for accounts without project access", async () => {
+  const ownerView = await http("/users");
+  assert.equal(ownerView.status, 200);
+  assert.ok(ownerView.json.length > 1);
+
+  await http("/auth/logout", { method: "POST" });
+  cookie = "";
+
+  const login = await http("/auth/dsm/login", { method: "POST", body: { account: "qa_user", passwd: "x" } });
+  assert.equal(login.status, 200);
+  const limited = await http("/users");
+  assert.equal(limited.status, 200);
+  assert.equal(limited.json.length, 1);
+  assert.equal(limited.json[0].id, "dsm_1752");
+
+  await http("/auth/logout", { method: "POST" });
+  cookie = "";
+  await http("/auth/dsm/login", { method: "POST", body: { account: "minh", passwd: "x" } });
+});
+
 test("logout invalidates session", async () => {
   await http("/auth/logout", { method: "POST" });
   const r = await http("/me");
