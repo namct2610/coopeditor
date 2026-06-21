@@ -132,6 +132,7 @@ test("authenticated user can read proxy storage summary", async () => {
   assert.equal(r.status, 200);
   assert.equal(typeof r.json.backend, "string");
   assert.equal(typeof r.json.stale, "boolean");
+  assert.ok("savedAt" in r.json);
   assert.equal(typeof r.json.totalBytes, "number");
   assert.equal(typeof r.json.renditionCount, "number");
   assert.ok(Array.isArray(r.json.renditions));

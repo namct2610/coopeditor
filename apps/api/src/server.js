@@ -73,6 +73,7 @@ function normalizeProxyStoragePayloadShape(payload) {
     renditions,
     note: payload.note ? String(payload.note) : "",
     stale: !!payload.stale,
+    savedAt: payload.savedAt ? String(payload.savedAt) : null,
   };
 }
 
@@ -1103,6 +1104,7 @@ async function handle(req, res, url) {
         backend: payload.backend,
         bucket: payload.bucket || null,
         stale: !!payload.stale,
+        savedAt: payload.savedAt || null,
         totalBytes: payload.totalBytes || 0,
         orphanCount: payload.orphanCount || 0,
         orphanBytes: payload.orphanBytes || 0,

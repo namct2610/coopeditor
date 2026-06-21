@@ -1605,7 +1605,7 @@ function computeProxyCacheSummary(storage) {
     label: fmtBytes(totalBytes)
       + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy")
       + (orphanCount ? (" · " + orphanCount + " orphan") : ""),
-    savedAt: new Date().toISOString(),
+    savedAt: storage.savedAt || new Date().toISOString(),
   };
 }
 
@@ -1631,6 +1631,7 @@ function hydrateProxyCache(cache, { loading = false, error = "" } = {}) {
     if (orphanCount) detailParts.push(orphanCount + " orphan");
     if (cache.backend) detailParts.push("lưu trên " + cache.backend);
     if (cache.stale) detailParts.push("snapshot gần nhất");
+    if (cache.savedAt) detailParts.push("cập nhật " + fmtAgo(cache.savedAt));
     if (cache.note) detailParts.push(cache.note);
     detailLabel = detailParts.join(" · ") || "Nhấn để mở trang quản lý proxy";
   }
@@ -1656,6 +1657,7 @@ function proxyStorageSummaryFromPayload(storage) {
     backend: storage.backend || "",
     bucket: storage.bucket || null,
     stale: !!storage.stale,
+    savedAt: storage.savedAt || null,
     totalBytes: Number(storage.totalBytes || 0),
     orphanCount: Number(storage.orphanCount || 0),
     orphanBytes: Number(storage.orphanBytes || 0),
@@ -2463,6 +2465,19 @@ function fmtBytes(n) {
   let i = 0; let v = n;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return v.toFixed(v < 10 && i > 0 ? 1 : 0) + " " + units[i];
+}
+
+function fmtAgo(iso) {
+  const ms = Date.parse(String(iso || ""));
+  if (!Number.isFinite(ms)) return "không rõ";
+  const diffSec = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (diffSec < 60) return "vừa xong";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return diffMin + " phút trước";
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 24) return diffHour + " giờ trước";
+  const diffDay = Math.round(diffHour / 24);
+  return diffDay + " ngày trước";
 }
 
 function projectContextMenu() {
@@ -4099,12 +4114,32 @@ function startVersionWatchdog() {
   setTimeout(checkServerVersion, 1500);
   _versionPollTimer = setInterval(checkServerVersion, 60_000);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") checkServerVersion();
+    if (document.visibilityState === "visible") {
+      checkServerVersion();
+      scheduleProxyStorageRefresh(120, true);
+    }
+  });
+}
+
+let proxyStoragePollTimer = null;
+function startProxyStoragePolling() {
+  if (proxyStoragePollTimer) return;
+  proxyStoragePollTimer = setInterval(() => {
+    if (!remote.me) return;
+    const task = canManageProxyStorage()
+      ? refreshProxyStorage(true, true)
+      : refreshProxyStorageSummary(true, true);
+    task.catch(() => {});
+  }, 120_000);
+  window.addEventListener("focus", () => {
+    if (!remote.me) return;
+    scheduleProxyStorageRefresh(120, true);
   });
 }
 
 async function bootstrap() {
   startVersionWatchdog();
+  startProxyStoragePolling();
   // Update the boot loading hint so user sees progress instead of staring at a static spinner.
   const setHint = (msg) => { const el = document.getElementById("bootHint"); if (el) el.textContent = msg; };
   setHint("Kiểm tra cấu hình máy chủ…");
