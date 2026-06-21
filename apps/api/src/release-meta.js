@@ -65,8 +65,12 @@ export function normalizeRemoteReleaseMeta(payload) {
 }
 
 export function hasRemoteUpdate(localMeta, remoteMeta) {
+  // SHA is the authoritative signal — it's stamped at build time by CI from
+  // the actual commit. Version strings drift because nobody bumps them on
+  // every push. Only consider an update available when both sides have a
+  // real SHA AND they differ; otherwise return false to avoid a sticky
+  // "Cần cập nhật" banner after a successful pull.
   if (!remoteMeta) return false;
-  if (remoteMeta.version && localMeta.version && remoteMeta.version !== localMeta.version) return true;
   if (remoteMeta.sha && localMeta.sha && remoteMeta.sha !== "unknown" && localMeta.sha !== "unknown") {
     return remoteMeta.sha.slice(0, 7) !== localMeta.sha.slice(0, 7);
   }

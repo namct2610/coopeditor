@@ -30,6 +30,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Stamp release.json with the actual commit sha + built-at timestamp
+      # before the Docker build picks it up. This makes the image's local
+      # release manifest self-consistent: local.sha === github.sha. Without
+      # this step release.json on the image has no `sha` field, so the API's
+      # update-status endpoint compares only the manually-bumped `version`
+      # string — which nobody remembers to bump — and the UI gets stuck on a
+      # false "Cần cập nhật" banner even when the image really is current.
+      - name: Stamp release.json with commit sha
+        run: |
+          python3 -c "
+          import json, os, sys
+          path = 'release.json'
+          data = {}
+          if os.path.exists(path):
+              with open(path) as f: data = json.load(f)
+          data['sha'] = '${{ github.sha }}'
+          data['builtAt'] = '${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}'
+          with open(path, 'w') as f: json.dump(data, f, indent=2, ensure_ascii=False)
+          print(json.dumps(data, indent=2, ensure_ascii=False))
+          "
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
