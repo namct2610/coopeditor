@@ -903,7 +903,11 @@ function setQuality(id, opts) {
   else setState({ showQualityMenu: false, showTranscode: true });
 }
 function requestTranscode(id) {
+  // Local optimistic update: mark the rendition row pending so the UI shows
+  // "Đang chờ" right away. _proxyRequestPending tracks whether the API call
+  // itself is still in flight — used to disable the button + show "Đang gửi…".
   state.qualities = state.qualities.map((q) => q.id === id ? { ...q, status: "pending", progress: 0 } : q);
+  state._proxyRequestPending = { ...(state._proxyRequestPending || {}), [id]: true };
   render();
 }
 
@@ -2072,12 +2076,10 @@ function projectDetail(vals) {
       <div style="display:flex;gap:3px;margin-left:2px;flex:0 0 auto;">
         ${[
           { id: "nav", title: "Toggle nav panel", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="3" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>' },
-          { id: "list", title: "Toggle list view (lưới ↔ danh sách)", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>' },
           { id: "details", title: "Toggle details panel", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>' },
         ].map((b) => {
-          const active = b.id === "list" ? true : (state.panels && state.panels[b.id]);
-          const dataAct = b.id === "list" ? "toggleSourceView" : `togglePanel" data-arg="${b.id}`;
-          return `<div data-act="${dataAct}" title="${b.title}" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-faint)"};background:${active ? "rgba(108,92,246,0.14)" : "transparent"};">${b.svg}</div>`;
+          const active = state.panels && state.panels[b.id];
+          return `<div data-act="togglePanel" data-arg="${b.id}" title="${b.title}" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-faint)"};background:${active ? "rgba(108,92,246,0.14)" : "transparent"};">${b.svg}</div>`;
         }).join("")}
       </div>
     </div>
@@ -2188,8 +2190,16 @@ function sourceGridView(vals) {
         <div style="position:absolute;top:10px;left:10px;width:18px;height:18px;border-radius:5px;border:1.5px solid rgba(255,255,255,0.5);background:rgba(0,0,0,0.3);"></div>
         <div style="position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:7px;background:rgba(0,0,0,0.5);display:grid;place-items:center;color:#fff;font-variant-numeric:tabular-nums;font-weight:700;font-size:11px;">${s.pos}</div>
         ${s.transcoding ? `
-          <div style="width:84px;height:84px;border-radius:50%;border:4px solid rgba(255,255,255,0.12);border-top-color:#6c5cf6;display:grid;place-items:center;animation:coSpin 1s linear infinite;">
-            <span style="font-size:14px;font-weight:700;color:#fff;animation:coSpin 1s linear infinite reverse;">${s.pct || 0}%</span>
+          <!-- Static SVG progress arc — stroke-dasharray driven by % so the arc
+               grows proportional to real progress instead of an opaque spinner.
+               Circle r=38 → circumference 238.76. Dasharray "X 238.76" where X
+               = pct/100 * 238.76. -->
+          <div style="position:relative;width:84px;height:84px;display:grid;place-items:center;">
+            <svg viewBox="0 0 84 84" style="position:absolute;inset:0;width:84px;height:84px;transform:rotate(-90deg);">
+              <circle cx="42" cy="42" r="38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"></circle>
+              <circle cx="42" cy="42" r="38" fill="none" stroke="#6c5cf6" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(((s.pct || 0) / 100) * 238.76).toFixed(2)} 238.76" style="transition:stroke-dasharray 400ms ease-out;"></circle>
+            </svg>
+            <span style="position:relative;font-size:14px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">${s.pct || 0}%</span>
           </div>
         ` : `
           <div style="width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,0.45);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.22);"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></div>
@@ -3064,7 +3074,7 @@ function transcodeModal(vals) {
             </div>
             <div style="flex:0 0 auto;">
               <span style="display:inline-block;font-size:11px;font-weight:700;color:${l.tagColor};background:${l.tagBg};padding:6px 11px;border-radius:999px;">${esc(l.tag)}</span>
-              ${l.canRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" class="co-btn-blue" style="display:block;margin-top:7px;background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:pointer;width:100%;">Tạo proxy</button>` : ""}
+              ${l.canRequest || l.pendingRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" ${l.pendingRequest ? "disabled" : ""} class="co-btn-blue" style="display:block;margin-top:7px;background:${l.pendingRequest ? "var(--co-panel-2)" : "#6c5cf6"};border:none;color:${l.pendingRequest ? "var(--co-muted)" : "#07111a"};font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:${l.pendingRequest ? "wait" : "pointer"};width:100%;">${l.pendingRequest ? "Đang gửi…" : "Tạo proxy"}</button>` : ""}
             </div>
           </div>
         `).join("")}
@@ -3389,9 +3399,11 @@ function computeVals() {
       }
     }
     const isSrc = l.status === "nas";
+    const pendingRequest = !!(state._proxyRequestPending && state._proxyRequestPending[l.id]);
     return { id: l.id, badge: l.badge || l.label.replace("p", ""), label: l.label, res: l.res,
       detail,
       tag, tagColor, tagBg, canRequest, isProcessing, progress: l.progress || 0,
+      pendingRequest,
       iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(108,92,246,0.14)",
       iconColor: isSrc ? "#ef4d57" : "#6c5cf6",
       rowBg: isSrc ? "rgba(239,77,87,0.05)" : "var(--co-hover)",
@@ -3679,6 +3691,15 @@ function render() {
     ta.setSelectionRange(ta.value.length, ta.value.length);
     state._focusComment = false;
   }
+  // Restore focus to workspace search after re-render. Without this, every
+  // keystroke replaces the input element, drops focus, and the user has to
+  // re-click to type the next character.
+  const ws = document.getElementById("workspaceSearch");
+  if (ws && document.activeElement !== ws && state._focusWorkspaceSearch) {
+    ws.focus();
+    ws.setSelectionRange(ws.value.length, ws.value.length);
+    state._focusWorkspaceSearch = false;
+  }
 }
 
 // ---- event delegation ----
@@ -3939,7 +3960,8 @@ document.addEventListener("input", (e) => {
   }
   if (e.target && e.target.id === "workspaceSearch") {
     state.workspaceSearch = e.target.value;
-    render();
+    state._focusWorkspaceSearch = true;
+    scheduleRender();
   }
   if (e.target && e.target.id === "editCommentInput") {
     state.editingCommentText = e.target.value;
@@ -5464,14 +5486,52 @@ doImport = function () {
 const _origRequestTranscode = requestTranscode;
 requestTranscode = function (id) {
   _origRequestTranscode(id);
+  const clearPending = () => {
+    if (!state._proxyRequestPending) return;
+    const next = { ...state._proxyRequestPending };
+    delete next[id];
+    state._proxyRequestPending = next;
+    render();
+  };
   if (remote.me && state._currentVersionId) {
     const h = id === "720p" ? 720 : 1080;
-    remoteRequestTranscode(state._currentVersionId, h).catch((err) => {
-      alert("Không tạo được proxy: " + ((err && err.message) || "lỗi không xác định"));
-      refreshRenditions(state._currentVersionId).then(render).catch(() => {});
-    });
+    remoteRequestTranscode(state._currentVersionId, h)
+      .then(() => {
+        clearPending();
+        toast("Đã gửi yêu cầu tạo proxy " + id + " · worker sẽ xử lý trong giây lát");
+        refreshRenditions(state._currentVersionId).then(render).catch(() => {});
+      })
+      .catch((err) => {
+        clearPending();
+        toast("Không tạo được proxy: " + ((err && err.message) || "lỗi không xác định"), "error");
+        refreshRenditions(state._currentVersionId).then(render).catch(() => {});
+      });
+  } else {
+    // Sim/offline mode — give visible feedback even though there's no worker.
+    setTimeout(() => { clearPending(); toast("Đã ghi nhận yêu cầu (chế độ sim — không có worker)"); }, 300);
   }
 };
+
+function toast(msg, kind) {
+  // Lightweight top-right notification. No external dep, no lib. Auto-dismiss
+  // after 3.5s so the user sees the system acknowledged their click.
+  const host = (() => {
+    let n = document.getElementById("co-toast-host");
+    if (n) return n;
+    n = document.createElement("div");
+    n.id = "co-toast-host";
+    n.style.cssText = "position:fixed;top:14px;right:14px;display:flex;flex-direction:column;gap:8px;z-index:99999;pointer-events:none;";
+    document.body.appendChild(n);
+    return n;
+  })();
+  const card = document.createElement("div");
+  const isErr = kind === "error";
+  card.style.cssText = "background:" + (isErr ? "#2b1417" : "var(--co-menu)") + ";border:1px solid " + (isErr ? "rgba(239,77,87,0.4)" : "rgba(108,92,246,0.3)") + ";color:" + (isErr ? "#ef4d57" : "var(--co-text)") + ";padding:10px 14px;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.55);font-size:13px;font-weight:600;max-width:360px;pointer-events:auto;animation:coToastIn 200ms ease-out;";
+  card.textContent = msg;
+  host.appendChild(card);
+  setTimeout(() => { card.style.opacity = "0"; card.style.transform = "translateY(-6px)"; card.style.transition = "all 200ms ease-in"; }, 3300);
+  setTimeout(() => { try { card.remove(); } catch (_) {} }, 3550);
+}
 // patch project status writes
 const _origSetProjectStatusHandler = handleAct;
 // (handled inline above via switch — we tap setProjectStatus through the action setter)
