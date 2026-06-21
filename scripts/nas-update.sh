@@ -19,7 +19,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.nas-auto.yml}"
+# Tự dò compose file. Order ưu tiên: env override → nas-auto → nas-clean → mặc định.
+# Người chạy có thể export COMPOSE_FILE="docker-compose.foo.yml" nếu layout khác.
+COMPOSE_CANDIDATES=("${COMPOSE_FILE:-}" "docker-compose.nas-auto.yml" "docker-compose.nas-clean.yml" "docker-compose.yml")
+COMPOSE_FILE=""
+for f in "${COMPOSE_CANDIDATES[@]}"; do
+  [ -z "$f" ] && continue
+  if [ -f "$ROOT/$f" ]; then COMPOSE_FILE="$f"; break; fi
+done
+
+if [ -z "$COMPOSE_FILE" ]; then
+  echo "ERROR: Không tìm thấy docker-compose.*.yml trong $ROOT" >&2
+  echo "       Đã thử: ${COMPOSE_CANDIDATES[*]}" >&2
+  echo "       Khắc phục:" >&2
+  echo "         (1) cd vào thư mục có compose file rồi chạy script, HOẶC" >&2
+  echo "         (2) COMPOSE_FILE=<tên-file>.yml bash scripts/nas-update.sh, HOẶC" >&2
+  echo "         (3) git pull lại repo về $ROOT để có đủ file:" >&2
+  echo "             cd $ROOT && git pull" >&2
+  exit 1
+fi
+
 # Cờ -f cho mọi lệnh compose: luôn nạp override.yml nếu có để các tuỳ
 # chỉnh local (iGPU, GHCR PAT, …) không bị bỏ qua khi pass -f explicit.
 COMPOSE_FLAGS="-f $COMPOSE_FILE"
@@ -57,6 +76,7 @@ declare -A BEFORE_DIGEST
 for svc in "${APP_SERVICES[@]}"; do
   BEFORE_DIGEST[$svc]="$(image_digest "$svc")"
 done
+log "Compose file: $COMPOSE_FILE"
 log "Bắt đầu update — API SHA: ${BEFORE_SHA:0:12} · web=${BEFORE_DIGEST[web]} api=${BEFORE_DIGEST[api]} worker=${BEFORE_DIGEST[worker]}"
 
 # 2. Pull image mới từ GHCR (idempotent).
