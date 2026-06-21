@@ -174,6 +174,7 @@ const state = {
   sourceView: "grid",
   hubView: "grid",
   projectFolder: "assets",
+  panels: { nav: true, details: false },
   dragId: null,
   showStatusMenu: false,
   projectStatus: {},
@@ -1235,10 +1236,12 @@ function settingsPage(vals) {
   const accountName = me.name ? `${me.name}'s Account` : "Account";
   return `
   <div style="flex:1;display:flex;flex-direction:column;min-height:0;background:var(--co-bg);">
-    <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid var(--co-border);">
-      <span data-act="goProjects" class="co-text-hover" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;">← Back to projects</span>
-      <div style="flex:1;text-align:center;font-size:13.5px;color:var(--co-text);font-weight:600;">${esc(accountName)} · Settings</div>
-      <div style="width:120px;"></div>
+    <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px;border-bottom:1px solid var(--co-border);position:relative;">
+      <div style="font-size:14px;color:var(--co-text);font-weight:600;">${esc(accountName)} · ${esc(({profile:"Profile", notifications:"Notifications", system:"Runtime config", proxy:"Proxy storage", update:"Update Center", oidc:"OIDC SSO", smtp:"Email (SMTP)", webhooks:"Slack / Discord", hls:"HLS CDN"})[sec] || "Settings")}</div>
+      <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(108,92,246,0.16);border:1px solid rgba(108,92,246,0.35);border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#b9aeff;">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px"><path d="M12 2 9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/></svg>
+        Team · Self-hosted
+      </div>
     </div>
     <div style="flex:1;display:flex;min-height:0;">
       <div style="width:264px;flex:0 0 264px;border-right:1px solid var(--co-border);display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;">
@@ -1424,6 +1427,34 @@ function integrationForm(title, enabled, desc, fields, raw) {
       </div>
       <div style="font-size:11.5px;color:var(--co-faint);margin-top:10px;">Field có giá trị <code style="background:var(--co-hover);padding:1px 5px;border-radius:4px;">***</code> nghĩa là secret đang được giữ — đừng sửa nếu không muốn đổi.</div>
     </div>`;
+}
+
+function reviewHeader(vals) {
+  // Synoframe review top bar: back arrow + breadcrumb + Share + Search + right
+  // panel toggle. Matches design lines 446-456.
+  const selProject = PROJECTS.find((p) => p.id === state.selectedProjectId) || {};
+  return `
+  <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--co-border);background:var(--co-chrome);">
+    <div data-act="goProject" class="co-hover" title="Quay lại project" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--co-text-2);flex:0 0 30px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="m15 18-6-6 6-6"/></svg>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto;">
+      <span data-act="goProject" class="co-text-hover" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;white-space:nowrap;flex:0 0 auto;">${esc(selProject.name || vals.projectName || "Project")}</span>
+      <span style="color:var(--co-faint);flex:0 0 auto;">/</span>
+      <span style="font-size:13.5px;color:var(--co-text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.selTitle || "Asset")}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:var(--co-faint);flex:0 0 13px;"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+    <div data-act="focusWorkspaceSearch" style="flex:0 1 220px;min-width:44px;height:34px;border-radius:9px;background:var(--co-panel);border:1px solid var(--co-border);display:inline-flex;align-items:center;gap:9px;padding:0 12px;color:var(--co-faint);cursor:pointer;overflow:hidden;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" style="width:15px;height:15px;flex:0 0 15px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <span style="font-size:13px;white-space:nowrap;">Search</span>
+    </div>
+    <button data-act="toggleMembers" title="Share" style="height:32px;border-radius:8px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/></svg>Share
+    </button>
+    <div data-act="toggleReviewPanel" title="Toggle comments panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${state.reviewPanelOpen === false ? "var(--co-faint)" : "var(--co-text)"};background:${state.reviewPanelOpen === false ? "transparent" : "rgba(108,92,246,0.14)"};flex:0 0 30px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>
+    </div>
+  </div>`;
 }
 
 function topBar(vals) {
@@ -1864,13 +1895,32 @@ function projectNavPanel(vals) {
     </div>`;
   };
   return `<aside style="width:280px;flex:0 0 280px;border-right:1px solid var(--co-border);display:flex;flex-direction:column;padding:18px 14px;overflow-y:auto;background:var(--co-bg);">
-    <div data-act="goProjects" class="co-hover" style="display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:10px;cursor:pointer;margin-bottom:16px;">
-      <div style="width:40px;height:40px;border-radius:11px;background:${coverIsImg ? `center/cover no-repeat url(${esc(cover)})` : cover};flex:0 0 40px;"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.projectName)}</div>
-        <div style="font-size:12px;color:var(--co-faint);">${memberCount} ${memberCount === 1 ? "Member" : "Members"}</div>
+    <div style="display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:10px;margin-bottom:10px;">
+      <div data-act="goProjects" class="co-hover" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;border-radius:8px;padding:2px;">
+        <div style="width:40px;height:40px;border-radius:11px;background:${coverIsImg ? `center/cover no-repeat url(${esc(cover)})` : cover};flex:0 0 40px;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.projectName)}</div>
+          <div style="font-size:12px;color:var(--co-faint);">${memberCount} ${memberCount === 1 ? "Member" : "Members"}</div>
+        </div>
       </div>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:var(--co-faint);"><path d="m8 9 4-4 4 4M8 15l4 4 4-4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:var(--co-faint);flex:0 0 16px;"><path d="m8 9 4-4 4 4M8 15l4 4 4-4"/></svg>
+    </div>
+    <div style="position:relative;margin:0 8px 12px;">
+      <button data-act="toggleStatusMenu" style="display:inline-flex;align-items:center;gap:7px;background:${vals.detailStatusBg};border:1px solid var(--co-border);color:${vals.detailStatusColor};font-weight:600;font-size:11.5px;padding:5px 10px;border-radius:999px;cursor:pointer;">
+        <span style="width:6px;height:6px;border-radius:50%;background:${vals.detailStatusColor};"></span>${esc(vals.detailStatusLabel)}${ICON.chevDownSmall}
+      </button>
+      ${state.showStatusMenu ? `
+        <div data-act="closeStatusMenu" style="position:fixed;inset:0;z-index:55;"></div>
+        <div data-stop="1" style="position:absolute;left:0;top:calc(100% + 6px);width:220px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:12px;padding:7px;box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:60;">
+          <div style="padding:7px 9px 6px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Đổi trạng thái</div>
+          ${vals.statusOptions.map((o) => `
+            <div data-act="setProjectStatus" data-arg="${o.key}" class="co-hover" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;background:${o.rowBg};">
+              <span style="width:9px;height:9px;border-radius:3px;background:${o.color};"></span>
+              <span style="font-weight:600;font-size:13px;color:${o.labelColor};">${esc(o.label)}</span>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
     </div>
     ${item("assets", "Assets", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="9" cy="12" r="1.4"/><path d="m6 18 4-3 3 2 3-3 3 3"/></svg>`, true, false)}
     ${item("collections", "Collections", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>`, false, false)}
@@ -1942,7 +1992,7 @@ function projectDetail(vals) {
   }
   return `
   <div style="flex:1;display:flex;min-width:0;min-height:0;">
-    ${projectNavPanel(vals)}
+    ${state.panels && state.panels.nav !== false ? projectNavPanel(vals) : ""}
   <main style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column;">
     <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--co-border);">
       <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;">
@@ -1962,44 +2012,73 @@ function projectDetail(vals) {
       <button data-act="toggleMembers" title="Share / phân quyền" style="height:32px;border-radius:8px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/></svg>Share
       </button>
-      <div style="display:flex;gap:3px;margin-left:2px;color:var(--co-faint);flex:0 0 auto;">
-        <div title="Toggle nav panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="3" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg></div>
-        <div title="Toggle list panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg></div>
-        <div title="Toggle details panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg></div>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 28px 4px;flex-wrap:wrap;">
-      <div style="position:relative;">
-        <button data-act="toggleStatusMenu" style="display:inline-flex;align-items:center;gap:7px;background:${vals.detailStatusBg};border:1px solid var(--co-border);color:${vals.detailStatusColor};font-weight:600;font-size:11.5px;padding:5px 10px;border-radius:999px;cursor:pointer;">
-          <span style="width:6px;height:6px;border-radius:50%;background:${vals.detailStatusColor};"></span>${esc(vals.detailStatusLabel)}${ICON.chevDownSmall}
-        </button>
-        ${state.showStatusMenu ? `
-          <div data-act="closeStatusMenu" style="position:fixed;inset:0;z-index:55;"></div>
-          <div data-stop="1" style="position:absolute;left:0;top:calc(100% + 8px);width:220px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:12px;padding:7px;box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:60;">
-            <div style="padding:7px 9px 6px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Đổi trạng thái</div>
-            ${vals.statusOptions.map((o) => `
-              <div data-act="setProjectStatus" data-arg="${o.key}" class="co-hover" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;background:${o.rowBg};">
-                <span style="width:9px;height:9px;border-radius:3px;background:${o.color};"></span>
-                <span style="font-weight:600;font-size:13px;color:${o.labelColor};">${esc(o.label)}</span>
-              </div>
-            `).join("")}
-          </div>
-        ` : ""}
-      </div>
-      <span style="color:var(--co-muted);font-size:12.5px;font-weight:500;">${esc(vals.detailMeta)}</span>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:4px;">
-        ${vals.canManageProject ? `<button data-act="toggleAudit" class="co-hover" title="Audit log" style="width:30px;height:28px;display:grid;place-items:center;background:transparent;border:none;border-radius:8px;color:var(--co-faint);cursor:pointer;">${ICON.clock}</button>` : ""}
-        ${vals.isOwner ? (
-          vals.isArchived
-            ? `<button data-act="restoreProject" class="co-hover" title="Khôi phục" style="width:30px;height:28px;display:grid;place-items:center;background:transparent;border:none;border-radius:8px;color:#2bbe6e;cursor:pointer;">${ICON.restore}</button>`
-            : `<button data-act="archiveProject" class="co-hover" title="Archive" style="width:30px;height:28px;display:grid;place-items:center;background:transparent;border:none;border-radius:8px;color:var(--co-faint);cursor:pointer;">${ICON.archive}</button>`
-        ) : ""}
-        ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-hover" title="Sửa project" style="width:30px;height:28px;display:grid;place-items:center;background:transparent;border:none;border-radius:8px;color:var(--co-faint);cursor:pointer;">${ICON.edit}</button>` : ""}
+      <div style="display:flex;gap:3px;margin-left:2px;flex:0 0 auto;">
+        ${[
+          { id: "nav", title: "Toggle nav panel", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="3" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>' },
+          { id: "list", title: "Toggle list view (lưới ↔ danh sách)", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>' },
+          { id: "details", title: "Toggle details panel", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>' },
+        ].map((b) => {
+          const active = b.id === "list" ? true : (state.panels && state.panels[b.id]);
+          const dataAct = b.id === "list" ? "toggleSourceView" : `togglePanel" data-arg="${b.id}`;
+          return `<div data-act="${dataAct}" title="${b.title}" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-faint)"};background:${active ? "rgba(108,92,246,0.14)" : "transparent"};">${b.svg}</div>`;
+        }).join("")}
       </div>
     </div>
     ${body}
   </main>
+  ${state.panels && state.panels.details ? projectDetailsAside(vals) : ""}
   </div>`;
+}
+
+function projectDetailsAside(vals) {
+  const selProject = PROJECTS.find((p) => p.id === state.selectedProjectId) || {};
+  const created = selProject.createdAt ? new Date(selProject.createdAt).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" }) : (selProject.created || "—");
+  const updated = selProject.updated || "—";
+  const team = (selProject.members || []).slice(0, 8);
+  return `<aside style="width:320px;flex:0 0 320px;border-left:1px solid var(--co-border);background:var(--co-bg);display:flex;flex-direction:column;overflow-y:auto;padding:18px 18px 24px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <div style="flex:1;font-size:14px;font-weight:700;color:var(--co-text);">Project details</div>
+      <div data-act="togglePanel" data-arg="details" class="co-hover" title="Đóng" style="width:26px;height:26px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:var(--co-faint);">${ICON.close || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="width:14px;height:14px"><path d="M6 6l12 12M6 18 18 6"/></svg>'}</div>
+    </div>
+    <div style="background:var(--co-panel);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${vals.detailStatusColor};"></span>
+        <span style="font-size:12.5px;font-weight:700;color:${vals.detailStatusColor};">${esc(vals.detailStatusLabel)}</span>
+      </div>
+      <div style="font-size:13px;color:var(--co-muted);font-weight:500;margin-top:8px;line-height:1.55;">${esc(vals.detailMeta)}</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--co-faint);text-transform:uppercase;margin:6px 0 8px;">Thông tin</div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:12.5px;margin-bottom:18px;">
+      <span style="color:var(--co-faint);">Workspace</span><span style="color:var(--co-text);font-weight:600;">${esc(selProject.client || "—")}</span>
+      <span style="color:var(--co-faint);">Tạo lúc</span><span style="color:var(--co-text);">${esc(created)}</span>
+      <span style="color:var(--co-faint);">Cập nhật</span><span style="color:var(--co-text);">${esc(updated)}</span>
+      <span style="color:var(--co-faint);">Nguồn</span><span style="color:var(--co-text);font-weight:600;">${vals.sources.length}</span>
+    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--co-faint);text-transform:uppercase;margin:6px 0 8px;display:flex;align-items:center;gap:8px;">
+      <span>Thành viên</span><span style="color:var(--co-muted);">${team.length}</span>
+      <div style="flex:1;"></div>
+      ${vals.canManageProject ? `<span data-act="toggleMembers" class="co-text-hover" style="cursor:pointer;font-size:10.5px;color:var(--co-accent-ink);">Quản lý</span>` : ""}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:18px;">
+      ${team.length ? team.map((m) => `
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:26px;height:26px;border-radius:50%;background:${m.color || "#6c5cf6"};display:grid;place-items:center;font-weight:700;font-size:10.5px;color:#0a0a0d;">${esc((m.initial || (m.name || "?").slice(0,2)).toUpperCase())}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:600;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.name || m.dsmUsername || "—")}</div>
+            <div style="font-size:11px;color:var(--co-faint);">${esc(m.role || "viewer")}</div>
+          </div>
+        </div>
+      `).join("") : `<div style="color:var(--co-faint);font-size:12.5px;">Chưa có thành viên ngoài bạn.</div>`}
+    </div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--co-faint);text-transform:uppercase;margin:6px 0 8px;">Hành động</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${vals.canManageProject ? `<button data-act="toggleAudit" class="co-hover" style="display:flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:600;font-size:12.5px;padding:9px 11px;border-radius:9px;cursor:pointer;text-align:left;">${ICON.clock}Mở audit log</button>` : ""}
+      ${vals.canManageProject && !vals.isArchived ? `<button data-act="editProject" class="co-hover" style="display:flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:600;font-size:12.5px;padding:9px 11px;border-radius:9px;cursor:pointer;text-align:left;">${ICON.edit}Sửa project</button>` : ""}
+      ${vals.isOwner ? (vals.isArchived
+        ? `<button data-act="restoreProject" class="co-hover" style="display:flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#2bbe6e;font-weight:600;font-size:12.5px;padding:9px 11px;border-radius:9px;cursor:pointer;text-align:left;">${ICON.restore}Khôi phục</button>`
+        : `<button data-act="archiveProject" class="co-hover" style="display:flex;align-items:center;gap:8px;background:var(--co-panel);border:1px solid var(--co-border);color:#d9a45b;font-weight:600;font-size:12.5px;padding:9px 11px;border-radius:9px;cursor:pointer;text-align:left;">${ICON.archive}Archive project</button>`) : ""}
+    </div>
+  </aside>`;
 }
 
 function sourceEmptyState(vals) {
@@ -2693,7 +2772,7 @@ function review(vals) {
         </div>
       </div>
     </div>
-    ${commentsPanel(vals)}
+    ${state.reviewPanelOpen === false ? "" : commentsPanel(vals)}
   </div>`;
 }
 
@@ -2725,11 +2804,18 @@ function commentsPanel(vals) {
         <div data-act="setPlayerPanel" data-arg="fields" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "fields" ? "rgba(108,92,246,0.14)" : "transparent"};color:${state.playerPanelTab === "fields" ? "var(--co-text)" : "var(--co-muted)"};">Fields</div>
       </div>
       ${state.playerPanelTab === "fields" ? fieldsPanel(vals) : `
-      <!-- Comments filter sub-tabs -->
-      <div style="display:flex;padding:14px 14px 6px;gap:6px;">
-        <div data-act="filterAll" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabAllBg};color:${vals.tabAllColor};">Tất cả ${vals.countAll}</div>
-        <div data-act="filterOpen" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabOpenBg};color:${vals.tabOpenColor};">Chưa xong ${vals.countOpen}</div>
-        <div data-act="filterDone" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${vals.tabDoneBg};color:${vals.tabDoneColor};">Đã xong ${vals.countDone}</div>
+      <!-- Synoframe comments header: All comments dropdown + 4 icon controls -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;">
+        <div data-act="cycleCommentFilter" class="co-text-hover" style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--co-text);">
+          ${esc(state.commentFilter === "open" ? `Chưa xong (${vals.countOpen})` : state.commentFilter === "done" ? `Đã xong (${vals.countDone})` : `All comments (${vals.countAll})`)}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:var(--co-faint);"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div style="display:flex;gap:10px;color:var(--co-faint);">
+          <svg data-act="cycleCommentFilter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" title="Lọc" style="width:17px;height:17px;cursor:pointer;"><path d="M4 6h12M4 12h9M4 18h5"></path><path d="m17 9 3 3-3 3"></path></svg>
+          <svg data-act="filterAll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" title="Sắp xếp" style="width:17px;height:17px;cursor:pointer;"><path d="M4 6h13M4 12h9M4 18h5"></path></svg>
+          <svg data-act="focusWorkspaceSearch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" title="Tìm trong comment" style="width:17px;height:17px;cursor:pointer;"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" title="Tuỳ chọn" style="width:17px;height:17px;cursor:pointer;"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+        </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:4px 14px 14px;">
         ${vals.visibleComments.map((c) => `
@@ -2847,7 +2933,10 @@ function fieldsPanel(vals) {
         </div>
       </div>
     </div>
-    <div style="font-size:13.5px;font-weight:600;margin-bottom:8px;">All Fields</div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;margin-bottom:8px;cursor:pointer;color:var(--co-text);">
+      All Fields <span style="color:var(--co-faint);font-weight:500;">(8)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:var(--co-faint);"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
     <div style="background:var(--co-panel);border-radius:10px;overflow:hidden;">
       ${[
         ["NAS path", src.nasPath || "—"],
@@ -3490,7 +3579,8 @@ function render() {
     <div style="display:flex;flex:1;min-height:0;">
       ${leftRail(vals)}
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
-        ${isProjects || state.view === "project" ? "" : topBar(vals)}
+        ${isProjects || state.view === "project" || state.view === "review" || state.view === "settings" ? "" : topBar(vals)}
+        ${state.view === "review" ? reviewHeader(vals) : ""}
         ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${isProjects ? projectsHub(vals) : projectDetail(vals)}</div>` : ""}
         ${state.view === "review" ? review(vals) : ""}
         ${state.view === "settings" ? settingsPage(vals) : ""}
@@ -3682,9 +3772,21 @@ function handleAct(act, arg, e, node) {
     case "removeMember": return removeMember(arg);
     case "setListView": return setState({ sourceView: "list" });
     case "setGridView": return setState({ sourceView: "grid" });
+    case "toggleSourceView": return setState({ sourceView: state.sourceView === "list" ? "grid" : "list" });
+    case "goProject": {
+      const pid = state.selectedProjectId;
+      if (pid) return openProject(pid);
+      return setState({ view: "projects" });
+    }
+    case "toggleReviewPanel": return setState({ reviewPanelOpen: state.reviewPanelOpen === false });
     case "setHubGrid": return setState({ hubView: "grid" });
     case "setHubList": return setState({ hubView: "list" });
     case "setProjectFolder": return setState({ projectFolder: arg || "assets" });
+    case "togglePanel": {
+      const next = { ...(state.panels || {}) };
+      next[arg] = !next[arg];
+      return setState({ panels: next });
+    }
     case "cycleStatusFilter": {
       const order = ["all", ...Object.keys(SM)];
       const i = order.indexOf(state.statusFilter);
@@ -3735,6 +3837,10 @@ function handleAct(act, arg, e, node) {
     case "filterAll": return setState({ filter: "all" });
     case "filterOpen": return setState({ filter: "open" });
     case "filterDone": return setState({ filter: "done" });
+    case "cycleCommentFilter": {
+      const next = state.filter === "all" ? "open" : (state.filter === "open" ? "done" : "all");
+      return setState({ filter: next });
+    }
     case "toggleAttach": return setState({ attachTc: !state.attachTc });
     case "toggleCommentMenu": return setState({ commentMenuId: state.commentMenuId === arg ? null : arg });
     case "startEditComment": return startEditComment(arg);
