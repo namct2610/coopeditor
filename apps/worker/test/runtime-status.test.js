@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { detectWorkerMountHealth, ensureWorkerMountReady, shouldFailWorkerStartup } from "../src/runtime-status.js";
+import { detectWorkerMountHealth, ensureWorkerMountReady, reportWorkerBootstrapFailure, shouldFailWorkerStartup } from "../src/runtime-status.js";
 
 test("detectWorkerMountHealth reports ready for an existing directory", async () => {
   const root = await mkdtemp(join(tmpdir(), "co-worker-mount-"));
@@ -54,4 +54,27 @@ test("worker startup is strict about NAS mount by default but can be relaxed exp
   assert.equal(shouldFailWorkerStartup({}), true);
   assert.equal(shouldFailWorkerStartup({ WORKER_STRICT_NAS_MOUNT: "1" }), true);
   assert.equal(shouldFailWorkerStartup({ WORKER_STRICT_NAS_MOUNT: "0" }), false);
+});
+
+test("reportWorkerBootstrapFailure writes a failed mount heartbeat row", async () => {
+  const missing = join(tmpdir(), "co-worker-bootstrap-missing-" + Date.now());
+  const calls = [];
+  const fakePool = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      return { rowCount: 1 };
+    },
+  };
+  const status = await reportWorkerBootstrapFailure(fakePool, {
+    env: { DSM_MOUNT_ROOT: missing, APP_DATA_DIR: "/data" },
+    workerId: "boot-worker-1",
+    hostname: "nas-box",
+    pid: 1234,
+  });
+  assert.equal(status.mountReady, false);
+  assert.match(status.mountError, /chưa thấy DSM mount root|khong thay DSM mount root/i);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].sql, /INSERT INTO worker_runtime_status/i);
+  assert.equal(calls[0].params[0], "boot-worker-1");
+  assert.equal(calls[0].params[7], false);
 });

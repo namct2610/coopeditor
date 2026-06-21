@@ -140,3 +140,13 @@ export function createWorkerRuntimeReporter(pool, {
 
   return { reportOnce, start, stop };
 }
+
+export async function reportWorkerBootstrapFailure(pool, options = {}) {
+  const reporter = createWorkerRuntimeReporter(pool, {
+    mode: "bootstrap-failed",
+    hwaccel: "unknown",
+    codecLadder: "unknown",
+    ...options,
+  });
+  return reporter.reportOnce();
+}
