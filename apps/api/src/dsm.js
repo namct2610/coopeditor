@@ -19,6 +19,8 @@ const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const LEGACY_CONTAINER_MOUNT_ROOT = process.env.DSM_LEGACY_MOUNT_ROOT || "/nas";
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
 const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
+const MEDIA_PROBE_TTL_MS = 15 * 60 * 1000;
+const mediaProbeCache = new Map();
 
 function dsmHost() {
   return process.env.DSM_HOST || "";
@@ -144,7 +146,7 @@ async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
   };
   if (!probePath) return base;
   try {
-    const probed = await ffprobeFile(probePath);
+    const probed = await readCachedProbe(probePath, { size: bytes });
     if (!probed.hasVideo) return null;
     return {
       ...base,
@@ -546,6 +548,19 @@ async function ffprobeFile(path) {
     height: Number(video && video.height) || 0,
     frameRate: parseFrameRate(video && video.avg_frame_rate),
   };
+}
+
+async function readCachedProbe(path, { size = 0 } = {}) {
+  const cacheKey = String(path || "") + "::" + Number(size || 0);
+  const hit = mediaProbeCache.get(cacheKey);
+  if (hit && (Date.now() - hit.at) < MEDIA_PROBE_TTL_MS) return hit.value;
+  const value = await ffprobeFile(path);
+  mediaProbeCache.set(cacheKey, { at: Date.now(), value });
+  if (mediaProbeCache.size > 500) {
+    const oldestKey = mediaProbeCache.keys().next().value;
+    if (oldestKey) mediaProbeCache.delete(oldestKey);
+  }
+  return value;
 }
 
 function normalizeCodec(codecName) {

@@ -266,6 +266,11 @@ async function canManageUpdates(userId) {
   return !!(members && members.some((member) => member.role === "owner"));
 }
 
+async function canBrowseNasLibrary(userId) {
+  const members = await store.listProjectMembersForUser(userId).catch(() => []);
+  return !!(members && members.some((member) => member.role === "owner" || member.role === "editor"));
+}
+
 async function requireCommentWriteAccess(res, commentId, projectId, userId) {
   const [member, comment] = await Promise.all([
     store.getProjectMember(projectId, userId),
@@ -1027,6 +1032,7 @@ async function handle(req, res, url) {
 
   if (p === "/nas/ls" && m === "GET") {
     const path = url.searchParams.get("path") || "/";
+    if (!(await canBrowseNasLibrary(sess.userId))) return bad(res, "Forbidden", 403);
     try { return send(res, 200, await dsm.dsmListFolder(sess.dsmSid, path)); }
     catch (err) { return bad(res, "Khong doc duoc danh sach thu muc NAS: " + (err && err.message), 502); }
   }

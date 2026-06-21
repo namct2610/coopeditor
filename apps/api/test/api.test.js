@@ -477,6 +477,19 @@ test("NAS list and import lifecycle", async () => {
   assert.equal(after, before + 1);
 });
 
+test("NAS list is only allowed for users who can import into projects", async () => {
+  await http("/auth/logout", { method: "POST" });
+  await http("/auth/dsm/login", { method: "POST", body: { account: "lan", passwd: "pw" } });
+  const editorAllowed = await http("/nas/ls?path=/");
+  assert.equal(editorAllowed.status, 200);
+  await http("/auth/logout", { method: "POST" });
+  await http("/auth/dsm/login", { method: "POST", body: { account: "qa_user", passwd: "pw" } });
+  const blocked = await http("/nas/ls?path=/");
+  assert.equal(blocked.status, 403);
+  await http("/auth/logout", { method: "POST" });
+  await http("/auth/dsm/login", { method: "POST", body: { account: "minh", passwd: "pw" } });
+});
+
 test("HLS sim mode returns valid empty playlist", async () => {
   const r = await fetch(BASE + "/hls/p1s1_v3_720p/master.m3u8", { headers: { cookie } });
   assert.equal(r.status, 200);
