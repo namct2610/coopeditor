@@ -10,6 +10,7 @@ import { COOKIE_NAME, getSession, parseCookies } from "./sessions.js";
 import { logger } from "./logger.js";
 import * as presence from "./presence.js";
 import * as store from "./store-index.js";
+import { isOriginAllowed, requestOriginMatchesHost } from "./security.js";
 
 let wssPromise = null;
 const subscribers = new Set(); // { ws, userId }
@@ -28,6 +29,12 @@ export async function attachWebSocket(server) {
   const wss = await getWss();
   server.on("upgrade", async (req, socket, head) => {
     if (req.url !== "/ws") return; // let other upgrade handlers handle non-WS
+    const origin = String(req.headers.origin || "").trim();
+    if (origin && !isOriginAllowed(origin, requestOriginMatchesHost(req, origin))) {
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
     const cookies = parseCookies(req.headers.cookie || "");
     const sess = await getSession(cookies[COOKIE_NAME]);
     if (!sess) {

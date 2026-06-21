@@ -113,7 +113,15 @@ export function parseCookies(header) {
   for (const part of header.split(";")) {
     const i = part.indexOf("=");
     if (i < 0) continue;
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    const key = part.slice(0, i).trim();
+    const rawValue = part.slice(i + 1).trim();
+    if (!key) continue;
+    try {
+      out[key] = decodeURIComponent(rawValue);
+    } catch (_) {
+      // Malformed cookie fragments should not crash the whole request path.
+      out[key] = rawValue;
+    }
   }
   return out;
 }

@@ -555,6 +555,27 @@ test("WebSocket upgrade authenticates and responds to ping", async () => {
   ws.close();
 });
 
+test("WebSocket upgrade rejects disallowed origins", async () => {
+  const err = await new Promise((resolve) => {
+    const ws = new WebSocket(BASE.replace("http://", "ws://") + "/ws", {
+      headers: {
+        cookie,
+        origin: "https://evil.example.com",
+      },
+    });
+    ws.on("unexpected-response", (_req, res) => {
+      resolve(new Error("unexpected-response:" + res.statusCode));
+      ws.terminate();
+    });
+    ws.on("error", (error) => resolve(error));
+    ws.on("open", () => {
+      ws.close();
+      resolve(new Error("websocket should not open"));
+    });
+  });
+  assert.match(String(err && err.message || err), /403|forbidden|unexpected-response:403/i);
+});
+
 test("SSE delivers a rendition event", async () => {
   const ctrl = new AbortController();
   const events = [];

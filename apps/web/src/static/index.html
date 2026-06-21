@@ -1576,6 +1576,7 @@ function sidebar(vals) {
         <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
         <div style="margin-top:2px;color:${proxyTone};font-size:21px;font-weight:800;letter-spacing:-0.02em;">${esc(vals.proxyCache.totalLabel || "0 B")}</div>
         <div style="margin-top:3px;color:${proxyMutedTone};font-size:11px;font-weight:700;">${esc(vals.proxyCache.countLabel || vals.proxyCache.label)}</div>
+        <div style="margin-top:2px;color:${proxyMutedTone};font-size:10.5px;font-weight:700;">${esc(vals.proxyCache.usageLabel || "")}</div>
         <div style="margin-top:5px;color:${(state.proxyStorageError || state.proxyStorageSummaryError) ? "rgba(239,77,87,0.82)" : "var(--co-faint)"};font-size:10.5px;font-weight:700;">${esc(vals.proxyCache.detailLabel || ((state.proxyStorageError || state.proxyStorageSummaryError) ? "Mở trang quản lý để xem lỗi chi tiết" : ((state.proxyStorageLoading || state.proxyStorageSummaryLoading) ? "Đang đồng bộ dung lượng từ MinIO…" : "Nhấn để mở trang quản lý proxy")))}</div>
       </div>` : ""}
     </aside>`;
@@ -1591,6 +1592,7 @@ function computeProxyCacheSummary(storage) {
   const orphanCount = Number(storage.orphanCount || 0);
   const totalLabel = fmtBytes(totalBytes);
   const countLabel = renditionCount ? (renditionCount + " proxy đã lưu") : "Chưa có proxy nào";
+  const usageLabel = totalBytes > 0 ? (pct + "% ngưỡng cache SSD") : "0% ngưỡng cache SSD";
   const detailParts = [];
   if (orphanCount) detailParts.push(orphanCount + " orphan");
   if (storage.backend) detailParts.push("lưu trên " + storage.backend);
@@ -1601,6 +1603,7 @@ function computeProxyCacheSummary(storage) {
     pct,
     totalLabel,
     countLabel,
+    usageLabel,
     detailLabel: detailParts.join(" · ") || "Nhấn để mở trang quản lý proxy",
     label: fmtBytes(totalBytes)
       + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy")
@@ -1617,6 +1620,7 @@ function hydrateProxyCache(cache, { loading = false, error = "" } = {}) {
   const totalLabel = cache.totalLabel || fmtBytes(totalBytes);
   const countLabel = cache.countLabel
     || (renditionCount ? (renditionCount + " proxy đã lưu") : "Chưa có proxy nào");
+  const usageLabel = cache.usageLabel || (totalBytes > 0 ? ((cache.pct || 0) + "% ngưỡng cache SSD") : "0% ngưỡng cache SSD");
   let detailLabel = cache.detailLabel || "";
   if (error) {
     detailLabel = totalBytes > 0
@@ -1640,6 +1644,7 @@ function hydrateProxyCache(cache, { loading = false, error = "" } = {}) {
     totalBytes,
     totalLabel,
     countLabel,
+    usageLabel,
     detailLabel,
     label: cache.label || (totalLabel + (renditionCount ? (" · " + renditionCount + " proxy") : " · chưa có proxy")),
   };
@@ -1761,6 +1766,53 @@ function buildTimelineMarkers(comments, durationMs, fps, timelineWidthPx) {
       + (existing.annotationCount ? (" · " + existing.annotationCount + " chú thích") : "");
   }
   return computeTimelineMarkerLanes([...grouped.values()], timelineWidthPx);
+}
+
+const timelineMarkerMemo = {
+  signature: "",
+  durationMs: 0,
+  fps: 0,
+  timelineWidthPx: 0,
+  layout: { items: [], laneCount: 1, railHeight: 24, paddingTop: 24 },
+};
+
+function markerCommentSignature(comments) {
+  return (comments || []).map((comment) => {
+    const annotation = comment && comment.annotation ? comment.annotation : null;
+    const strokeCount = annotation && annotation.strokes ? annotation.strokes.length : 0;
+    const textCount = annotation && annotation.texts ? annotation.texts.length : 0;
+    return [
+      comment && comment.id || "",
+      comment && comment.authorKey || "",
+      Math.round(Number(comment && comment.ms || 0)),
+      comment && comment.resolved ? 1 : 0,
+      strokeCount,
+      textCount,
+      (comment && comment.replies ? comment.replies.length : 0),
+    ].join(":");
+  }).join("|");
+}
+
+function getTimelineMarkerLayout(comments, durationMs, fps, timelineWidthPx) {
+  const signature = markerCommentSignature(comments);
+  const width = Math.round(Number(timelineWidthPx || 0));
+  const duration = Math.round(Number(durationMs || 0));
+  const nextFps = Math.round(Number(fps || 0));
+  if (
+    timelineMarkerMemo.signature === signature
+    && timelineMarkerMemo.durationMs === duration
+    && timelineMarkerMemo.fps === nextFps
+    && timelineMarkerMemo.timelineWidthPx === width
+  ) {
+    return timelineMarkerMemo.layout;
+  }
+  const layout = buildTimelineMarkers(flattenTimedComments(comments), durationMs, fps, timelineWidthPx);
+  timelineMarkerMemo.signature = signature;
+  timelineMarkerMemo.durationMs = duration;
+  timelineMarkerMemo.fps = nextFps;
+  timelineMarkerMemo.timelineWidthPx = width;
+  timelineMarkerMemo.layout = layout;
+  return layout;
 }
 
 function projectsHub(vals) {
@@ -2528,6 +2580,7 @@ function proxyStorageBody(vals) {
           <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--co-accent-ink);">Bộ nhớ proxy</div>
           <div style="font-size:28px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);margin-top:4px;">${esc(cache.totalLabel || "0 B")}</div>
           <div style="font-size:12px;color:var(--co-muted);font-weight:600;margin-top:2px;">${esc(cache.countLabel || cache.label || "")}</div>
+          <div style="font-size:11px;color:var(--co-faint);font-weight:700;margin-top:2px;">${esc(cache.usageLabel || "0% ngưỡng cache SSD")}</div>
         </div>
         <div style="flex:1;min-width:200px;">
           <div style="height:8px;border-radius:999px;background:var(--co-border-2);overflow:hidden;"><div style="width:${cache.pct || 0}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
@@ -2750,7 +2803,7 @@ function review(vals) {
                    initials, sitting just above the timeline bar. Replaces
                    the previous pill-stem-dot stack. -->
               <div data-act="jumpTo" data-arg="${m.ms}" title="${esc(m.tip)}" style="position:absolute;top:${m.topPx}px;left:${m.leftPct}%;transform:${m.markerTransform || "translateX(-50%)"};cursor:pointer;pointer-events:auto;z-index:${m.zIndex || 1};">
-                <div style="position:relative;width:22px;height:22px;border-radius:50%;background:${m.avatarBg};border:2px solid #060608;display:grid;place-items:center;font-size:9px;font-weight:700;line-height:1;color:${m.avatarColor};">${esc(m.initial)}${m.count > 1 ? `<span style="position:absolute;right:-5px;top:-5px;min-width:12px;height:12px;padding:0 3px;border-radius:999px;background:#0a0a0d;border:1px solid ${m.avatarBg};display:grid;place-items:center;color:#fff;font-size:8px;font-weight:800;line-height:1;">${m.count}</span>` : ``}${m.hasAnnotation ? `<span style="position:absolute;right:-3px;bottom:-3px;width:7px;height:7px;border-radius:50%;background:#d9a45b;border:1.5px solid #060608;"></span>` : ``}</div>
+                <div style="position:relative;width:22px;height:22px;border-radius:50%;background:${m.avatarBg};border:2px solid ${m.avatarBorder || "#060608"};display:grid;place-items:center;font-size:9px;font-weight:700;line-height:1;color:${m.avatarColor};box-shadow:0 2px 10px rgba(0,0,0,0.32);">${esc(m.initial)}${m.count > 1 ? `<span style="position:absolute;right:-5px;top:-5px;min-width:12px;height:12px;padding:0 3px;border-radius:999px;background:#0a0a0d;border:1px solid ${m.avatarBg};display:grid;place-items:center;color:#fff;font-size:8px;font-weight:800;line-height:1;">${m.count}</span>` : ``}${m.hasAnnotation ? `<span style="position:absolute;right:-3px;bottom:-3px;width:7px;height:7px;border-radius:50%;background:#d9a45b;border:1.5px solid #060608;"></span>` : ``}</div>
               </div>
             `).join("")}
           </div>
@@ -2858,10 +2911,10 @@ function commentsPanel(vals) {
               <button data-act="toggleResolve" data-arg="${c.id}" data-stop="1" title="${c.resolved ? "Mở lại" : "Đánh dấu xong"}" class="${c.resolved ? "" : "co-hover"}" style="width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:none;background:${c.resolved ? "#2bbe6e" : "transparent"};color:${c.resolved ? "#0a0a0d" : "var(--co-faint)"};cursor:pointer;">${ICON.check}</button>
             </div>
             <div style="display:flex;align-items:baseline;gap:8px;margin:8px 0 0 35px;flex-wrap:wrap;">
-              <span style="font-variant-numeric:tabular-nums;background:rgba(217,164,91,0.16);color:#d9a45b;border-radius:5px;padding:2px 6px;font-size:11.5px;font-weight:600;flex:0 0 auto;">${esc(c.tcLabel)}</span>
+              <button data-stop="1" data-act="jumpTo" data-arg="${c.ms}" title="Tua tới ${esc(c.tcLabel)}" style="font-variant-numeric:tabular-nums;background:rgba(217,164,91,0.16);color:#d9a45b;border-radius:5px;padding:2px 6px;font-size:11.5px;font-weight:600;flex:0 0 auto;border:none;cursor:pointer;">${esc(c.tcLabel)}</button>
               ${c.isEditing ? "" : `<span style="font-size:13.5px;color:var(--co-comment);line-height:1.5;${c.contentStyle}">${esc(c.content)}</span>`}
             </div>
-            ${c.hasAnnotation && !c.isEditing ? `<div style="margin:6px 0 0 35px;display:inline-flex;align-items:center;gap:5px;color:#d9a45b;font-size:11px;font-weight:600;">${ICON.penTool}Chú thích · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""}</div>` : ""}
+            ${c.hasAnnotation && !c.isEditing ? `<button data-stop="1" data-act="jumpTo" data-arg="${c.ms}" title="Mở chú thích tại ${esc(c.annotationTcLabel)}" style="margin:6px 0 0 35px;display:inline-flex;align-items:center;gap:5px;color:#d9a45b;font-size:11px;font-weight:600;background:transparent;border:none;padding:0;cursor:pointer;">${ICON.penTool}Chú thích · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""} · ${esc(c.annotationTcLabel)}</button>` : ""}
             ${c.isEditing ? `
               <div data-stop="1" style="margin:10px 0 0 35px;">
                 <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel);border:1px solid rgba(108,92,246,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
@@ -2876,7 +2929,9 @@ function commentsPanel(vals) {
                 ${c.replies.map((r) => `
                   <div data-stop="1" style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;">
                     <span style="font-weight:600;font-size:12px;color:${r.color};flex:0 0 auto;">${esc(r.name)}</span>
+                    <button data-act="jumpTo" data-arg="${r.ms || 0}" title="Tua tới ${esc(r.tcLabel)}" style="font-variant-numeric:tabular-nums;background:rgba(217,164,91,0.12);color:#d9a45b;border-radius:5px;padding:1px 6px;font-size:10.5px;font-weight:700;border:none;cursor:pointer;flex:0 0 auto;">${esc(r.tcLabel)}</button>
                     <span style="font-size:12.5px;color:var(--co-text-2);line-height:1.5;">${esc(r.content)}</span>
+                    ${r.hasAnnotation ? `<button data-act="jumpTo" data-arg="${r.ms || 0}" title="Mở chú thích reply tại ${esc(r.tcLabel)}" style="display:inline-flex;align-items:center;gap:4px;background:transparent;border:none;color:#d9a45b;font-size:10.5px;font-weight:700;padding:0;cursor:pointer;">${ICON.penTool}${r.annotationStrokeCount} nét${r.annotationTextCount ? ` · ${r.annotationTextCount} text` : ""}</button>` : ``}
                   </div>
                 `).join("")}
               </div>
@@ -3387,7 +3442,7 @@ function computeVals() {
   let visible = all;
   if (s.filter === "open") visible = all.filter((c) => !c.resolved);
   else if (s.filter === "done") visible = all.filter((c) => c.resolved);
-  const markerLayout = buildTimelineMarkers(flattenTimedComments(all), s.duration, s.fps, s.timelineBarWidth);
+  const markerLayout = getTimelineMarkerLayout(all, s.duration, s.fps, s.timelineBarWidth);
 
   const thumbs = [];
   for (let i = 0; i < 18; i++) {
@@ -3470,6 +3525,7 @@ function computeVals() {
     totalBytes: 0,
     pct: 0,
     totalLabel: "—",
+    usageLabel: "0% ngưỡng cache SSD",
     countLabel: s.proxyStorageError || s.proxyStorageSummaryError
       ? "Không đọc được proxy storage"
       : ((s.proxyStorageLoading || s.proxyStorageSummaryLoading)
