@@ -577,7 +577,9 @@ function applyHashRoute() {
   _applyingHashRoute = true;
   try {
     if (hash === "#/proxy-storage") {
-      state.view = "proxyStorage";
+      // Backward-compat: /proxy-storage hash giờ redirect tới Settings → Proxy.
+      state.view = "settings";
+      state.settingsSection = "proxy";
       state.showProxyStorage = false;
       state.projectContextMenu = null;
       state.sourceContextMenu = null;
@@ -1329,8 +1331,8 @@ function settingsContent(sec, rc, me, vals) {
     return `
       <div style="max-width:960px;">
         <div style="font-size:19px;font-weight:700;">Proxy storage</div>
-        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 18px;">Quản lý HLS proxy trên MinIO — xem dung lượng theo rendition, xoá để giải phóng SSD cache.</div>
-        <button data-act="openProxyStorage" style="background:#6c5cf6;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">📦 Mở proxy storage manager</button>
+        <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 18px;">HLS proxy trên MinIO — file bản gốc trên NAS không bị động.</div>
+        ${proxyStorageBody(vals)}
       </div>`;
   }
   if (sec === "update") {
@@ -2415,53 +2417,47 @@ function sourceContextMenu() {
   </div>`;
 }
 
-function proxyStoragePage() {
+function proxyStorageBody(vals) {
   const canManage = canManageProxyStorage();
   const ps = canManage ? state.proxyStorage : (state.proxyStorage || state.proxyStorageSummary);
   const loading = canManage ? state.proxyStorageLoading : (state.proxyStorageLoading || state.proxyStorageSummaryLoading);
   const err = canManage ? state.proxyStorageError : (state.proxyStorageError || state.proxyStorageSummaryError);
   const deletingId = state.proxyDeletingId;
+  const cache = vals && vals.proxyCache ? vals.proxyCache : { pct: 0, totalLabel: "0 B", countLabel: "Chưa có proxy" };
   return `
-  <main style="flex:1;min-width:0;overflow-y:auto;padding:22px 28px 40px;">
-    <div data-act="goProjects" class="co-text-hover" style="display:inline-flex;align-items:center;gap:7px;color:var(--co-muted);font-weight:700;font-size:12.5px;cursor:pointer;margin-bottom:14px;">${ICON.back}Workspace</div>
-    <div style="background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.18);display:flex;flex-direction:column;min-height:calc(100vh - 180px);">
-      <div style="padding:22px 22px 14px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-        <div style="flex:1;">
-          <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Proxy Storage</div>
-          <div style="margin-top:4px;font-size:20px;font-weight:800;color:var(--co-text);">Quản lý dung lượng proxy</div>
-          <div style="margin-top:4px;color:var(--co-muted);font-size:12.5px;font-weight:600;line-height:1.5;">
-            Mỗi rendition (720p/1080p) lưu HLS playlist + segment trên MinIO.
-            ${canManage
-              ? "Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động. Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu."
-              : "Bạn đang ở chế độ chỉ xem dung lượng. Chỉ owner mới có quyền xoá proxy khỏi MinIO."}
-          </div>
+    <div style="background:linear-gradient(160deg,rgba(108,92,246,0.14),rgba(24,120,185,0.06));border:1px solid rgba(108,92,246,0.28);border-radius:14px;padding:18px;margin-bottom:18px;">
+      <div style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--co-accent-ink);">Bộ nhớ proxy</div>
+          <div style="font-size:28px;font-weight:800;letter-spacing:-0.02em;color:var(--co-text);margin-top:4px;">${esc(cache.totalLabel || "0 B")}</div>
+          <div style="font-size:12px;color:var(--co-muted);font-weight:600;margin-top:2px;">${esc(cache.countLabel || cache.label || "")}</div>
         </div>
-        <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
+        <div style="flex:1;min-width:200px;">
+          <div style="height:8px;border-radius:999px;background:var(--co-border-2);overflow:hidden;"><div style="width:${cache.pct || 0}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--co-faint);font-weight:600;">${esc(cache.detailLabel || "Lưu trên MinIO · file bản gốc NAS không bị động")}</div>
+        </div>
+        <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;flex:0 0 auto;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
       </div>
-      ${err ? `<div style="margin:14px 22px 0;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(err)}</div>` : ""}
+    </div>
+    <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:14px;overflow:hidden;">
+      <div style="padding:14px 18px 10px;border-bottom:1px solid var(--co-border);">
+        <div style="font-size:14px;font-weight:700;color:var(--co-text);">Chi tiết rendition</div>
+        <div style="margin-top:3px;color:var(--co-muted);font-size:12px;font-weight:500;line-height:1.5;">
+          Mỗi rendition (720p/1080p) lưu HLS playlist + segment trên MinIO.
+          ${canManage
+            ? "Xoá để giải phóng SSD cache — file bản gốc trên NAS không bị động. Worker sẽ tạo lại proxy khi user chọn chất lượng đó từ quality menu."
+            : "Bạn đang ở chế độ chỉ xem dung lượng. Chỉ owner mới có quyền xoá proxy khỏi MinIO."}
+        </div>
+      </div>
+      ${err ? `<div style="margin:12px 18px 0;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(err)}</div>` : ""}
       ${ps ? `
-        <div style="padding:14px 22px;border-bottom:1px solid var(--co-border);display:flex;gap:24px;align-items:center;">
-          <div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Tổng dung lượng</div>
-            <div style="font-size:22px;font-weight:800;color:var(--co-text);">${esc(fmtBytes(ps.totalBytes || 0))}</div>
-          </div>
-          <div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Backend</div>
-            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${esc(ps.backend || "—")}${ps.bucket ? ` · <span style="color:var(--co-muted);">${esc(ps.bucket)}</span>` : ""}</div>
-          </div>
-          <div>
-            <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Số rendition</div>
-            <div style="font-size:13px;font-weight:700;color:var(--co-text);">${Number(ps.renditionCount || ((ps.renditions || []).length) || 0)}</div>
-          </div>
-          ${ps.orphanCount ? `
-            <div>
-              <div style="font-size:10.5px;font-weight:800;letter-spacing:0.1em;color:#ef4d57;text-transform:uppercase;">Orphan proxy</div>
-              <div style="font-size:13px;font-weight:700;color:#ef4d57;">${ps.orphanCount} · ${esc(fmtBytes(ps.orphanBytes || 0))}</div>
-            </div>
-          ` : ""}
+        <div style="padding:12px 18px;border-bottom:1px solid var(--co-border);display:flex;gap:20px;color:var(--co-muted);font-size:11.5px;font-weight:600;flex-wrap:wrap;">
+          <span><span style="color:var(--co-faint);text-transform:uppercase;font-size:10px;letter-spacing:0.08em;">Backend</span> ${esc(ps.backend || "—")}${ps.bucket ? ` · ${esc(ps.bucket)}` : ""}</span>
+          <span><span style="color:var(--co-faint);text-transform:uppercase;font-size:10px;letter-spacing:0.08em;">Rendition</span> ${Number(ps.renditionCount || ((ps.renditions || []).length) || 0)}</span>
+          ${ps.orphanCount ? `<span style="color:#ef4d57;"><span style="text-transform:uppercase;font-size:10px;letter-spacing:0.08em;">Orphan</span> ${ps.orphanCount} · ${esc(fmtBytes(ps.orphanBytes || 0))}</span>` : ""}
         </div>
       ` : ""}
-      <div style="flex:1;overflow-y:auto;padding:4px 22px 18px;">
+      <div style="padding:4px 18px 14px;">
         ${ps && ps.note ? `<div style="color:var(--co-muted);font-size:12px;font-weight:600;padding:14px 0;">${esc(ps.note)}</div>` : ""}
         ${ps && (ps.renditions || []).length > 0 ? `
           <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
@@ -2495,8 +2491,7 @@ function proxyStoragePage() {
         ` : (!loading && !err ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">${canManage ? "Chưa có proxy nào trên MinIO." : "Chưa có dữ liệu proxy chi tiết cho tài khoản này."}</div>` : "")}
         ${loading && !ps ? `<div style="text-align:center;color:var(--co-muted);font-size:13px;font-weight:600;padding:40px 12px;">Đang đọc danh sách MinIO…</div>` : ""}
       </div>
-    </div>
-  </main>`;
+    </div>`;
 }
 
 function updateModal(vals) {
@@ -3481,9 +3476,8 @@ function render() {
   const vals = computeVals();
   lastNasListMeta = vals.nasList;
   const app = document.getElementById("app");
-  const isWorkspace = state.view === "projects" || state.view === "project" || state.view === "proxyStorage";
+  const isWorkspace = state.view === "projects" || state.view === "project";
   const isProjects = state.view === "projects";
-  const isProxyStorage = state.view === "proxyStorage";
 
   document.documentElement.setAttribute("data-theme", state.theme);
   app.setAttribute("data-theme", state.theme);
@@ -3497,7 +3491,7 @@ function render() {
       ${leftRail(vals)}
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
         ${isProjects || state.view === "project" ? "" : topBar(vals)}
-        ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${isProxyStorage ? sidebar(vals) : ""}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
+        ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${isProjects ? projectsHub(vals) : projectDetail(vals)}</div>` : ""}
         ${state.view === "review" ? review(vals) : ""}
         ${state.view === "settings" ? settingsPage(vals) : ""}
       </div>
@@ -4119,7 +4113,10 @@ async function openUpdateModal() {
 
 // ---- Proxy storage management ----
 async function openProxyStorage() {
-  setState({ view: "proxyStorage", showProxyStorage: false, proxyStorageError: "", showUpdateModal: false, projectContextMenu: null, sourceContextMenu: null });
+  // Proxy storage giờ inline trong Settings → Proxy section thay vì 1 view riêng.
+  // Giữ tên hàm để mọi entry point hiện có (sidebar widget, quality menu CTA,
+  // hash route) đều mở đúng chỗ.
+  setState({ view: "settings", settingsSection: "proxy", showProxyStorage: false, proxyStorageError: "", showUpdateModal: false, projectContextMenu: null, sourceContextMenu: null });
   if (canManageProxyStorage()) await refreshProxyStorage();
   else await refreshProxyStorageSummary();
 }
