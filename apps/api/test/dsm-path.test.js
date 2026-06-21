@@ -43,6 +43,21 @@ test("DSM path helpers follow mount root changes after module load", async () =>
   assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/mnt/pcngon/Clip/C001.MP4");
 });
 
+test("DSM path helpers strip nested share segment and try parent mount root as fallback", async () => {
+  process.env.DSM_MOUNT_ROOT = "/nas/PCNgon";
+  const mod = await import("../src/dsm.js?case=nested-share-root");
+
+  assert.equal(mod.normalizeStoredNasPath("/PCNgon/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
+  assert.deepEqual(
+    mod.resolveSourcePathCandidates("/PCNgon/502. Case G200/C1967.MP4"),
+    [
+      "/nas/PCNgon/502. Case G200/C1967.MP4",
+      "/nas/502. Case G200/C1967.MP4",
+      "/PCNgon/502. Case G200/C1967.MP4",
+    ],
+  );
+});
+
 test("DSM source readability helper reports mounted and missing sources clearly", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-source-"));
   await mkdir(join(root, "Clip"), { recursive: true });

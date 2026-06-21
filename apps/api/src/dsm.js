@@ -36,6 +36,13 @@ function normalizeMountRoot(root) {
   return String(root || "").trim().replace(/\/+$/, "");
 }
 
+function mountRootLeafName(root) {
+  const cleaned = normalizeMountRoot(root);
+  if (!cleaned) return "";
+  const parts = cleaned.split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
 function mountRootLooksLikeHostPath(root) {
   return /^\/volume\d+(\/|$)/i.test(normalizeMountRoot(root));
 }
@@ -44,6 +51,10 @@ function buildMountRootCandidates(root = dsmMountRoot()) {
   const cleaned = normalizeMountRoot(root);
   const candidates = [];
   if (cleaned) candidates.push(cleaned);
+  if (cleaned && !mountRootLooksLikeHostPath(cleaned)) {
+    const parent = cleaned.replace(/\/[^/]+$/, "");
+    if (parent && parent !== cleaned) candidates.push(parent);
+  }
   if (mountRootLooksLikeHostPath(cleaned)) candidates.push(LEGACY_CONTAINER_MOUNT_ROOT);
   return [...new Set(candidates.filter(Boolean))];
 }
@@ -336,8 +347,11 @@ export function normalizeStoredNasPath(input) {
   if (!raw) return "/";
   raw = raw.replace(/\\/g, "/").replace(/\/+/g, "/");
   const mountRoot = dsmMountRoot().replace(/\/+$/, "");
+  const mountLeaf = mountRootLeafName(mountRoot);
   if (mountRoot && raw === mountRoot) return "/";
   if (mountRoot && raw.startsWith(mountRoot + "/")) raw = raw.slice(mountRoot.length);
+  if (mountLeaf && raw === "/" + mountLeaf) return "/";
+  if (mountLeaf && raw.startsWith("/" + mountLeaf + "/")) raw = raw.slice(mountLeaf.length + 1);
   if (raw === "/nas") return "/";
   if (raw.startsWith("/nas/")) raw = raw.slice(4);
   const hostShareMatch = raw.match(/^\/volume\d+\/[^/]+(\/.*)$/);
@@ -543,7 +557,7 @@ function normalizeCodec(codecName) {
 }
 
 export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000, width = 640 } = {}) {
-  const localPath = resolveSourcePath(sourcePath) || sourcePath;
+  const localPath = await assertReadableSourcePath(sourcePath, { actor: "api" });
   const outPath = thumbCachePath(cacheKey || sourcePath);
   await mkdir(join(APP_DATA_DIR, "system", "thumbs"), { recursive: true });
   try {

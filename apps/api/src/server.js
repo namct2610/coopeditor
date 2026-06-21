@@ -845,8 +845,7 @@ async function handle(req, res, url) {
     const asset = await store.getAsset(assetId);
     if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
     try {
-      const localPath = dsm.resolveSourcePath(asset.nasPath);
-      if (!localPath) return bad(res, "Khong resolve duoc source video", 404);
+      const localPath = await dsm.assertReadableSourcePath(asset.nasPath, { actor: "api" });
       return await streamLocalMedia(req, res, localPath, asset.mimeType || mimeFromPath(asset.nasPath));
     } catch (err) {
       return bad(res, "Khong mo duoc source video: " + (err && err.message), 404);
