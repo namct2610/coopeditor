@@ -71,7 +71,10 @@ image_digest() {
 }
 
 # 1. Snapshot SHA + image digest trước khi pull
-BEFORE_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4 || echo unknown)"
+set +o pipefail
+BEFORE_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4)"
+set -o pipefail
+BEFORE_SHA="${BEFORE_SHA:-unknown}"
 declare -A BEFORE_DIGEST
 for svc in "${APP_SERVICES[@]}"; do
   BEFORE_DIGEST[$svc]="$(image_digest "$svc")"
@@ -86,16 +89,30 @@ docker compose $COMPOSE_FLAGS pull --quiet 2>&1 | tee -a "$LOG_FILE" || fail "do
 # 3. So digest container đang chạy với digest image:latest sau pull. Service
 # nào lệch → force recreate. Compose "up -d" trần không làm được điều này
 # nếu Watchtower đã pull xong rồi (lúc đó container vẫn ref digest cũ).
+#
+# QUAN TRỌNG: tạm tắt pipefail trong vòng for — grep không match → exit 1
+# → pipefail propagate → set -e kill script âm thầm. Khôi phục pipefail
+# ngay sau loop.
+set +o pipefail
 TO_RECREATE=()
 for svc in "${APP_SERVICES[@]}"; do
-  IMG="$(docker compose $COMPOSE_FLAGS config --format json 2>/dev/null | grep -oE "\"image\":\"[^\"]*coopeditor-$svc[^\"]*\"" | head -1 | cut -d'"' -f4)"
-  [ -z "$IMG" ] && continue
-  LATEST_DIGEST="$(docker inspect --format='{{.Id}}' "$IMG" 2>/dev/null | sed 's|sha256:||' | cut -c1-12 || echo unknown)"
+  # Tên image:latest trên GHCR theo convention. Compose config format JSON
+  # không có trên docker compose v1; grep trực tiếp ra image tag trong file.
+  IMG="ghcr.io/namct2610/coopeditor-$svc:latest"
+  if ! docker image inspect "$IMG" >/dev/null 2>&1; then
+    log "  $svc: chưa có image $IMG sau pull (skip)"
+    continue
+  fi
+  LATEST_DIGEST="$(docker image inspect --format='{{.Id}}' "$IMG" 2>/dev/null | sed 's|sha256:||' | cut -c1-12)"
+  LATEST_DIGEST="${LATEST_DIGEST:-unknown}"
   if [ "$LATEST_DIGEST" != "${BEFORE_DIGEST[$svc]}" ] && [ "$LATEST_DIGEST" != "unknown" ]; then
     log "→ $svc: ${BEFORE_DIGEST[$svc]} → $LATEST_DIGEST (sẽ recreate)"
     TO_RECREATE+=("$svc")
+  else
+    log "  $svc: digest không đổi ($LATEST_DIGEST)"
   fi
 done
+set -o pipefail
 
 if [ ${#TO_RECREATE[@]} -gt 0 ]; then
   log "Force recreate: ${TO_RECREATE[*]}"
@@ -115,8 +132,11 @@ for i in $(seq 1 30); do
 done
 
 # 5. Verify SHA mới + check index.html không cache stale
-AFTER_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4 || echo unknown)"
-INDEX_CACHE="$(curl -fsSI --max-time 5 "$WEB_URL" 2>/dev/null | grep -i '^cache-control:' | tr -d '\r' || echo "")"
+set +o pipefail
+AFTER_SHA="$(curl -fsS --max-time 5 "$GATEWAY_URL" 2>/dev/null | grep -oE '"sha":"[a-f0-9]+"' | head -1 | cut -d'"' -f4)"
+INDEX_CACHE="$(curl -fsSI --max-time 5 "$WEB_URL" 2>/dev/null | grep -i '^cache-control:' | tr -d '\r')"
+set -o pipefail
+AFTER_SHA="${AFTER_SHA:-unknown}"
 
 if [ "$AFTER_SHA" = "$BEFORE_SHA" ] && [ ${#TO_RECREATE[@]} -eq 0 ]; then
   log "Không có image mới — đã ở SHA ${AFTER_SHA:0:12}."
