@@ -3496,8 +3496,8 @@ function render() {
     <div style="display:flex;flex:1;min-height:0;">
       ${leftRail(vals)}
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
-        ${isProjects ? "" : topBar(vals)}
-        ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${isProjects ? "" : sidebar(vals)}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
+        ${isProjects || state.view === "project" ? "" : topBar(vals)}
+        ${isWorkspace ? `<div style="flex:1;display:flex;min-height:0;">${isProxyStorage ? sidebar(vals) : ""}${isProjects ? projectsHub(vals) : (isProxyStorage ? proxyStoragePage() : projectDetail(vals))}</div>` : ""}
         ${state.view === "review" ? review(vals) : ""}
         ${state.view === "settings" ? settingsPage(vals) : ""}
       </div>
