@@ -1847,9 +1847,9 @@ function projectListRows(projects) {
 }
 
 function projectNavPanel(vals) {
-  const selProject = state.projects.find((p) => p.id === state.activeProject) || {};
+  const selProject = PROJECTS.find((p) => p.id === state.selectedProjectId) || {};
   const memberCount = (vals.members || []).length || (selProject.members || []).length || 0;
-  const cover = selProject.cover || "#1d1d22";
+  const cover = selProject.thumbUrl || selProject.cover || "#1d1d22";
   const coverIsImg = typeof cover === "string" && (cover.startsWith("http") || cover.startsWith("/"));
   const folder = state.projectFolder || "assets";
   const item = (id, label, icon, hasChildren, indent) => {
