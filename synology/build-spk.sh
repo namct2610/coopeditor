@@ -198,17 +198,21 @@ echo "    package.tgz: $((PAYLOAD_BYTES / 1024)) KB"
 rm -rf "$PKG_STAGE"
 
 # ============================================================================
-# 3. Icons — caller-provided real PNGs preferred, else placeholders.
+# 3. Icons — real 72/256 PNGs are committed at synology/spk-src/. CI builds
+#    use those directly. Caller can override with PNG72 / PNG256 env vars.
 # ============================================================================
 if [ -n "${PNG72:-}" ] && [ -f "$PNG72" ]; then
   cp "$PNG72" "${STAGE}/PACKAGE_ICON.PNG"
+elif [ -f "${SRC}/PACKAGE_ICON.PNG" ]; then
+  cp "${SRC}/PACKAGE_ICON.PNG" "${STAGE}/PACKAGE_ICON.PNG"
 else
-  # Tiny 1×1 PNG. Replace with a real icon before GA. Visible in Package
-  # Center as a blank tile until then.
-  printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa3M\x1b\xa1\x00\x00\x00\x00IEND\xaeB`\x82' > "${STAGE}/PACKAGE_ICON.PNG"
+  echo "ERROR: no PACKAGE_ICON.PNG found at ${SRC}/ and PNG72 not set" >&2
+  exit 1
 fi
 if [ -n "${PNG256:-}" ] && [ -f "$PNG256" ]; then
   cp "$PNG256" "${STAGE}/PACKAGE_ICON_256.PNG"
+elif [ -f "${SRC}/PACKAGE_ICON_256.PNG" ]; then
+  cp "${SRC}/PACKAGE_ICON_256.PNG" "${STAGE}/PACKAGE_ICON_256.PNG"
 else
   cp "${STAGE}/PACKAGE_ICON.PNG" "${STAGE}/PACKAGE_ICON_256.PNG"
 fi
@@ -216,9 +220,18 @@ fi
 # ============================================================================
 # 4. Pack the outer SPK tarball. Format: a plain tar (NOT gzipped) of
 #    INFO + icons + package.tgz + scripts/ + WIZARD_UIFILES/ + conf/.
+#    DSM validates against ustar tar layout — macOS default `tar -cf` uses
+#    pax-extended format which DSM (sometimes) refuses. Force --format=ustar
+#    plus --no-xattrs / --no-mac-metadata where the host supports it.
 # ============================================================================
 echo "==> Packing .spk"
-(cd "$STAGE" && tar -cf "$SPK_OUT" \
+TAR_FLAGS="--format=ustar"
+# macOS bsdtar accepts --no-mac-metadata; GNU tar doesn't, so probe before
+# adding. Both accept --format=ustar.
+if tar --no-mac-metadata --version >/dev/null 2>&1; then
+  TAR_FLAGS="$TAR_FLAGS --no-mac-metadata"
+fi
+(cd "$STAGE" && tar -cf "$SPK_OUT" $TAR_FLAGS \
   INFO \
   PACKAGE_ICON.PNG \
   PACKAGE_ICON_256.PNG \
