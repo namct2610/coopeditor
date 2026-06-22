@@ -32,10 +32,25 @@ SHA="${BUILD_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 SHA_SHORT="${SHA:0:7}"
 BUILT_AT="${BUILT_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 
-# Map our arch label → npm target_arch label for prebuild-install.
+# Map our arch label → npm target_arch (for prebuild-install) AND the
+# DSM arch list that Package Center matches against. Synology uses CPU
+# codenames in INFO's arch= field, NOT GNU triplets — passing "x86_64"
+# causes DSM to reject the SPK with "Invalid file format" because no
+# Synology model reports that string.
+#
+# Full lists below cover every 64-bit Synology NAS shipped 2017+ for
+# x86_64 (most Plus/FS/DS+ models) and 2018+ for aarch64 (DS124, DS220j,
+# RS422+, etc.). Older 32-bit ARM models (armv7) aren't supported because
+# better-sqlite3 + Node 22 require 64-bit.
 case "$ARCH" in
-  x86_64)   NPM_ARCH=x64 ;;
-  aarch64)  NPM_ARCH=arm64 ;;
+  x86_64)
+    NPM_ARCH=x64
+    DSM_ARCH_LIST="apollolake avoton braswell broadwell broadwellnk broadwellnkv2 broadwellntbap bromolow cedarview denverton epyc7002 geminilake geminilakenext grantley kvmx64 purley v1000"
+    ;;
+  aarch64)
+    NPM_ARCH=arm64
+    DSM_ARCH_LIST="armadaxp armada37xx armada38x alpine alpine4k rtd1296 rtd1619b monaco"
+    ;;
   *) echo "ERROR: unknown arch '$ARCH' (need x86_64 / aarch64)" >&2; exit 1 ;;
 esac
 
@@ -63,7 +78,7 @@ chmod 755 "$STAGE"/scripts/*
 # Substitute INFO tokens.
 sed \
   -e "s|@VERSION@|${VERSION}|g" \
-  -e "s|@ARCH@|${ARCH}|g" \
+  -e "s|@ARCH@|${DSM_ARCH_LIST}|g" \
   -e "s|@PACKAGE_ICON@|PACKAGE_ICON.PNG|g" \
   -e "s|@PACKAGE_ICON_256@|PACKAGE_ICON_256.PNG|g" \
   -e "s|@BUILT_AT@|${BUILT_AT}|g" \
