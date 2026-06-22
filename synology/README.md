@@ -58,23 +58,56 @@ DSM 6.x is out of scope — release.json bumps target DSM ≥ 7.2.
 
 Each phase ships independently. Docker stack stays supported until SPK is GA.
 
-1. **DB layer** — add SQLite driver alongside Postgres. `DATABASE_URL=sqlite:/path/to.db` switches; tests gate on both. (~3 days)
-2. **In-process bus** — collapse Redis streams into a local emitter when
-   single-process mode is detected (no `REDIS_URL`). Existing fallback already
-   exists in `apps/api/src/event-bus.js`; just remove the warning. (~1 day)
-3. **Filesystem proxy storage** — already partially supported via `OUTPUT_DIR`
-   env in `apps/api/src/hls-proxy.js`. Promote to default when no
-   `MINIO_ENDPOINT` is configured. (~1 day)
-4. **Embed web SPA** — Express serves `apps/web/src/static/index.html` directly
-   so no separate web container/dev-server. (~1 day)
-5. **Embed worker** — spawn worker as child process from the API entrypoint
-   when `WORKER_INLINE=1`; share the SQLite handle. (~2 days)
-6. **SPK skeleton + GitHub Actions** — INFO + scripts + workflow that packs
-   into `.spk` and uploads as GitHub Release asset. (~3 days)
-7. **Wizard + Package Center metadata** — install wizard captures public URL +
-   NAS mount root; Package Center sees title/description/icon. (~2 days)
+| # | Phase | Status |
+|---|---|---|
+| 1 | SPK skeleton + build pipeline | ✅ |
+| 2 | SQLite driver behind pg-pool interface | ✅ |
+| 3 | Drop Redis hard-dep (in-process bus) | ✅ |
+| 4 | Filesystem proxy default (bỏ MinIO) | ✅ |
+| 5 | Embed web SPA + worker in-process | ✅ |
+| 6 | Cross-arch native bindings + workflow polish | ✅ |
+| 7 | Tag `v1.0.0-spk-rc1` → first install on real NAS | 🔜 |
 
-After phase 7: tag `v1.0.0-spk-rc1`, install on test NAS, polish.
+## Build locally (smoke test)
+
+Packaging a `.spk` without bundling Node runtime is useful for quick
+iteration on scripts/INFO. From the repo root:
+
+```sh
+SKIP_DEPS=1 bash synology/build-spk.sh x86_64 0.0.1-smoke
+ls synology/build/coopeditor-x86_64-0.0.1-smoke.spk
+```
+
+This produces a ~270KB SPK that won't actually run (no Node binary
+inside), but proves the layout + INFO substitution + script wiring.
+
+## Build a real SPK
+
+Need:
+- Node 22.11.0+ binary for target arch (`linux-x64` or `linux-arm64`)
+  downloadable from <https://nodejs.org/dist/>
+- npm + working internet (to pull `better-sqlite3` prebuilt natives)
+
+```sh
+NODE_VERSION=22.11.0
+ARCH=x86_64           # or aarch64
+NODE_TARBALL_ARCH=linux-x64   # or linux-arm64 to match
+curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_TARBALL_ARCH}.tar.xz" \
+  | tar -xJ -C /tmp/node-stage --strip-components=1
+NODE_BIN=/tmp/node-stage/bin/node \
+  bash synology/build-spk.sh "$ARCH" 1.0.0-rc1
+```
+
+Output: `synology/build/coopeditor-x86_64-1.0.0-rc1.spk`.
+
+## CI release
+
+Push a tag matching `v*-spk*` (e.g. `v1.0.0-spk-rc1`) → the
+`publish-spk.yml` workflow builds both arches, downloads matching Node
+runtimes, installs prod deps with `npm_config_target_arch` so
+better-sqlite3 prebuilds resolve correctly, and attaches the `.spk`
+files to a GitHub Release. Synology DSM users then install via
+Package Center → Manual Install.
 
 ## Why this is a long sprint
 

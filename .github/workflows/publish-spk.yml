@@ -1,8 +1,13 @@
 name: Publish Synology SPK
 
-# Triggered on tag push (v*) or manually. Builds .spk files for x86_64 +
-# aarch64, attaches them as a GitHub Release artifact, and updates the
-# `latest.json` feed that Package Center polls.
+# Builds .spk files for x86_64 + aarch64 Synology NAS. Cross-arch native
+# bindings (better-sqlite3) are fetched as prebuilt binaries via
+# prebuild-install, so we can build both archs on the same x64 GitHub
+# runner without QEMU.
+#
+# Triggers:
+#   * push tag v*-spk*   → build + attach to a GitHub Release
+#   * workflow_dispatch  → manual run, useful for testing the build script
 
 on:
   push:
@@ -11,8 +16,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version label (e.g. 1.0.0-spk-rc1). Defaults to git describe."
+        description: "Version label (e.g. 1.0.0-spk-rc1). Defaults to git short SHA."
         required: false
+      attach_release:
+        description: "Attach SPK files to a GitHub Release (yes/no)"
+        required: false
+        default: "no"
 
 permissions:
   contents: write
@@ -34,16 +43,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9.0.0
-
       - name: Setup Node (host)
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: pnpm
 
       - name: Compute version label
         id: ver
@@ -57,37 +60,44 @@ jobs:
           fi
 
       - name: Download Node runtime for ${{ matrix.arch }}
+        id: node
         run: |
           NODE_VERSION=22.11.0
           curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${{ matrix.node_arch }}.tar.xz" -o node.tar.xz
           mkdir -p node-runtime
           tar -xJf node.tar.xz -C node-runtime --strip-components=1
-          echo "NODE_BIN=$(pwd)/node-runtime/bin/node" >> "$GITHUB_ENV"
+          echo "node_bin=$(pwd)/node-runtime/bin/node" >> "$GITHUB_OUTPUT"
 
       - name: Build SPK
         env:
-          NODE_BIN: ${{ env.NODE_BIN }}
+          NODE_BIN: ${{ steps.node.outputs.node_bin }}
           BUILD_SHA: ${{ github.sha }}
           BUILT_AT: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
         run: |
           ./synology/build-spk.sh ${{ matrix.arch }} ${{ steps.ver.outputs.version }}
 
-      - name: Upload artifact (per-arch)
+      - name: Upload SPK artifact
         uses: actions/upload-artifact@v4
         with:
           name: coopeditor-${{ matrix.arch }}-${{ steps.ver.outputs.version }}
           path: synology/build/coopeditor-${{ matrix.arch }}-${{ steps.ver.outputs.version }}.spk
+          retention-days: 30
 
   release:
     needs: build-spk
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.attach_release == 'yes')
     steps:
       - name: Download all SPK artifacts
         uses: actions/download-artifact@v4
         with:
           path: spks
           merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh spks/
 
       - name: Attach SPK files to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -96,3 +106,18 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
+          body: |
+            ## Coopeditor SPK release
+
+            Native Synology DSM package — installable via Package Center → Manual Install.
+
+            ### Install
+            1. Download the `.spk` matching your NAS architecture (most Plus/FS/DS+ models are `x86_64`; ARM-based DS124/RS422+ are `aarch64`).
+            2. Open DSM Package Center → Settings → Allow installation from "Any publisher".
+            3. Manual Install → upload the `.spk` → follow the wizard (public URL + port + NAS root).
+            4. After install the app is reachable at `http://nas.local:<port>/`.
+
+            ### Update
+            Updates ship via DSM Package Center auto-update once `latest.json` is enabled.
+            Until then, download the new `.spk` and Manual Install to upgrade in place
+            — the SQLite DB + proxy files in `/var/packages/coopeditor/var` survive.
