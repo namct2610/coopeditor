@@ -9,6 +9,11 @@ export function resolveEventBusDriver(env = process.env) {
   if (configured === "pg" || configured === "postgres" || configured === "postgres-listen") return "pg";
   if (configured === "none" || configured === "memory" || configured === "off") return "none";
   if (env.REDIS_URL) return "redis-streams";
+  // SQLite has no LISTEN/NOTIFY analogue. In a single-process SPK deploy
+  // the API + worker share the same EventEmitter, so cluster fanout is
+  // unnecessary — "none" means the in-process bus carries every event.
+  const dbUrl = String(env.DATABASE_URL || "").trim().toLowerCase();
+  if (dbUrl.startsWith("sqlite:") || dbUrl.startsWith("file:")) return "none";
   if (env.DATABASE_URL) return "pg";
   return "none";
 }

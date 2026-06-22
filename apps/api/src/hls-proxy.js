@@ -11,7 +11,8 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, readdir, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
 
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
 const MINIO_BUCKET = process.env.MINIO_BUCKET || "coopeditor-proxy";
@@ -86,7 +87,54 @@ export function hlsBackendInfo() {
     backend: MINIO_ENDPOINT ? "minio" : (process.env.OUTPUT_DIR ? "filesystem" : "sim"),
     bucket: MINIO_BUCKET,
     endpoint: MINIO_ENDPOINT,
+    outputDir: process.env.OUTPUT_DIR || "",
   };
+}
+
+// Filesystem twin of s3ListPrefix — walks OUTPUT_DIR/<renditionId>/* and
+// returns the same `{key,size}` shape so buildProxyStorageReport works
+// without caring whether the underlying storage is MinIO or local disk.
+// Used by the SPK build where no MinIO/S3 is available.
+export async function fsListPrefix(prefix = "") {
+  const root = process.env.OUTPUT_DIR;
+  if (!root) return [];
+  const base = root.replace(/\/+$/, "");
+  const out = [];
+  async function walk(rel) {
+    const abs = join(base, rel);
+    let entries = [];
+    try { entries = await readdir(abs, { withFileTypes: true }); } catch (_) { return; }
+    for (const ent of entries) {
+      const relChild = rel ? `${rel}/${ent.name}` : ent.name;
+      if (prefix && !relChild.startsWith(prefix.replace(/\/+$/, ""))) {
+        // Only descend into sub-trees that could match the prefix.
+        if (ent.isDirectory() && (prefix.startsWith(relChild + "/") || relChild.startsWith(prefix.replace(/\/+$/, "")))) {
+          await walk(relChild);
+        }
+        continue;
+      }
+      if (ent.isDirectory()) { await walk(relChild); continue; }
+      try {
+        const st = await stat(join(abs, ent.name));
+        out.push({ key: relChild, size: Number(st.size || 0) });
+      } catch (_) { /* skip files that vanish mid-walk */ }
+    }
+  }
+  await walk("");
+  return out;
+}
+
+// Filesystem twin of s3DeletePrefix. Returns same `{deleted, bytes}` shape.
+export async function fsDeletePrefix(prefix) {
+  const root = process.env.OUTPUT_DIR;
+  if (!root || !prefix) return { deleted: 0 };
+  const items = await fsListPrefix(prefix);
+  if (!items.length) return { deleted: 0 };
+  const base = root.replace(/\/+$/, "");
+  const cleaned = prefix.replace(/^\/+|\/+$/g, "");
+  const target = join(base, cleaned);
+  await rm(target, { recursive: true, force: true });
+  return { deleted: items.length, bytes: items.reduce((s, x) => s + x.size, 0) };
 }
 const HLS_CDN_PUBLIC_URL = (process.env.HLS_CDN_PUBLIC_URL || "").replace(/\/+$/, "");
 const HLS_CDN_SIGNING_SECRET = process.env.HLS_CDN_SIGNING_SECRET || "";

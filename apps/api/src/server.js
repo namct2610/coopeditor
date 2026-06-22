@@ -21,7 +21,7 @@ import * as dsm from "./dsm.js";
 import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./events.js";
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
-import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
+import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, fsListPrefix, fsDeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
 import { applyCors, isTrustedMutationRequest, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
 import * as presence from "./presence.js";
 import {
@@ -299,21 +299,33 @@ async function buildProxyStoragePayload() {
     _proxyStorageLastGood = await loadProxyStorageSnapshotFromDisk();
   }
   const info = hlsBackendInfo();
-  if (info.backend !== "minio") {
-    const data = { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chỉ thống kê được khi dùng MinIO." };
+  if (info.backend === "sim") {
+    const data = { backend: info.backend, renditions: [], renditionCount: 0, totalBytes: 0, note: "Proxy storage chưa được cấu hình — chế độ sim không lưu file." };
     _proxyStorageCache = { at: Date.now(), data };
     _proxyStorageLastGood = data;
     return data;
   }
   try {
-    const items = await s3ListPrefix("");
+    // Both backends expose `{key,size}[]` from their list helper, so the
+    // proxy report logic stays driver-agnostic. SPK builds use the
+    // filesystem path; Docker stacks with MinIO keep the S3 path.
+    const items = info.backend === "minio"
+      ? await s3ListPrefix("")
+      : await fsListPrefix("");
     const renditionIds = [...new Set(items
       .map((it) => String(it && it.key || ""))
       .map((key) => key.split("/")[0])
       .filter(Boolean))];
     const meta = await store.listRenditionProxyMeta(renditionIds);
     const report = buildProxyStorageReport(items, meta);
-    const data = { backend: "minio", bucket: info.bucket, renditionCount: report.renditions.length, stale: false, ...report };
+    const data = {
+      backend: info.backend,
+      bucket: info.backend === "minio" ? info.bucket : undefined,
+      outputDir: info.backend === "filesystem" ? info.outputDir : undefined,
+      renditionCount: report.renditions.length,
+      stale: false,
+      ...report,
+    };
     _proxyStorageCache = { at: Date.now(), data };
     _proxyStorageLastGood = data;
     persistProxyStorageSnapshot(data).catch(() => {});
@@ -1152,11 +1164,17 @@ async function handle(req, res, url) {
   if ((mat = p.match(/^\/renditions\/([^/]+)\/proxy$/)) && m === "DELETE") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
     const rid = mat[1];
-    // Wipe MinIO objects under <rid>/ prefix and reset rendition row so the FE
+    // Wipe stored proxy under <rid>/ prefix and reset rendition row so the FE
     // shows it as "Tạo proxy" again. Worker won't auto-retranscode unless the
-    // user explicitly requests it from the quality menu.
+    // user explicitly requests it from the quality menu. Branches on backend:
+    // MinIO bucket vs filesystem OUTPUT_DIR for SPK deploys.
     try {
-      const wipe = await s3DeletePrefix(rid + "/");
+      const info = hlsBackendInfo();
+      const wipe = info.backend === "minio"
+        ? await s3DeletePrefix(rid + "/")
+        : info.backend === "filesystem"
+          ? await fsDeletePrefix(rid + "/")
+          : { deleted: 0 };
       invalidateProxyStorageCache();
       await store.setRenditionStatus(rid, { status: "pending", progress: 0, hlsMasterUrl: null }).catch(() => {});
       await audit.record({ actorUserId: sess.userId, action: "rendition.proxy_deleted", resourceType: "rendition", resourceId: rid, payload: { deleted: wipe.deleted, bytes: wipe.bytes } });
