@@ -1,0 +1,6 @@
+#!/bin/sh
+# Post-uninstall: drop the dedicated package user. DSM keeps /var/packages
+# data unless the user explicitly asked for purge.
+synouser --del coopeditor 2>/dev/null || true
+synogroup --del coopeditor 2>/dev/null || true
+exit 0

@@ -1,0 +1,17 @@
+{
+  "port-config": {
+    "protocol-file": "etc/coopeditor.sc"
+  },
+  "data-share": {
+    "shares": []
+  },
+  "syslog-config": {
+    "support-syslog": true,
+    "log-format": "json",
+    "rotation": {
+      "type": "size",
+      "size-kb": 10240,
+      "keep": 10
+    }
+  }
+}

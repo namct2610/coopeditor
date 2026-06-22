@@ -1,0 +1,39 @@
+# Synology SPK manifest. Built by synology/build-spk.sh; fields with @TOKEN@
+# are substituted at build time. Refer to Synology Package Developer Guide:
+# https://global.download.synology.com/download/Document/Software/DeveloperGuide/Firmware/DSM/All/enu/Synology_Package_Developer_Guide.pdf
+package="coopeditor"
+displayname="Coopeditor"
+version="@VERSION@"
+description="Frame.io-style review studio for video editors. Imports footage straight from your NAS, transcodes HLS proxies on the box, plays back inside DSM with frame-accurate comments + annotation."
+description_enu="Frame.io-style review studio for video editors. Imports footage straight from your NAS, transcodes HLS proxies on the box, plays back inside DSM with frame-accurate comments + annotation."
+description_vie="Studio review video kiểu Frame.io. Đọc nguồn video thẳng từ NAS, tự tạo proxy HLS trên NAS, phát + comment + annotation chính xác frame ngay trong DSM."
+maintainer="namct2610"
+maintainer_url="https://github.com/namct2610/coopeditor"
+distributor="namct2610"
+distributor_url="https://github.com/namct2610/coopeditor"
+support_url="https://github.com/namct2610/coopeditor/issues"
+arch="@ARCH@"
+# DSM 7.2+ required: Container Manager / pkg-control deps not needed because
+# this SPK is fully self-contained. We rely on systemd-style synosystemctl
+# behaviour available since 7.0 but pin 7.2 to match the install matrix.
+os_min_ver="7.2-64570"
+report_url=""
+beta=0
+# Run as a dedicated low-priv user. Avoids needing root for the lifetime of
+# the service. The user is created in postinst.
+start_dep_services=""
+startable="yes"
+ctl_stop="yes"
+ctl_uninstall="yes"
+# Single web port. DSM Reverse Proxy entry created via Application Portal
+# integration (configured via wizard at install time).
+support_conf_folder="yes"
+# Display group in Package Center.
+package_icon="@PACKAGE_ICON@"
+package_icon_256="@PACKAGE_ICON_256@"
+silent_install="no"
+silent_upgrade="yes"
+silent_uninstall="no"
+auto_upgrade_from="0.0.0"
+# Built at: @BUILT_AT@
+# Built from commit: @BUILD_SHA@

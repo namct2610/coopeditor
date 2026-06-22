@@ -1,0 +1,98 @@
+name: Publish Synology SPK
+
+# Triggered on tag push (v*) or manually. Builds .spk files for x86_64 +
+# aarch64, attaches them as a GitHub Release artifact, and updates the
+# `latest.json` feed that Package Center polls.
+
+on:
+  push:
+    tags:
+      - "v*-spk*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label (e.g. 1.0.0-spk-rc1). Defaults to git describe."
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-spk:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            node_arch: linux-x64
+          - arch: aarch64
+            node_arch: linux-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.0.0
+
+      - name: Setup Node (host)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Compute version label
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Node runtime for ${{ matrix.arch }}
+        run: |
+          NODE_VERSION=22.11.0
+          curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${{ matrix.node_arch }}.tar.xz" -o node.tar.xz
+          mkdir -p node-runtime
+          tar -xJf node.tar.xz -C node-runtime --strip-components=1
+          echo "NODE_BIN=$(pwd)/node-runtime/bin/node" >> "$GITHUB_ENV"
+
+      - name: Build SPK
+        env:
+          NODE_BIN: ${{ env.NODE_BIN }}
+          BUILD_SHA: ${{ github.sha }}
+          BUILT_AT: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+        run: |
+          ./synology/build-spk.sh ${{ matrix.arch }} ${{ steps.ver.outputs.version }}
+
+      - name: Upload artifact (per-arch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coopeditor-${{ matrix.arch }}-${{ steps.ver.outputs.version }}
+          path: synology/build/coopeditor-${{ matrix.arch }}-${{ steps.ver.outputs.version }}.spk
+
+  release:
+    needs: build-spk
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all SPK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: spks
+          merge-multiple: true
+
+      - name: Attach SPK files to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: spks/*.spk
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true

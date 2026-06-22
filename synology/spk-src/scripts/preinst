@@ -1,0 +1,26 @@
+#!/bin/sh
+# Pre-install check. Bail out with a friendly message before DSM extracts
+# the SPK if the box can't run us.
+
+set -e
+
+# DSM 7.2+ ships node22+ compatible glibc on every supported arch. We still
+# guard for an absurdly old kernel just in case.
+KERNEL_MAJOR="$(uname -r | cut -d. -f1)"
+if [ "$KERNEL_MAJOR" -lt 4 ]; then
+  echo "ERROR: Coopeditor requires kernel 4.x+ (DSM 7.2 or newer). Detected $(uname -r)."
+  exit 1
+fi
+
+# Confirm CodecPack ffmpeg exists, OR we'll fall back to bundled static binary.
+if [ ! -x /var/packages/CodecPack/target/bin/ffmpeg ] && [ ! -x /var/packages/coopeditor/target/lib/bin/ffmpeg ]; then
+  echo "WARN: System CodecPack ffmpeg not found. Bundled ffmpeg will be used."
+fi
+
+# Validate /volume1 exists — without it there's no place for proxy storage.
+if [ ! -d /volume1 ]; then
+  echo "ERROR: /volume1 not found. Coopeditor needs a Synology volume to store proxies."
+  exit 1
+fi
+
+exit 0

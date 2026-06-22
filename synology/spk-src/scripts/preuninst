@@ -1,0 +1,6 @@
+#!/bin/sh
+# Pre-uninstall: nothing to checkpoint right now — the SQLite DB + proxy
+# files live in /var/packages/coopeditor/var which DSM preserves unless the
+# user picks "Also delete data" in the uninstall dialog. SPK convention is
+# to leave that decision to DSM.
+exit 0
