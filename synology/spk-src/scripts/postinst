@@ -12,7 +12,7 @@ set -e
 
 PKG="coopeditor"
 TARGET="/var/packages/${PKG}/target"
-VAR_DIR="${TARGET}/var"
+VAR_DIR="/var/packages/${PKG}/var"
 CONF_DIR="${VAR_DIR}/conf"
 RUNTIME_ENV="${CONF_DIR}/runtime.env"
 

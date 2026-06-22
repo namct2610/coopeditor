@@ -9,7 +9,10 @@ PKG="coopeditor"
 TARGET="/var/packages/${PKG}/target"
 APP_DIR="${TARGET}/app"
 LIB_DIR="${TARGET}/lib"
-VAR_DIR="${TARGET}/var"
+# DSM provisions /var/packages/<pkg>/var as the writable runtime dir, owned
+# by the package user. Earlier RCs incorrectly wrote to ${TARGET}/var which
+# DSM clears on upgrade and isn't the canonical spot.
+VAR_DIR="/var/packages/${PKG}/var"
 PID_FILE="${VAR_DIR}/run/coopeditor.pid"
 LOG_FILE="${VAR_DIR}/log/coopeditor.log"
 NODE_BIN="${LIB_DIR}/node/bin/node"
