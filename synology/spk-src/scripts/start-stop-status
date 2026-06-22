@@ -55,6 +55,23 @@ case "$1" in
       exit 0
     fi
     cd "$APP_DIR"
+    # First-boot setup that previously lived in postinst (moved here because
+    # DSM error 276 "failed to acquire postinst worker" trips when postinst
+    # runs anything non-trivial inside the install transaction). Idempotent —
+    # subsequent starts no-op past the existing DB / config files.
+    if [ ! -f "${DATA_DIR}/coopeditor.db" ] || [ ! -f "${RUNTIME_CONFIG_PATH}" ]; then
+      mkdir -p "$(dirname "${RUNTIME_CONFIG_PATH}")"
+      if [ ! -f "${RUNTIME_CONFIG_PATH}" ]; then
+        cat > "${RUNTIME_CONFIG_PATH}" <<EOF
+{
+  "publicUrl": "${PUBLIC_URL}",
+  "dsmMountRoot": "${DSM_MOUNT_ROOT:-/volume1}",
+  "transcode": { "hwaccel": "auto", "workerConcurrency": 2 }
+}
+EOF
+      fi
+      "$NODE_BIN" "${APP_DIR}/apps/api/src/migrate.js" >> "$LOG_FILE" 2>&1 || true
+    fi
     # Daemonise: setsid + redirect stdio. SPK convention is fire-and-forget
     # in start-stop-status; the actual lifecycle is the pid file.
     setsid "$NODE_BIN" apps/api/src/bootstrap.js >> "$LOG_FILE" 2>&1 &
