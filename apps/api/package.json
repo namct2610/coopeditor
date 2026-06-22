@@ -20,6 +20,9 @@
     "redis": "^6.0.0",
     "ws": "^8.18.0"
   },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.3.0"
+  },
   "devDependencies": {
     "testcontainers": "^10.13.0"
   }
