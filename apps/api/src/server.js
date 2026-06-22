@@ -22,6 +22,7 @@ import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./eve
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
 import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, fsListPrefix, fsDeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
+import { tryServeSpa } from "./web-spa.js";
 import { applyCors, isTrustedMutationRequest, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
 import * as presence from "./presence.js";
 import {
@@ -1217,6 +1218,11 @@ async function handle(req, res, url) {
     return send(res, 200, { ok: true });
   }
   if (p === "/presence" && m === "DELETE") { presence.leave(sess.userId); return send(res, 200, { ok: true }); }
+
+  // Fallback: SPA shell when WEB_INLINE=1 (SPK build) and path is "/" or
+  // /index.html. Other paths still 404. Keeping this AFTER the route table
+  // means a real endpoint never gets shadowed by the SPA.
+  if (await tryServeSpa(req, res, url)) return;
 
   return bad(res, "Not found", 404);
 }
