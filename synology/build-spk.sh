@@ -76,14 +76,26 @@ cp -R "${SRC}/conf" "${SRC}/scripts" "${SRC}/WIZARD_UIFILES" "$STAGE/"
 chmod 755 "$STAGE"/scripts/*
 
 # Substitute INFO tokens.
+# DSM's INFO parser is strict about version=: must match
+# /^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$/ (semver + integer build number).
+# Anything else fails install with `code: 261, description: "invalid
+# package info content"` even though the rest of INFO is valid.
+#
+# We accept whatever human-readable label the caller passes (1.0.0,
+# 1.0.0-spk-rc5, 1.0.0-rc7, etc.) and normalise it here. The filename
+# keeps the original label so users can tell which build they have.
+INFO_VERSION=$(echo "$VERSION" | sed -E '
+  s/^([0-9]+\.[0-9]+\.[0-9]+)-spk-rc([0-9]+)$/\1-\2/;
+  s/^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$/\1-\2/;
+  s/^([0-9]+\.[0-9]+\.[0-9]+)-([0-9]+)$/\1-\2/;
+  s/^([0-9]+\.[0-9]+\.[0-9]+)$/\1-1/;
+')
+echo "    info_version: ${INFO_VERSION}  (filename keeps ${VERSION})"
+
 sed \
-  -e "s|@VERSION@|${VERSION}|g" \
+  -e "s|@VERSION@|${INFO_VERSION}|g" \
   -e "s|@ARCH@|${DSM_ARCH_LIST}|g" \
-  "${SRC}/INFO" > "${STAGE}/INFO.tmp"
-# checksum= field appended after package.tgz is built. DSM uses this to
-# validate the inner payload before unpacking; without it, the manifest
-# parser bails with "Invalid file format" even though INFO itself parses.
-mv "${STAGE}/INFO.tmp" "${STAGE}/INFO"
+  "${SRC}/INFO" > "${STAGE}/INFO"
 
 # ============================================================================
 # 2. Build the payload tree under stage/package/
