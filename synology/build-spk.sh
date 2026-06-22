@@ -79,11 +79,11 @@ chmod 755 "$STAGE"/scripts/*
 sed \
   -e "s|@VERSION@|${VERSION}|g" \
   -e "s|@ARCH@|${DSM_ARCH_LIST}|g" \
-  -e "s|@PACKAGE_ICON@|PACKAGE_ICON.PNG|g" \
-  -e "s|@PACKAGE_ICON_256@|PACKAGE_ICON_256.PNG|g" \
-  -e "s|@BUILT_AT@|${BUILT_AT}|g" \
-  -e "s|@BUILD_SHA@|${SHA_SHORT}|g" \
-  "${SRC}/INFO" > "${STAGE}/INFO"
+  "${SRC}/INFO" > "${STAGE}/INFO.tmp"
+# checksum= field appended after package.tgz is built. DSM uses this to
+# validate the inner payload before unpacking; without it, the manifest
+# parser bails with "Invalid file format" even though INFO itself parses.
+mv "${STAGE}/INFO.tmp" "${STAGE}/INFO"
 
 # ============================================================================
 # 2. Build the payload tree under stage/package/
@@ -197,6 +197,19 @@ PAYLOAD_BYTES=$(stat -f%z "${STAGE}/package.tgz" 2>/dev/null || stat -c%s "${STA
 echo "    package.tgz: $((PAYLOAD_BYTES / 1024)) KB"
 rm -rf "$PKG_STAGE"
 
+# Append checksum= md5(package.tgz) to INFO. DSM's manifest parser uses
+# this to validate the inner payload before unpacking. SPKs without
+# checksum are rejected with the generic "Invalid file format" message.
+if command -v md5sum >/dev/null 2>&1; then
+  CHECKSUM=$(md5sum "${STAGE}/package.tgz" | awk '{print $1}')
+elif command -v md5 >/dev/null 2>&1; then
+  CHECKSUM=$(md5 -q "${STAGE}/package.tgz")
+else
+  CHECKSUM=$(openssl dgst -md5 "${STAGE}/package.tgz" | awk '{print $NF}')
+fi
+echo "checksum=\"${CHECKSUM}\"" >> "${STAGE}/INFO"
+echo "    checksum: ${CHECKSUM}"
+
 # ============================================================================
 # 3. Icons — real 72/256 PNGs are committed at synology/spk-src/. CI builds
 #    use those directly. Caller can override with PNG72 / PNG256 env vars.
@@ -231,14 +244,18 @@ TAR_FLAGS="--format=ustar"
 if tar --no-mac-metadata --version >/dev/null 2>&1; then
   TAR_FLAGS="$TAR_FLAGS --no-mac-metadata"
 fi
+# Order matches SynoCommunity's layout: payload first, then manifest, then
+# scripts/conf/wizard/icons. DSM's manifest parser reads INFO from a
+# stream so it can validate sha before unpacking package.tgz — putting
+# the payload first lets that streaming check work.
 (cd "$STAGE" && tar -cf "$SPK_OUT" $TAR_FLAGS \
+  package.tgz \
   INFO \
+  scripts \
+  conf \
   PACKAGE_ICON.PNG \
   PACKAGE_ICON_256.PNG \
-  package.tgz \
-  scripts \
-  WIZARD_UIFILES \
-  conf)
+  WIZARD_UIFILES)
 rm -rf "$STAGE"
 
 SPK_BYTES=$(stat -f%z "$SPK_OUT" 2>/dev/null || stat -c%s "$SPK_OUT")
