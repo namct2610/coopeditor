@@ -58,12 +58,12 @@ resolve_latest_tag() {
   local json asset_regex selected
   json="$(release_list_json)"
   asset_regex="coopeditor-${ARCH}-[^\"]+\\.spk"
-  selected="$(printf '%s' "$json" | python3 - "$CHANNEL" "$asset_regex" <<'PY'
+  selected="$(RELEASES_JSON="$json" python3 -c '
 import json, re, sys
 
 channel = sys.argv[1]
 asset_regex = re.compile(sys.argv[2])
-releases = json.load(sys.stdin)
+releases = json.loads(__import__("os").environ["RELEASES_JSON"])
 
 def wanted(tag: str) -> bool:
     t = (tag or "").lower()
@@ -81,8 +81,7 @@ for rel in releases:
     if any(asset_regex.search((a.get("name") or "")) for a in assets):
         print(tag)
         break
-PY
-)"
+' "$CHANNEL" "$asset_regex")"
   [ -n "$selected" ] || fail "không tìm thấy release phù hợp cho ARCH=${ARCH}, CHANNEL=${CHANNEL}. Có thể truyền TAG=... hoặc SPK_URL=... trực tiếp."
   printf '%s' "$selected"
 }
@@ -91,17 +90,16 @@ resolve_asset_url_from_tag() {
   local version json url
   version="${TAG#v}"
   json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
-  url="$(printf '%s' "$json" | python3 - "coopeditor-${ARCH}-${version}.spk" <<'PY'
+  url="$(RELEASE_JSON="$json" python3 -c '
 import json, sys
 
 want = sys.argv[1]
-release = json.load(sys.stdin)
+release = json.loads(__import__("os").environ["RELEASE_JSON"])
 for asset in release.get("assets") or []:
     if asset.get("name") == want:
         print(asset.get("browser_download_url") or "")
         break
-PY
-)"
+' "coopeditor-${ARCH}-${version}.spk")"
   [ -n "$url" ] || fail "tag ${TAG} tồn tại nhưng không có asset coopeditor-${ARCH}-${version}.spk"
   printf '%s' "$url"
 }
