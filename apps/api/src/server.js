@@ -16,7 +16,7 @@ const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/w
 const MAX_COMMENT_CONTENT_CHARS = 4000;
 
 import * as store from "./store-index.js";
-import { db, initPg } from "./db.js";
+import { db, initPg, initDb } from "./db.js";
 import * as dsm from "./dsm.js";
 import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./events.js";
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
@@ -1622,7 +1622,12 @@ const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT ?? 4000);
 
 (async () => {
-  if (store.backend === "pg") await initPg();
+  // initDb() picks pg / sqlite / no-op based on DATABASE_URL prefix. Previous
+  // check `store.backend === "pg"` was correct before rc12 when the label
+  // covered both pg+sqlite, but after the label split we'd skip init on
+  // sqlite — store-pg queries then crashed with "Cannot read properties of
+  // null (reading 'query')" because db() never opened a pool.
+  if (store.backend === "pg" || store.backend === "sqlite" || store.backend === "postgres") await initDb();
   bindWsPublish(wsPublish);
   await attachWebSocket(server).catch((e) => logger.error({ err: e.message }, "websocket bootstrap failed"));
   server.listen(port, host, () => {
