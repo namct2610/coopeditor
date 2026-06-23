@@ -1,10 +1,10 @@
 {
-  "version": "0.2.40",
-  "summary": "Sửa tạo project trên bản SPK/SQLite và sửa modal tạo project cập nhật trạng thái nút theo nhập liệu.",
+  "version": "1.0.0-rc17",
+  "summary": "SPK RC 17 sửa lỗi tạo project trên NAS/SQLite và đồng bộ luồng cài đặt tự động.",
   "changes": [
-    "Bo sung nhanh SQLite-compatible query path cho backend SPK, loai bo nhom cau SQL Postgres-only gay loi near SELECT khi tao va doc project.",
-    "Modal Tao project nay rerender ngay khi nhap ten project hoac nguoi quay, nen nut tao bat dung luc thay vi phai bam upload thumbnail roi cancel.",
-    "Them regression test cho luong SPK/SQLite de xac nhan tao project, membership, asset va rendition metadata deu chay dung tren NAS build."
+    "Bo sung nhom query tuong thich SQLite cho backend SPK de khong con loi near SELECT khi tao project tren NAS.",
+    "Modal Tao project rerender ngay khi nhap ten project hoac nguoi quay, khong can bam upload thumbnail roi cancel moi hien nut tao.",
+    "Cap nhat installer/release de NAS co the upgrade thang tu 1.0.0-16 len ban moi ma khong bi DSM chan downgrade."
   ],
   "publishedAt": "2026-06-23T00:00:00.000Z"
 }
