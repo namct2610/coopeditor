@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 test("DSM path helpers normalize stored paths and rebuild local mount path", async () => {
   process.env.DSM_MOUNT_ROOT = "/nas";
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=mount-root");
 
   assert.equal(mod.normalizeStoredNasPath("/nas/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
@@ -18,6 +19,7 @@ test("DSM path helpers normalize stored paths and rebuild local mount path", asy
 
 test("DSM path helpers preserve legacy /nas paths even after mount root changes", async () => {
   process.env.DSM_MOUNT_ROOT = "/mnt/pcngon";
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=legacy-nas-root");
 
   assert.equal(mod.normalizeStoredNasPath("/nas/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
@@ -27,6 +29,7 @@ test("DSM path helpers preserve legacy /nas paths even after mount root changes"
 
 test("DSM path helpers reject traversal segments", async () => {
   process.env.DSM_MOUNT_ROOT = "/nas";
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=reject-traversal");
 
   assert.throws(() => mod.normalizeStoredNasPath("/../../etc/passwd"), /Duong dan NAS khong hop le/);
@@ -36,6 +39,7 @@ test("DSM path helpers reject traversal segments", async () => {
 
 test("DSM path helpers follow mount root changes after module load", async () => {
   process.env.DSM_MOUNT_ROOT = "/nas";
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=live-env");
 
   assert.equal(mod.resolveSourcePath("/Clip/C001.MP4"), "/nas/Clip/C001.MP4");
@@ -45,6 +49,7 @@ test("DSM path helpers follow mount root changes after module load", async () =>
 
 test("DSM path helpers strip nested share segment and try parent mount root as fallback", async () => {
   process.env.DSM_MOUNT_ROOT = "/nas/PCNgon";
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=nested-share-root");
 
   assert.equal(mod.normalizeStoredNasPath("/PCNgon/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
@@ -58,11 +63,30 @@ test("DSM path helpers strip nested share segment and try parent mount root as f
   );
 });
 
+test("DSM path helpers respect configured DSM library root", async () => {
+  process.env.DSM_MOUNT_ROOT = "/nas";
+  process.env.DSM_LIBRARY_ROOT = "/PCNgon";
+  const mod = await import("../src/dsm.js?case=library-root");
+
+  assert.equal(mod.normalizeStoredNasPath("/PCNgon/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
+  assert.equal(mod.normalizeStoredNasPath("/nas/PCNgon/502. Case G200/C1967.MP4"), "/502. Case G200/C1967.MP4");
+  assert.equal(mod.resolveSourcePath("/502. Case G200/C1967.MP4"), "/nas/PCNgon/502. Case G200/C1967.MP4");
+});
+
+test("DSM path helpers avoid duplicating library root when mount already points to the shared folder", async () => {
+  process.env.DSM_MOUNT_ROOT = "/nas/PCNgon";
+  process.env.DSM_LIBRARY_ROOT = "/PCNgon";
+  const mod = await import("../src/dsm.js?case=library-root-mounted-directly");
+
+  assert.equal(mod.resolveSourcePath("/502. Case G200/C1967.MP4"), "/nas/PCNgon/502. Case G200/C1967.MP4");
+});
+
 test("DSM source readability helper reports mounted and missing sources clearly", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-source-"));
   await mkdir(join(root, "Clip"), { recursive: true });
   await writeFile(join(root, "Clip", "C001.MP4"), "demo");
   process.env.DSM_MOUNT_ROOT = root;
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=source-readable");
 
   assert.equal(await mod.assertReadableSourcePath("/Clip/C001.MP4", { actor: "api" }), join(root, "Clip", "C001.MP4"));
@@ -78,6 +102,7 @@ test("DSM source readability helper falls back to /nas when legacy config stored
   await writeFile(join(root, "Clip", "C002.MP4"), "demo");
   process.env.DSM_MOUNT_ROOT = "/volume1/PCNgon";
   process.env.DSM_LEGACY_MOUNT_ROOT = root;
+  process.env.DSM_LIBRARY_ROOT = "/";
   const mod = await import("../src/dsm.js?case=legacy-host-path-fallback");
 
   assert.equal(mod.resolveSourcePath("/Clip/C002.MP4"), "/volume1/PCNgon/Clip/C002.MP4");

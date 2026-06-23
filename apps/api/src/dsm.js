@@ -34,6 +34,10 @@ function dsmMountRoot() {
   return process.env.DSM_MOUNT_ROOT || "";
 }
 
+function dsmLibraryRoot() {
+  return process.env.DSM_LIBRARY_ROOT || "/";
+}
+
 function hasMountedNasRootConfigured() {
   return buildMountRootCandidates().length > 0;
 }
@@ -62,6 +66,63 @@ function buildMountRootCandidates(root = dsmMountRoot()) {
     if (parent && parent !== cleaned) candidates.push(parent);
   }
   if (mountRootLooksLikeHostPath(cleaned)) candidates.push(LEGACY_CONTAINER_MOUNT_ROOT);
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function normalizeLibraryRoot(root = dsmLibraryRoot()) {
+  let raw = String(root || "/").trim().replace(/\\/g, "/");
+  if (!raw) return "/";
+  if (!raw.startsWith("/")) raw = "/" + raw;
+  raw = raw.replace(/\/+/g, "/");
+  if (raw.length > 1) raw = raw.replace(/\/+$/, "");
+  const segments = raw.split("/").filter(Boolean);
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new Error("Duong dan root thu vien DSM khong hop le");
+  }
+  return "/" + segments.join("/");
+}
+
+function expandLibraryPath(path = "/") {
+  const normalizedPath = path === "/" ? "/" : normalizeStoredNasPath(path);
+  const libraryRoot = normalizeLibraryRoot();
+  if (libraryRoot === "/") return normalizedPath;
+  if (normalizedPath === "/") return libraryRoot;
+  return (libraryRoot + normalizedPath).replace(/\/+/g, "/");
+}
+
+function stripLibraryRoot(rawPath) {
+  const libraryRoot = normalizeLibraryRoot();
+  if (libraryRoot === "/") return rawPath;
+  if (rawPath === libraryRoot) return "/";
+  if (rawPath.startsWith(libraryRoot + "/")) {
+    const trimmed = rawPath.slice(libraryRoot.length);
+    return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
+  }
+  return rawPath;
+}
+
+function mountRootAlreadyPointsToLibrary(mountRoot) {
+  const libraryRoot = normalizeLibraryRoot();
+  if (libraryRoot === "/") return false;
+  const cleaned = normalizeMountRoot(mountRoot);
+  if (!cleaned) return false;
+  return cleaned === libraryRoot || cleaned.endsWith(libraryRoot);
+}
+
+function buildMountedSourcePath(mountRoot, normalizedPath) {
+  const relativePath = normalizedPath === "/" ? "" : normalizedPath;
+  if (mountRootAlreadyPointsToLibrary(mountRoot)) {
+    return (mountRoot + relativePath).replace(/\/+/g, "/");
+  }
+  return (mountRoot + expandLibraryPath(normalizedPath)).replace(/\/+/g, "/");
+}
+
+function buildMountedSourceCandidates(mountRoot, normalizedPath) {
+  const candidates = [buildMountedSourcePath(mountRoot, normalizedPath)];
+  if (normalizeLibraryRoot() !== "/" && !mountRootAlreadyPointsToLibrary(mountRoot)) {
+    const relativePath = normalizedPath === "/" ? "" : normalizedPath;
+    candidates.push((mountRoot + relativePath).replace(/\/+/g, "/"));
+  }
   return [...new Set(candidates.filter(Boolean))];
 }
 
@@ -248,14 +309,16 @@ export async function dsmLogout(sid) {
 
 // List a NAS folder using the user's sid. Returns NasListing-shaped object.
 export async function dsmListFolder(sid, path) {
+  const requestedPath = normalizeStoredNasPath(path);
   if (isDevMode()) {
     if (hasMountedNasRootConfigured()) {
-      try { return await listMountedFolder(path); }
+      try { return await listMountedFolder(requestedPath); }
       catch (_) {}
     }
-    return devNasListing(path);
+    return devNasListing(requestedPath);
   }
-  if (path === "/") {
+  const dsmPath = expandLibraryPath(requestedPath);
+  if (requestedPath === "/" && normalizeLibraryRoot() === "/") {
     // top level: list shared folders
     try {
       const body = await dsmGet("/webapi/entry.cgi", {
@@ -268,7 +331,7 @@ export async function dsmListFolder(sid, path) {
         crumbs: [{ label: "/", path: "/" }],
         entries: (body.data.shares || [])
           .filter((share) => isVisibleNasName(share.name))
-          .map((s) => ({ type: "folder", name: s.name, path: s.path, childCount: 0 })),
+          .map((s) => ({ type: "folder", name: s.name, path: normalizeStoredNasPath(s.path), childCount: 0 })),
       };
     } catch (err) {
       if (dsmMountRoot()) return listMountedFolder("/");
@@ -278,13 +341,13 @@ export async function dsmListFolder(sid, path) {
   try {
     const body = await dsmGet("/webapi/entry.cgi", {
       api: "SYNO.FileStation.List", version: "2", method: "list", _sid: sid,
-      folder_path: path, additional: '["size","type","real_path"]',
+      folder_path: dsmPath, additional: '["size","type","real_path"]',
     });
     if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
     const entries = (await Promise.all((body.data.files || [])
       .filter((f) => isVisibleNasName(f.name))
       .map(async (f) => {
-        if (f.isdir) return { type: "folder", name: f.name, path: f.path, childCount: 0 };
+        if (f.isdir) return { type: "folder", name: f.name, path: normalizeStoredNasPath(f.path), childCount: 0 };
         const built = await buildVideoEntry({
           name: f.name,
           path: f.path,
@@ -295,9 +358,9 @@ export async function dsmListFolder(sid, path) {
         return built;
       })))
       .filter(Boolean);
-    return { path, crumbs: buildCrumbs(path), entries };
+    return { path: requestedPath, crumbs: buildCrumbs(requestedPath), entries };
   } catch (err) {
-    if (dsmMountRoot()) return listMountedFolder(path);
+    if (dsmMountRoot()) return listMountedFolder(requestedPath);
     throw err;
   }
 }
@@ -382,6 +445,7 @@ export function normalizeStoredNasPath(input) {
   if (hostShareMatch) raw = hostShareMatch[1];
   const hostShareRootMatch = raw.match(/^\/volume\d+\/[^/]+$/);
   if (hostShareRootMatch) raw = "/";
+  raw = stripLibraryRoot(raw);
   if (!raw.startsWith("/")) raw = "/" + raw;
   const segments = raw.replace(/\/+/g, "/").split("/").filter(Boolean);
   if (segments.some((segment) => segment === "." || segment === "..")) {
@@ -399,7 +463,7 @@ export function resolveSourcePathCandidates(input, realPath = "") {
   const normalized = normalizeStoredNasPath(input);
   const candidates = [];
   for (const mountRoot of buildMountRootCandidates()) {
-    candidates.push(mountRoot + normalized);
+    candidates.push(...buildMountedSourceCandidates(mountRoot, normalized));
   }
   if (realPath && realPath.startsWith("/")) candidates.push(realPath);
   if (String(input || "").startsWith("/")) candidates.push(String(input));
@@ -449,21 +513,24 @@ export async function assertReadableSourcePath(sourcePath, { actor = "worker" } 
 }
 
 async function dsmGetFileEntry(sid, path) {
-  const parent = path.replace(/\/[^/]+$/, "") || "/";
+  const normalizedPath = normalizeStoredNasPath(path);
+  const parent = normalizedPath.replace(/\/[^/]+$/, "") || "/";
+  const dsmParent = expandLibraryPath(parent);
+  const dsmTarget = expandLibraryPath(normalizedPath);
   try {
     const body = await dsmGet("/webapi/entry.cgi", {
       api: "SYNO.FileStation.List",
       version: "2",
       method: "list",
       _sid: sid,
-      folder_path: parent,
+      folder_path: dsmParent,
       additional: '["real_path","size","type"]',
     });
     if (!body || !body.success) throw new Error(dsmErrorMessage("FileStation list failed", body));
-    return (body.data.files || []).find((file) => file.path === path && !file.isdir) || null;
+    return (body.data.files || []).find((file) => file.path === dsmTarget && !file.isdir) || null;
   } catch (err) {
     if (!dsmMountRoot()) throw err;
-    return getMountedFileEntry(path);
+    return getMountedFileEntry(normalizedPath);
   }
 }
 
@@ -475,20 +542,21 @@ function resolveProbePath(dsmPath, realPath) {
 
 async function listMountedFolder(path) {
   path = normalizeStoredNasPath(path);
-  const rel = path === "/" ? "" : path.replace(/^\/+/, "");
   let diskPath = "";
   let rows = null;
   let lastErr = null;
   for (const mountRoot of buildMountRootCandidates()) {
-    const candidate = rel ? join(mountRoot, rel) : mountRoot;
-    try {
-      rows = await readdir(candidate, { withFileTypes: true });
-      diskPath = candidate;
-      break;
-    } catch (err) {
-      lastErr = { err, path: candidate };
-      if (!(err && (err.code === "ENOENT" || err.code === "EACCES"))) throw err;
+    for (const candidate of buildMountedSourceCandidates(mountRoot, path)) {
+      try {
+        rows = await readdir(candidate, { withFileTypes: true });
+        diskPath = candidate;
+        break;
+      } catch (err) {
+        lastErr = { err, path: candidate };
+        if (!(err && (err.code === "ENOENT" || err.code === "EACCES"))) throw err;
+      }
     }
+    if (rows) break;
   }
   if (!rows) {
     if (lastErr && lastErr.err && lastErr.err.code === "ENOENT") {

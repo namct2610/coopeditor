@@ -30,7 +30,8 @@ Nếu anh fork sang namespace GitHub khác thì đổi lại ở đúng 3 dòng 
 - [Caddyfile.nas](/Users/etecman/Documents/Frame%20Editor/Caddyfile.nas)
 - [docker-compose.nas.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas.yml)
 
-Hai file này là bộ deploy chuẩn nên ưu tiên dùng, bỏ qua các file `nas-auto` / `nas-clean` cũ.
+Hai file này là bộ deploy chuẩn.
+Không dùng các file `nas-auto` / `nas-clean` cũ nữa, vì chúng dễ làm lẫn luồng deploy và script phụ trợ.
 
 ## Cách chạy
 
@@ -47,6 +48,7 @@ http://<IP-NAS>:8080
 Lần đầu app sẽ vào `setup mode` và hiện form cấu hình:
 - `publicUrl`
 - `dsmHost` hoặc `DSM dev login`
+- `DSM library root` nếu muốn khóa Import chỉ trong 1 Shared Folder như `/PCNgon`
 - SMTP/webhook nếu cần
 - transcode profile
 
@@ -55,16 +57,52 @@ Khi bấm lưu:
 - API tự restart
 - worker tự chờ config rồi nhận cấu hình mới
 
-## Redeploy sạch trên DSM
+## Redeploy sạch trên DSM UI
 
 Nếu trước đó project bị lệch mount hoặc sinh orphan container kiểu `7e47...`, làm lại sạch theo thứ tự này:
 
 1. `Container Manager` -> `Project` -> chọn project `coopeditor` -> `Action` -> `Delete`.
 2. Tick luôn phần xoá container của project cũ.
 3. Vào `Container` và xoá nốt container lẻ / orphan không còn thuộc project nếu còn sót.
-4. Chỉ sau khi dọn xong mới import lại [docker-compose.nas.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas.yml).
+4. Nếu có container tên lạ kiểu `7e47..._coopeditor...`, đó thường là container tạm/orphan từ lần recreate lỗi. Xoá nó trước khi deploy lại.
+5. Chỉ sau khi dọn xong mới import lại [docker-compose.nas.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas.yml).
 
 Nếu worker từng bị mount sai `/volume1:/nas:ro`, redeploy sạch như trên quan trọng hơn việc chỉ bấm restart.
+
+## Cấu hình đúng trong DSM UI
+
+Khi import [docker-compose.nas.yml](/Users/etecman/Documents/Frame%20Editor/docker-compose.nas.yml) vào `Container Manager`:
+
+1. Chọn thư mục project, ví dụ `/volume1/docker/coopeditor`.
+2. Copy nguyên file [Caddyfile.nas](/Users/etecman/Documents/Frame%20Editor/Caddyfile.nas) vào cùng thư mục đó.
+3. Mở YAML và chỉ sửa đúng 2 dòng volume của `api` và `worker`:
+
+```yaml
+- /volume1/PCNgon:/nas:ro
+```
+
+4. Không đổi vế phải `/nas`.
+5. Không mount `/volume1:/nas:ro`.
+6. Không để `api` một đường dẫn và `worker` một đường dẫn khác.
+7. Với `gateway`, giữ nguyên mount:
+
+```yaml
+- ./Caddyfile.nas:/etc/caddy/Caddyfile:ro
+```
+
+8. Với port, có thể để:
+
+```yaml
+- "8080:80"
+```
+
+hoặc đổi thành:
+
+```yaml
+- "18080:80"
+```
+
+nếu NAS đang bận cổng `8080`.
 
 ## Shared Folder / Team Folder trên Synology Drive
 
@@ -84,6 +122,7 @@ Nếu worker từng bị mount sai `/volume1:/nas:ro`, redeploy sạch như trê
 
 ```text
 DSM mount root = /nas
+DSM library root = /PCNgon
 ```
 
 3. Nếu file nằm trong Team Folder ví dụ:
@@ -97,6 +136,8 @@ thì bên trong container FFmpeg sẽ đọc ở:
 ```text
 /nas/TeamFolder/ProjectA/shot01.mov
 ```
+
+Nếu `DSM library root=/PCNgon` thì ngay từ popup Import, thư mục gốc sẽ là đúng `PCNgon` thay vì hiện cả danh sách Shared Folder.
 
 Nếu bỏ trống `DSM mount root`, app vẫn có thể duyệt DSM qua API nhưng worker có thể không transcode được file thật.
 

@@ -138,7 +138,7 @@ Useful overrides:
 ```sh
 # Force a specific RC tag
 curl -fsSL https://raw.githubusercontent.com/namct2610/coopeditor/main/synology/install-spk.sh \
-  | sudo env TAG=v0.2.40-spk-rc1 bash
+  | sudo env TAG=v1.0.0-spk-rc19 bash
 
 # Force release channel lookup (stable / rc / any)
 curl -fsSL https://raw.githubusercontent.com/namct2610/coopeditor/main/synology/install-spk.sh \
@@ -146,10 +146,10 @@ curl -fsSL https://raw.githubusercontent.com/namct2610/coopeditor/main/synology/
 
 # Install from a direct SPK URL
 curl -fsSL https://raw.githubusercontent.com/namct2610/coopeditor/main/synology/install-spk.sh \
-  | sudo env SPK_URL=https://github.com/namct2610/coopeditor/releases/download/v0.2.40-spk-rc1/coopeditor-aarch64-0.2.40-spk-rc1.spk bash
+  | sudo env SPK_URL=https://github.com/namct2610/coopeditor/releases/download/v1.0.0-spk-rc19/coopeditor-aarch64-1.0.0-spk-rc19.spk bash
 
 # Install from a local file already uploaded to the NAS
-sudo env SPK_FILE=/volume1/public/coopeditor-aarch64-0.2.40-spk-rc1.spk bash synology/install-spk.sh
+sudo env SPK_FILE=/volume1/public/coopeditor-aarch64-1.0.0-spk-rc19.spk bash synology/install-spk.sh
 ```
 
 ## Why this is a long sprint

@@ -951,6 +951,13 @@ async function refreshNasListing(path) {
   }
 }
 
+function describeNasRootLabel(summary) {
+  const libraryRoot = String((summary && summary.dsmLibraryRoot) || "/").trim() || "/";
+  if (libraryRoot === "/") return "DSM / Shared Folder";
+  const parts = libraryRoot.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  return "DSM / " + (parts.join(" / ") || "Shared Folder");
+}
+
 async function openImport() {
   setState({ showImport: true });
   if (remote.me) await refreshNasListing(state.nasCurrentPath || "/");
@@ -1316,6 +1323,7 @@ function settingsContent(sec, rc, me, vals) {
         { key: "publicUrl", label: "Public URL", path: ["publicUrl"], placeholder: "https://coopeditor.example.com" },
         { key: "dsmHost", label: "DSM host", path: ["dsmHost"], placeholder: "https://nas.local:5001" },
         { key: "dsmMountRoot", label: "DSM mount trong container API", path: ["dsmMountRoot"], placeholder: "/nas" },
+        { key: "dsmLibraryRoot", label: "DSM library root trong UI", path: ["dsmLibraryRoot"], placeholder: "/PCNgon" },
         { key: "dsmDevLogin", label: "Dev login (bypass DSM — chỉ test)", path: ["dsmDevLogin"], type: "checkbox" },
         { key: "dsmInsecure", label: "Cho phép TLS self-signed (DSM)", path: ["dsmInsecure"], type: "checkbox" },
       ], state.runtimeConfigFull || {}) + `
@@ -3183,7 +3191,7 @@ function importModal(vals) {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-variant-numeric:tabular-nums;font-size:12px;">
             <span data-act="navTo" data-arg="${encodeURIComponent("/")}" class="co-blue-hover" style="cursor:pointer;color:var(--co-faint);font-weight:700;">${esc(vals.nasRootLabel)}</span>
             <span style="color:var(--co-faint);">/</span>
-            ${vals.nasCrumbs.map((cr) => `<span data-act="navTo" data-arg="${encodeURIComponent(cr.path || "/")}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
+            ${vals.nasCrumbs.slice(1).map((cr) => `<span data-act="navTo" data-arg="${encodeURIComponent(cr.path || "/")}" class="co-blue-hover" style="cursor:pointer;color:var(--co-text-2);font-weight:700;">${esc(cr.label)}</span><span style="color:var(--co-faint);">/</span>`).join("")}
           </div>
         </div>
         <button data-act="closeImport" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
@@ -3621,7 +3629,7 @@ function computeVals() {
     nasCrumbs: crumbs, nasList, importCount,
     nasLoading: s.nasLoading,
     nasError: s.nasError,
-    nasRootLabel: "DSM / Shared Folder",
+    nasRootLabel: describeNasRootLabel(state.runtimeSummary || remote.setup || {}),
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
     importBtnBg: importCount > 0 ? "#6c5cf6" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
     importCountLabel: importCount + " nguồn đã chọn · có thể tạo proxy thủ công sau import",
@@ -4096,6 +4104,7 @@ const setup = {
   publicUrl: location.origin,
   dsmHost: "",
   dsmMountRoot: "/nas",
+  dsmLibraryRoot: "/",
   dsmDevLogin: false,
   dsmInsecure: false,
   workerConcurrency: 2,
@@ -4248,6 +4257,7 @@ async function bootstrap() {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
       if (status.dsmHost) setup.dsmHost = status.dsmHost;
       if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
+      if (status.dsmLibraryRoot) setup.dsmLibraryRoot = status.dsmLibraryRoot;
       if (status.updater && status.updater.feedUrl) setup.updateFeedUrl = status.updater.feedUrl;
       if (status.updater && status.updater.triggerUrl) setup.updateTriggerUrl = status.updater.triggerUrl;
       if (status.updater && status.updater.pollIntervalSeconds) setup.updatePollIntervalSeconds = status.updater.pollIntervalSeconds;
@@ -4286,6 +4296,7 @@ async function tryBootProbe() {
       if (status.publicUrl) setup.publicUrl = status.publicUrl;
       if (status.dsmHost) setup.dsmHost = status.dsmHost;
       if (status.dsmMountRoot) setup.dsmMountRoot = status.dsmMountRoot;
+      if (status.dsmLibraryRoot) setup.dsmLibraryRoot = status.dsmLibraryRoot;
       if (status.updater && status.updater.feedUrl) setup.updateFeedUrl = status.updater.feedUrl;
       if (status.updater && status.updater.triggerUrl) setup.updateTriggerUrl = status.updater.triggerUrl;
       if (status.updater && status.updater.pollIntervalSeconds) setup.updatePollIntervalSeconds = status.updater.pollIntervalSeconds;
@@ -4646,6 +4657,7 @@ function setupOverlay() {
         ${setupField("URL truy cập", "setupPublicUrl", setup.publicUrl, "https://review.example.com")}
         ${setupField("DSM Host", "setupDsmHost", setup.dsmHost, "https://nas.example.com:5001")}
         ${setupField("DSM mount root trong container", "setupDsmMountRoot", setup.dsmMountRoot, "/nas")}
+        ${setupField("DSM library root", "setupDsmLibraryRoot", setup.dsmLibraryRoot, "/PCNgon")}
         ${setupField("SMTP URL (tuỳ chọn)", "setupSmtpUrl", setup.smtpUrl, "smtps://user:pass@smtp.example.com:465")}
         ${setupField("SMTP From", "setupSmtpFrom", setup.smtpFrom, "Coopeditor <no-reply@example.com>")}
         ${setupField("Slack webhook", "setupSlackWebhookUrl", setup.slackWebhookUrl, "https://hooks.slack.com/...")}
@@ -4664,6 +4676,7 @@ function setupOverlay() {
       <div style="margin:12px 0 0;color:#7f8da3;font-size:11px;font-weight:600;line-height:1.65;">
         Ô <code>DSM mount root</code> là đường dẫn nhìn thấy <strong>bên trong container</strong>, thường là <code>/nas</code>.
         Không nhập host path Synology như <code>/volume1/PCNgon</code> ở đây; host path chỉ cấu hình trong volume mount của Docker project.
+        Ô <code>DSM library root</code> là thư mục gốc muốn duyệt trong UI, ví dụ <code>/PCNgon</code> để app chỉ hiện đúng Shared Folder đó.
       </div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 10px;">
         ${setupToggle("setupDsmDevLogin", "Bật DSM dev login", setup.dsmDevLogin)}
@@ -4697,6 +4710,7 @@ async function applySetup() {
     publicUrl: readValue("setupPublicUrl"),
     dsmHost: readValue("setupDsmHost"),
     dsmMountRoot: readValue("setupDsmMountRoot"),
+    dsmLibraryRoot: readValue("setupDsmLibraryRoot") || "/",
     dsmDevLogin: readChecked("setupDsmDevLogin"),
     dsmInsecure: readChecked("setupDsmInsecure"),
     smtp: {
@@ -4726,6 +4740,7 @@ async function applySetup() {
     publicUrl: payload.publicUrl,
     dsmHost: payload.dsmHost,
     dsmMountRoot: payload.dsmMountRoot,
+    dsmLibraryRoot: payload.dsmLibraryRoot,
     dsmDevLogin: payload.dsmDevLogin,
     dsmInsecure: payload.dsmInsecure,
     workerConcurrency: payload.transcode.workerConcurrency,

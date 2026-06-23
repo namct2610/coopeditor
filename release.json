@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc18",
-  "summary": "SPK RC 18 ưu tiên quét thư mục NAS thật khi đã có mount, không rơi về demo tree.",
+  "version": "1.0.0-rc19",
+  "summary": "SPK RC 19 khóa đúng root import NAS về thư mục cấu hình như /PCNgon và ổn định hơn khi cài SPK tự động.",
   "changes": [
-    "Neu app dang o che do DSM dev login nhung NAS da mount san thu muc that, luong Import tu NAS nay uu tien doc mount that thay vi tra ve demo tree.",
-    "Them regression test cho truong hop dev login + mounted NAS de tranh bi rot lai sang du lieu demo o cac ban sau.",
-    "Giu nguyen cac ban sua truoc do cho tao project SQLite/SPK va installer auto-upgrade."
+    "Them cau hinh DSM library root de UI Import tu NAS chi hien thi dung thu muc goc mong muon, vi du /PCNgon thay vi lo toan bo Shared Folder.",
+    "Backend DSM path resolver gio tu dong xu ly ca 2 kieu mount: mount ca volume lon vao /nas hoac mount thang rieng PCNgon vao /nas ma khong bi nhan doi duong dan.",
+    "Cap nhat setup UI, Runtime config va bo test regression cho library root; dong thoi gia co install-spk.sh de bao loi ro hon khi GitHub API tra rong hoac bi rate limit."
   ],
   "publishedAt": "2026-06-23T00:00:00.000Z"
 }

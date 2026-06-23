@@ -9,9 +9,9 @@
 #   - CHANNEL=rc → prefer the newest RC release that contains a matching SPK
 #
 # Common overrides:
-#   ARCH=aarch64 TAG=v0.2.40-spk-rc1 bash install-spk.sh
-#   SPK_URL=https://github.com/<owner>/<repo>/releases/download/<tag>/coopeditor-aarch64-0.2.40-spk-rc1.spk bash install-spk.sh
-#   SPK_FILE=/volume1/public/coopeditor-aarch64-0.2.40-spk-rc1.spk bash install-spk.sh
+#   ARCH=aarch64 TAG=v1.0.0-spk-rc19 bash install-spk.sh
+#   SPK_URL=https://github.com/<owner>/<repo>/releases/download/<tag>/coopeditor-aarch64-1.0.0-spk-rc19.spk bash install-spk.sh
+#   SPK_FILE=/volume1/public/coopeditor-aarch64-1.0.0-spk-rc19.spk bash install-spk.sh
 
 set -eu
 
@@ -51,12 +51,35 @@ detect_arch() {
 }
 
 release_list_json() {
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30"
+  curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    -H "User-Agent: coopeditor-install-spk" \
+    "https://api.github.com/repos/${REPO}/releases?per_page=30"
+}
+
+require_valid_json() {
+  JSON_PAYLOAD="$1" python3 -c '
+import json, os, sys
+raw = os.environ.get("JSON_PAYLOAD", "")
+if not raw.strip():
+    sys.stderr.write("empty response from GitHub API\n")
+    raise SystemExit(1)
+try:
+    data = json.loads(raw)
+except Exception as exc:
+    sys.stderr.write(f"invalid JSON from GitHub API: {exc}\n")
+    raise SystemExit(1)
+if isinstance(data, dict) and data.get("message"):
+    sys.stderr.write(str(data.get("message")) + "\n")
+    raise SystemExit(1)
+'
 }
 
 resolve_latest_tag() {
   local json asset_regex selected
   json="$(release_list_json)"
+  require_valid_json "$json" || fail "GitHub API trả về dữ liệu không hợp lệ khi đọc danh sách release. Nếu đang bị rate-limit, thử lại sau hoặc truyền TAG=... trực tiếp."
   asset_regex="coopeditor-${ARCH}-[^\"]+\\.spk"
   selected="$(RELEASES_JSON="$json" python3 -c '
 import json, re, sys
@@ -89,7 +112,12 @@ for rel in releases:
 resolve_asset_url_from_tag() {
   local version json url
   version="${TAG#v}"
-  json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
+  json="$(curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    -H "User-Agent: coopeditor-install-spk" \
+    "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
+  require_valid_json "$json" || fail "Không đọc được metadata release cho TAG=${TAG}. Kiểm tra tag có tồn tại chưa hoặc truyền SPK_URL trực tiếp."
   url="$(RELEASE_JSON="$json" python3 -c '
 import json, sys
 

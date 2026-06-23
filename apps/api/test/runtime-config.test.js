@@ -70,6 +70,37 @@ test("normalizeRuntimeConfig rejects Synology host paths for dsmMountRoot", asyn
   }), /container|\/nas|\/volume1/i);
 });
 
+test("normalizeRuntimeConfig accepts DSM library root and applyRuntimeEnvFromConfig exports it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-config-library-root-"));
+  const configPath = join(root, "system", "config.json");
+  await mkdir(join(root, "system"), { recursive: true });
+
+  process.env.APP_DATA_DIR = root;
+  process.env.APP_CONFIG_PATH = configPath;
+
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?library-root=" + Date.now());
+  const cfg = mod.normalizeRuntimeConfig({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/nas",
+    dsmLibraryRoot: "/PCNgon",
+  });
+
+  assert.equal(cfg.dsmLibraryRoot, "/PCNgon");
+  mod.applyRuntimeEnvFromConfig(cfg);
+  assert.equal(process.env.DSM_LIBRARY_ROOT, "/PCNgon");
+});
+
+test("normalizeRuntimeConfig rejects traversal in DSM library root", async () => {
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-library-root=" + Date.now());
+  assert.throws(() => mod.normalizeRuntimeConfig({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "/nas",
+    dsmLibraryRoot: "/PCNgon/../secret",
+  }), /library root/i);
+});
+
 test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-config-updater-"));
   const configPath = join(root, "system", "config.json");
