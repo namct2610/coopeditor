@@ -500,6 +500,12 @@ async function handle(req, res, url) {
 
   setSecurityHeaders(res);
 
+  // Serve the SPA shell at "/" + "/index.html" BEFORE the auth gate further
+  // down — the FE itself runs the DSM login flow against /api/auth/* so
+  // requiring a session to load the shell would create a chicken-and-egg
+  // unauthenticated loop. Only active when WEB_INLINE=1 (SPK build).
+  if (await tryServeSpa(req, res, url)) return;
+
   if (p === "/health" && m === "GET") return send(res, 200, { ok: true, dsmConfigured: !dsm.isDevMode(), backend: store.backend });
   if (p === "/setup/status" && m === "GET") {
     // When server.js is running, runtime IS configured (via env or config file).
