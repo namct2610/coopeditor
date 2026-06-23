@@ -1,0 +1,5 @@
+#!/bin/sh
+# No-op: nothing to checkpoint before upgrade. DSM stops the service
+# automatically before this runs, and the next postinst re-seeds
+# runtime.env from whatever the user picked at install time.
+exit 0

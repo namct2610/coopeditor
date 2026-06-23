@@ -1,0 +1,6 @@
+#!/bin/sh
+# No-op: postinst already handles the runtime.env regeneration. SQLite
+# DB at /var/packages/coopeditor/var/coopeditor.db survives the upgrade
+# because DSM preserves /var/packages/<pkg>/var/ across in-place
+# install runs.
+exit 0
