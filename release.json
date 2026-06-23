@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc17",
-  "summary": "SPK RC 17 sửa lỗi tạo project trên NAS/SQLite và đồng bộ luồng cài đặt tự động.",
+  "version": "1.0.0-rc18",
+  "summary": "SPK RC 18 ưu tiên quét thư mục NAS thật khi đã có mount, không rơi về demo tree.",
   "changes": [
-    "Bo sung nhom query tuong thich SQLite cho backend SPK de khong con loi near SELECT khi tao project tren NAS.",
-    "Modal Tao project rerender ngay khi nhap ten project hoac nguoi quay, khong can bam upload thumbnail roi cancel moi hien nut tao.",
-    "Cap nhat installer/release de NAS co the upgrade thang tu 1.0.0-16 len ban moi ma khong bi DSM chan downgrade."
+    "Neu app dang o che do DSM dev login nhung NAS da mount san thu muc that, luong Import tu NAS nay uu tien doc mount that thay vi tra ve demo tree.",
+    "Them regression test cho truong hop dev login + mounted NAS de tranh bi rot lai sang du lieu demo o cac ban sau.",
+    "Giu nguyen cac ban sua truoc do cho tao project SQLite/SPK va installer auto-upgrade."
   ],
   "publishedAt": "2026-06-23T00:00:00.000Z"
 }

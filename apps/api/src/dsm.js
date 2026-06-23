@@ -34,6 +34,10 @@ function dsmMountRoot() {
   return process.env.DSM_MOUNT_ROOT || "";
 }
 
+function hasMountedNasRootConfigured() {
+  return buildMountRootCandidates().length > 0;
+}
+
 function normalizeMountRoot(root) {
   return String(root || "").trim().replace(/\/+$/, "");
 }
@@ -244,7 +248,13 @@ export async function dsmLogout(sid) {
 
 // List a NAS folder using the user's sid. Returns NasListing-shaped object.
 export async function dsmListFolder(sid, path) {
-  if (isDevMode()) return devNasListing(path);
+  if (isDevMode()) {
+    if (hasMountedNasRootConfigured()) {
+      try { return await listMountedFolder(path); }
+      catch (_) {}
+    }
+    return devNasListing(path);
+  }
   if (path === "/") {
     // top level: list shared folders
     try {
@@ -294,6 +304,18 @@ export async function dsmListFolder(sid, path) {
 
 export async function getFileMeta(sid, path) {
   if (isDevMode()) {
+    if (hasMountedNasRootConfigured()) {
+      const mounted = await getMountedFileEntry(path).catch(() => null);
+      if (mounted) {
+        const bytes = Number(mounted.additional && mounted.additional.size) || 0;
+        return buildVideoEntry({
+          name: mounted.name,
+          path,
+          bytes,
+          probePath: mounted.additional && mounted.additional.real_path,
+        });
+      }
+    }
     const file = devLookupFile(path);
     if (!file || file.type !== "file") return null;
     return {

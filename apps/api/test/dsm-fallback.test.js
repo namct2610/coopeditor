@@ -61,3 +61,23 @@ test("mounted NAS listing hides non-video files and system folders", async () =>
     global.fetch = originalFetch;
   }
 });
+
+test("dev login still prefers mounted NAS over demo tree when a real mount is configured", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-dev-mount-"));
+  await mkdir(join(root, "PCNgon"));
+  await writeFile(join(root, "C1967.MP4"), "demo");
+
+  process.env.DSM_HOST = "";
+  process.env.DSM_MOUNT_ROOT = root;
+  process.env.DSM_DEV_LOGIN = "1";
+
+  try {
+    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?dev-mounted=" + Date.now());
+    const listing = await mod.dsmListFolder("sid-dev", "/");
+    assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "PCNgon"));
+    assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "C1967.MP4"));
+    assert.ok(!listing.entries.some((entry) => entry.name === "Footage"));
+  } finally {
+    process.env.DSM_DEV_LOGIN = "";
+  }
+});
