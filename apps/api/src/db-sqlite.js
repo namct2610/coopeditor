@@ -40,6 +40,18 @@ function rewritePlaceholders(sql) {
   // expires_at <= now()). CURRENT_TIMESTAMP is standard SQL, no behaviour
   // change on Postgres.
   s = s.replace(/\bnow\(\)/gi, "CURRENT_TIMESTAMP");
+  //   * array_agg(col ORDER BY ...) → GROUP_CONCAT(col)
+  //     SQLite 3.44+ supports ORDER BY inside aggregates but better-sqlite3
+  //     ships 3.46+, so we COULD honour the order, but the result format
+  //     differs (CSV string vs Postgres array) so callers must parse anyway.
+  //     Dropping ORDER BY keeps the rewrite simple — ordering can be done
+  //     in JS after the result lands if it matters.
+  s = s.replace(/array_agg\(\s*([^()]+?)\s+ORDER BY[^)]+\)/gi, "GROUP_CONCAT($1)");
+  s = s.replace(/array_agg\(\s*([^()]+?)\s*\)/gi, "GROUP_CONCAT($1)");
+  //   * Postgres empty-array literal '{}' → empty string '' so COALESCE
+  //     defaults work consistently for both dialects. Callers split on
+  //     comma when reading the column.
+  s = s.replace(/'\{\s*\}'/g, "''");
   return s;
 }
 

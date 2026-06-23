@@ -16,9 +16,18 @@ async function q(sql, params) { return (await db().query(sql, params)).rows; }
 async function one(sql, params) { return (await db().query(sql, params)).rows[0] || null; }
 
 // camelCase mapping helpers — DB uses snake_case
+// team_user_ids is a Postgres text[] when running on pg, but the SQLite
+// adapter rewrites array_agg() → GROUP_CONCAT() which returns a CSV string.
+// Normalise both shapes to a JS array so callers don't care which driver
+// is live.
+function _teamIds(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
 const projectRow = (r) => r && ({
   id: r.id, name: r.name, status: r.status, client: r.client,
-  updatedAt: r.updated_at, teamUserIds: r.team_user_ids || [], myRole: r.my_role || undefined,
+  updatedAt: r.updated_at, teamUserIds: _teamIds(r.team_user_ids), myRole: r.my_role || undefined,
   archivedAt: r.archived_at || null, createdAt: r.created_at,
 });
 const assetRow = (r) => r && ({

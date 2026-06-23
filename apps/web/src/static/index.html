@@ -3091,43 +3091,62 @@ function createProjectModal() {
   const name = s.createProjectName || "";
   const client = s.createProjectClient || "";
   const thumb = s.createProjectThumbDataUrl || "";
+  // Only the project name is required; client + thumbnail are optional. Previously
+  // the submit button stayed disabled until client was filled AND a thumbnail was
+  // either uploaded or actively cleared — confusing for users who don't have an
+  // image handy.
   const canSubmit = !!name.trim() && !s.createProjectBusy;
   return `
   <div data-act="closeCreateProject" style="position:fixed;inset:0;background:rgba(4,6,10,0.7);backdrop-filter:blur(3px);z-index:95;display:grid;place-items:center;padding:24px;">
-    <div data-stop="1" style="width:100%;max-width:520px;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.6);overflow:hidden;display:flex;flex-direction:column;">
+    <div data-stop="1" style="width:100%;max-width:560px;background:var(--co-panel);border:1px solid var(--co-border-2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.6);overflow:hidden;display:flex;flex-direction:column;">
       <div style="padding:20px 22px 16px;border-bottom:1px solid var(--co-border);display:flex;align-items:flex-start;gap:12px;">
         <div style="flex:1;">
           <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-accent-ink);text-transform:uppercase;">Project mới</div>
-          <h3 style="margin:6px 0 0;font-size:19px;font-weight:800;">Tạo project cho client</h3>
-          <div style="margin-top:6px;color:var(--co-muted);font-size:12px;font-weight:600;">Tên project + tên client là bắt buộc. Ảnh đại diện có thể bổ sung sau ở phần Cài đặt project.</div>
+          <h3 style="margin:6px 0 0;font-size:19px;font-weight:800;">Tạo project</h3>
+          <div style="margin-top:6px;color:var(--co-muted);font-size:12px;font-weight:600;">Chỉ cần tên project là đủ để bắt đầu — phần còn lại có thể thêm sau.</div>
         </div>
         <button data-act="closeCreateProject" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
       </div>
       <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px;">
         <label style="display:flex;flex-direction:column;gap:6px;">
           <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Tên project</span>
-          <input id="createProjectNameInput" type="text" value="${esc(name)}" placeholder="VD: Hồ Sơ Năng Lực 2026"
+          <input id="createProjectNameInput" type="text" value="${esc(name)}" placeholder="529. Abc"
                  oninput="state.createProjectName=this.value;state.createProjectError='';"
                  style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
         </label>
         <label style="display:flex;flex-direction:column;gap:6px;">
-          <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Client</span>
-          <input type="text" value="${esc(client)}" placeholder="VD: Công ty ABC"
+          <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Người quay</span>
+          <input type="text" value="${esc(client)}" placeholder="Anh Nam"
                  oninput="state.createProjectClient=this.value"
                  style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
         </label>
         <div>
-          <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);margin-bottom:6px;">Ảnh thumbnail (tùy chọn)</div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:96px;height:54px;border-radius:8px;background:${thumb ? `center/cover no-repeat url(${esc(thumb)})` : "var(--co-panel-2)"};border:1px solid var(--co-border-2);display:grid;place-items:center;flex:0 0 96px;">
-              ${thumb ? "" : `<span style="color:var(--co-faint);font-size:10px;font-weight:700;">CHƯA CHỌN</span>`}
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);margin-bottom:6px;">Ảnh thumbnail <span style="color:var(--co-faint);font-weight:600;text-transform:none;letter-spacing:0;">(tùy chọn)</span></div>
+          <!-- Drag-and-drop dropzone styled like the reference excel-upload card.
+               Click anywhere on the zone to open the file picker; drop also works.
+               Form submits regardless of whether a file was picked. -->
+          ${thumb ? `
+            <div style="position:relative;border:1.5px dashed var(--co-border-2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:14px;">
+              <div style="width:108px;height:60px;border-radius:8px;background:center/cover no-repeat url(${esc(thumb)});flex:0 0 108px;"></div>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:700;color:var(--co-text);">Đã chọn thumbnail</div>
+                <div style="font-size:11.5px;color:var(--co-muted);font-weight:600;margin-top:2px;">Có thể đổi hoặc xoá trước khi tạo project.</div>
+              </div>
+              <label class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:9px;padding:8px 12px;color:var(--co-text);font-weight:700;font-size:12px;cursor:pointer;flex:0 0 auto;">
+                <input type="file" accept="image/*" style="display:none;" onchange="window.__readCreateProjectThumb&&window.__readCreateProjectThumb(this)" />Đổi ảnh
+              </label>
+              <button data-act="clearCreateProjectThumb" style="background:transparent;border:none;color:#ef4d57;font-weight:700;font-size:12px;cursor:pointer;flex:0 0 auto;">Xoá</button>
             </div>
-            <label class="co-border-hover" style="display:inline-flex;align-items:center;gap:8px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:9px;padding:9px 12px;color:var(--co-text);font-weight:700;font-size:12px;cursor:pointer;">
+          ` : `
+            <label id="createProjectThumbDropzone" class="co-border-hover" ondragover="event.preventDefault();this.style.borderColor='rgba(108,92,246,0.6)';" ondragleave="this.style.borderColor='var(--co-border-2)';" ondrop="event.preventDefault();this.style.borderColor='var(--co-border-2)';if(event.dataTransfer.files&&event.dataTransfer.files[0]){const i=this.querySelector('input');i.files=event.dataTransfer.files;window.__readCreateProjectThumb&&window.__readCreateProjectThumb(i);}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1.5px dashed var(--co-border-2);border-radius:14px;padding:30px 18px;cursor:pointer;transition:border-color 150ms;">
               <input type="file" accept="image/*" style="display:none;" onchange="window.__readCreateProjectThumb&&window.__readCreateProjectThumb(this)" />
-              ${thumb ? "Đổi ảnh" : "Tải ảnh lên"}
+              <div style="width:56px;height:56px;border-radius:14px;background:rgba(108,92,246,0.14);display:grid;place-items:center;color:var(--co-accent-ink);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/><rect x="3" y="19" width="18" height="2" rx="1"/></svg>
+              </div>
+              <div style="font-size:14px;font-weight:700;color:var(--co-text);">Kéo &amp; thả ảnh thumbnail vào đây</div>
+              <div style="font-size:12px;color:var(--co-muted);font-weight:600;text-align:center;">.jpg / .png / .webp · tối đa 5 MB · hoặc bấm để chọn từ máy<br><span style="color:var(--co-faint);">(không bắt buộc — có thể bỏ qua và tạo project ngay)</span></div>
             </label>
-            ${thumb ? `<button data-act="clearCreateProjectThumb" style="background:transparent;border:none;color:#ef4d57;font-weight:700;font-size:12px;cursor:pointer;">Xóa</button>` : ""}
-          </div>
+          `}
         </div>
         ${s.createProjectError ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(s.createProjectError)}</div>` : ""}
       </div>
@@ -5059,7 +5078,7 @@ function loginOverlay() {
       <div style="color:#8896ab;font-size:12px;font-weight:600;line-height:1.5;margin-bottom:18px;">${auth.needsOtp ? "DSM yêu cầu xác thực 2 bước — nhập mã OTP từ ứng dụng authenticator." : "Đăng nhập bằng tài khoản DSM để truy cập NAS theo đúng quyền của bạn."}</div>
       ${!auth.needsOtp ? `
         <label style="display:block;font-size:11px;font-weight:700;color:#c5d0e0;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Tài khoản</label>
-        <input id="loginAccount" autofocus value="${esc(auth.account)}" placeholder="vd. minh" style="width:100%;background:#1b2130;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 13px;color:#e9eef6;font-size:14px;outline:none;margin-bottom:12px;" />
+        <input id="loginAccount" autofocus value="${esc(auth.account)}" style="width:100%;background:#1b2130;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 13px;color:#e9eef6;font-size:14px;outline:none;margin-bottom:12px;" />
         <label style="display:block;font-size:11px;font-weight:700;color:#c5d0e0;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;">Mật khẩu</label>
         <input id="loginPasswd" type="password" value="${esc(auth.passwd)}" placeholder="••••••••" style="width:100%;background:#1b2130;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:11px 13px;color:#e9eef6;font-size:14px;outline:none;margin-bottom:14px;" />
       ` : `
@@ -5071,7 +5090,6 @@ function loginOverlay() {
       ${auth.error ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;">${esc(auth.error)}</div>` : ""}
       <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(108,92,246,0.4)" : "#6c5cf6"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(108,92,246,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
       ${auth.needsOtp ? `<button data-act="cancelOtp" style="margin-top:10px;width:100%;background:transparent;color:#8896ab;font-weight:700;font-size:12px;padding:8px;border:1px solid rgba(255,255,255,0.1);border-radius:9px;cursor:pointer;">Huỷ — đăng nhập lại</button>` : ""}
-      <div style="margin-top:14px;color:#5d6b82;font-size:11px;font-weight:600;line-height:1.5;text-align:center;">DSM session lưu cookie httpOnly · không bao giờ lộ ra client.</div>
     </div>
   </div>`;
 }
