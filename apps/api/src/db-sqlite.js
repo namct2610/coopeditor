@@ -31,7 +31,16 @@ function rewritePlaceholders(sql) {
   // Naive $N → ? rewrite. Safe because the codebase never embeds `$N` inside
   // string literals (verified by grep). If that changes, switch to a proper
   // SQL tokeniser.
-  return sql.replace(/\$(\d+)/g, "?");
+  let s = sql.replace(/\$(\d+)/g, "?");
+  // Postgres-isms that SQLite refuses but both dialects accept the alternate:
+  //   * now()              → CURRENT_TIMESTAMP  (both Postgres + SQLite)
+  //   * NOW()              → CURRENT_TIMESTAMP
+  // SQLite parses now() as a user function and bails with "no such function: now"
+  // — exactly the error the user hit on login (sessions.js DELETE WHERE
+  // expires_at <= now()). CURRENT_TIMESTAMP is standard SQL, no behaviour
+  // change on Postgres.
+  s = s.replace(/\bnow\(\)/gi, "CURRENT_TIMESTAMP");
+  return s;
 }
 
 function isWrite(sql) {
