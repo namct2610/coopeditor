@@ -3119,13 +3119,13 @@ function createProjectModal() {
         <label style="display:flex;flex-direction:column;gap:6px;">
           <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Tên project</span>
           <input id="createProjectNameInput" type="text" value="${esc(name)}" placeholder="529. Abc"
-                 oninput="state.createProjectName=this.value;state.createProjectError='';render();"
+                 oninput="window.__updateCreateProjectField&&window.__updateCreateProjectField('name', this.value)"
                  style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
         </label>
         <label style="display:flex;flex-direction:column;gap:6px;">
           <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--co-faint);">Người quay</span>
           <input type="text" value="${esc(client)}" placeholder="Anh Nam"
-                 oninput="state.createProjectClient=this.value;state.createProjectError='';render();"
+                 oninput="window.__updateCreateProjectField&&window.__updateCreateProjectField('client', this.value)"
                  style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:11px 12px;color:var(--co-text);font-size:14px;font-weight:600;outline:none;" />
         </label>
         <div>
@@ -3168,6 +3168,32 @@ function createProjectModal() {
     </div>
   </div>`;
 }
+
+window.__syncCreateProjectForm = function () {
+  const nameEl = document.getElementById("createProjectNameInput");
+  const submitEl = document.querySelector('[data-act="submitCreateProject"]');
+  if (submitEl) {
+    const canSubmit = !!String(state.createProjectName || "").trim() && !state.createProjectBusy;
+    submitEl.disabled = !canSubmit;
+    submitEl.style.background = canSubmit ? "#6c5cf6" : "var(--co-panel-2)";
+    submitEl.style.color = canSubmit ? "#07111a" : "var(--co-faint)";
+    submitEl.style.cursor = canSubmit ? "pointer" : "not-allowed";
+  }
+  if (nameEl && document.activeElement !== nameEl && state.showCreateProject && !state.createProjectBusy) {
+    // no-op guard: don't steal focus back while user edits another field
+  }
+};
+
+window.__updateCreateProjectField = function (field, value) {
+  if (field === "name") state.createProjectName = String(value || "");
+  if (field === "client") state.createProjectClient = String(value || "");
+  if (state.createProjectError) {
+    state.createProjectError = "";
+    render();
+    return;
+  }
+  window.__syncCreateProjectForm && window.__syncCreateProjectForm();
+};
 
 window.__readCreateProjectThumb = function (input) {
   const file = input.files && input.files[0];
@@ -5163,7 +5189,11 @@ function createNewProject() {
     createProjectError: "",
   });
   // Focus the name input after the modal mounts.
-  setTimeout(() => { const el = document.getElementById("createProjectNameInput"); if (el) el.focus(); }, 0);
+  setTimeout(() => {
+    const el = document.getElementById("createProjectNameInput");
+    if (el) el.focus();
+    window.__syncCreateProjectForm && window.__syncCreateProjectForm();
+  }, 0);
 }
 
 function closeCreateProjectModal() {

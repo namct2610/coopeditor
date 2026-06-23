@@ -312,8 +312,7 @@ export async function dsmListFolder(sid, path) {
   const requestedPath = normalizeStoredNasPath(path);
   if (isDevMode()) {
     if (hasMountedNasRootConfigured()) {
-      try { return await listMountedFolder(requestedPath); }
-      catch (_) {}
+      return listMountedFolder(requestedPath);
     }
     return devNasListing(requestedPath);
   }
@@ -368,7 +367,7 @@ export async function dsmListFolder(sid, path) {
 export async function getFileMeta(sid, path) {
   if (isDevMode()) {
     if (hasMountedNasRootConfigured()) {
-      const mounted = await getMountedFileEntry(path).catch(() => null);
+      const mounted = await getMountedFileEntry(path);
       if (mounted) {
         const bytes = Number(mounted.additional && mounted.additional.size) || 0;
         return buildVideoEntry({
@@ -378,6 +377,7 @@ export async function getFileMeta(sid, path) {
           probePath: mounted.additional && mounted.additional.real_path,
         });
       }
+      return null;
     }
     const file = devLookupFile(path);
     if (!file || file.type !== "file") return null;

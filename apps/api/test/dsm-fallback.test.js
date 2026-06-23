@@ -85,6 +85,23 @@ test("dev login still prefers mounted NAS over demo tree when a real mount is co
   }
 });
 
+test("dev mode with mounted NAS does not silently fall back to demo when real path is broken", async () => {
+  process.env.DSM_HOST = "";
+  process.env.DSM_MOUNT_ROOT = "/definitely-missing-coopeditor-path";
+  process.env.DSM_LIBRARY_ROOT = "/";
+  process.env.DSM_DEV_LOGIN = "1";
+
+  try {
+    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?dev-mounted-error=" + Date.now());
+    await assert.rejects(
+      () => mod.dsmListFolder("sid-dev", "/"),
+      /Khong tim thay thu muc NAS da mount|Khong doc duoc thu muc NAS da mount/i,
+    );
+  } finally {
+    process.env.DSM_DEV_LOGIN = "";
+  }
+});
+
 test("mounted NAS listing can be rooted to a single shared folder via DSM library root", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-library-root-"));
   await mkdir(join(root, "PCNgon", "502. Case G200"), { recursive: true });

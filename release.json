@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc19",
-  "summary": "SPK RC 19 khóa đúng root import NAS về thư mục cấu hình như /PCNgon và ổn định hơn khi cài SPK tự động.",
+  "version": "1.0.0-rc20",
+  "summary": "SPK RC 20 sửa lỗi form tạo project mất focus và chặn import NAS rơi về demo khi dữ liệu thật lỗi.",
   "changes": [
-    "Them cau hinh DSM library root de UI Import tu NAS chi hien thi dung thu muc goc mong muon, vi du /PCNgon thay vi lo toan bo Shared Folder.",
-    "Backend DSM path resolver gio tu dong xu ly ca 2 kieu mount: mount ca volume lon vao /nas hoac mount thang rieng PCNgon vao /nas ma khong bi nhan doi duong dan.",
-    "Cap nhat setup UI, Runtime config va bo test regression cho library root; dong thoi gia co install-spk.sh de bao loi ro hon khi GitHub API tra rong hoac bi rate limit."
+    "Form Tạo project khong con render lai toan modal moi lan go chu, nen khong bi mat focus sau moi ky tu.",
+    "Ban SPK/dev-mount neu doc NAS that bi loi gio se bao loi that ngay, khong duoc fallback am tham sang demo tree nua.",
+    "Bo sung regression test cho mounted NAS error de tranh lap lai tinh trang import nguon that ma UI lai hien du lieu demo."
   ],
   "publishedAt": "2026-06-23T00:00:00.000Z"
 }
