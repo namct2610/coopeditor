@@ -50,10 +50,19 @@ curl -fsSL --retry 3 -o "$TMP_SPK" "$SPK_URL"
 echo "==> synopkg install …"
 synopkg install "$TMP_SPK"
 
-# 4. Start.
+# 4. Start. DSM sometimes auto-starts after upgrade and sometimes doesn't —
+# always run start ourselves (it's a no-op if already running).
 echo "==> Starting service …"
-synopkg start "$PKG"
-sleep 4
+synopkg start "$PKG" 2>&1 || true
+# Wait up to 30s for the API port to bind. Each retry is cheap; the loop
+# exits as soon as /api/version responds.
+for i in $(seq 1 15); do
+  sleep 2
+  if curl -fsS --max-time 1 "http://127.0.0.1:4000/api/version" >/dev/null 2>&1; then
+    echo "==> API up after ${i} attempt(s)"
+    break
+  fi
+done
 
 # 5. Smoke test.
 echo ""
