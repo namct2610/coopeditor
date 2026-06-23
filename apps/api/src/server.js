@@ -472,7 +472,16 @@ function buildGuestIdentity(guestLabel) {
 
 async function handle(req, res, url) {
   const m = req.method || "GET";
-  const p = url.pathname;
+  // In Docker stack, Caddy strips `/api/` before proxying to this process,
+  // so routes below match `/health`, `/version`, `/projects`, etc. In SPK
+  // mode (WEB_INLINE=1) the API serves the SPA and API on the same port —
+  // no proxy, so the FE's `/api/foo` arrives here unstripped. Normalise
+  // here so routes don't need two variants. /hls/ + /assets/ keep their
+  // original path because those are public asset endpoints with their
+  // own prefix conventions.
+  let p = url.pathname;
+  if (p.startsWith("/api/")) p = p.slice(4);
+  else if (p === "/api") p = "/";
   const isMutation = m === "POST" || m === "PATCH" || m === "DELETE";
 
   if (!applyCors(req, res)) {
