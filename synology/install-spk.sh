@@ -4,82 +4,187 @@
 #   curl -fsSL https://raw.githubusercontent.com/namct2610/coopeditor/main/synology/install-spk.sh \
 #     | sudo bash
 #
-# Defaults: x86_64 arch, latest tag from GitHub Releases. Override:
-#   ARCH=aarch64 TAG=v1.0.0-spk-rc11 bash install-spk.sh
+# Defaults:
+#   - ARCH=auto  → detect NAS CPU arch automatically
+#   - CHANNEL=rc → prefer the newest RC release that contains a matching SPK
+#
+# Common overrides:
+#   ARCH=aarch64 TAG=v0.2.40-spk-rc1 bash install-spk.sh
+#   SPK_URL=https://github.com/<owner>/<repo>/releases/download/<tag>/coopeditor-aarch64-0.2.40-spk-rc1.spk bash install-spk.sh
+#   SPK_FILE=/volume1/public/coopeditor-aarch64-0.2.40-spk-rc1.spk bash install-spk.sh
 
 set -eu
 
-ARCH="${ARCH:-x86_64}"
+ARCH="${ARCH:-auto}"
 TAG="${TAG:-}"
 REPO="${REPO:-namct2610/coopeditor}"
-PKG="coopeditor"
+CHANNEL="${CHANNEL:-rc}"
+PKG="${PKG:-coopeditor}"
+SPK_URL="${SPK_URL:-}"
+SPK_FILE="${SPK_FILE:-}"
+API_PORT="${API_PORT:-4000}"
+TMP_DIR="${TMP_DIR:-/tmp}"
 
-if [ -z "$TAG" ]; then
-  echo "==> Resolving latest SPK release tag from GitHub …"
-  TAG="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=20" \
-    | grep -oE '"tag_name": *"v[0-9]+\.[0-9]+\.[0-9]+-spk-[^"]*"' \
-    | head -1 | cut -d'"' -f4)"
-  if [ -z "$TAG" ]; then
-    echo "ERROR: could not resolve latest tag; pass TAG=v1.0.0-spk-rcN explicitly" >&2
-    exit 1
-  fi
+log() {
+  echo "==> $*"
+}
+
+warn() {
+  echo "WARN: $*" >&2
+}
+
+fail() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+detect_arch() {
+  local machine
+  machine="$(uname -m 2>/dev/null || echo unknown)"
+  case "$machine" in
+    x86_64|amd64) echo "x86_64" ;;
+    aarch64|arm64) echo "aarch64" ;;
+    *)
+      fail "không tự nhận được ARCH từ uname -m='${machine}'. Hãy truyền ARCH=x86_64 hoặc ARCH=aarch64."
+      ;;
+  esac
+}
+
+release_list_json() {
+  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=30"
+}
+
+resolve_latest_tag() {
+  local json asset_regex selected
+  json="$(release_list_json)"
+  asset_regex="coopeditor-${ARCH}-[^\"]+\\.spk"
+  selected="$(printf '%s' "$json" | python3 - "$CHANNEL" "$asset_regex" <<'PY'
+import json, re, sys
+
+channel = sys.argv[1]
+asset_regex = re.compile(sys.argv[2])
+releases = json.load(sys.stdin)
+
+def wanted(tag: str) -> bool:
+    t = (tag or "").lower()
+    if channel == "stable":
+        return "-spk-rc" not in t and "-rc" not in t
+    if channel == "rc":
+        return "-spk-rc" in t or "-rc" in t
+    return True
+
+for rel in releases:
+    tag = rel.get("tag_name") or ""
+    if not wanted(tag):
+        continue
+    assets = rel.get("assets") or []
+    if any(asset_regex.search((a.get("name") or "")) for a in assets):
+        print(tag)
+        break
+PY
+)"
+  [ -n "$selected" ] || fail "không tìm thấy release phù hợp cho ARCH=${ARCH}, CHANNEL=${CHANNEL}. Có thể truyền TAG=... hoặc SPK_URL=... trực tiếp."
+  printf '%s' "$selected"
+}
+
+resolve_asset_url_from_tag() {
+  local version json url
+  version="${TAG#v}"
+  json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
+  url="$(printf '%s' "$json" | python3 - "coopeditor-${ARCH}-${version}.spk" <<'PY'
+import json, sys
+
+want = sys.argv[1]
+release = json.load(sys.stdin)
+for asset in release.get("assets") or []:
+    if asset.get("name") == want:
+        print(asset.get("browser_download_url") or "")
+        break
+PY
+)"
+  [ -n "$url" ] || fail "tag ${TAG} tồn tại nhưng không có asset coopeditor-${ARCH}-${version}.spk"
+  printf '%s' "$url"
+}
+
+wait_for_api() {
+  local i
+  for i in $(seq 1 20); do
+    sleep 2
+    if curl -fsS --max-time 1 "http://127.0.0.1:${API_PORT}/api/version" >/dev/null 2>&1; then
+      log "API up after ${i} attempt(s)"
+      return 0
+    fi
+  done
+  warn "API chưa phản hồi ở cổng ${API_PORT} sau khi start package."
+  return 1
+}
+
+if [ "$ARCH" = "auto" ]; then
+  ARCH="$(detect_arch)"
 fi
 
-VERSION="${TAG#v}"
-SPK_NAME="coopeditor-${ARCH}-${VERSION}.spk"
-SPK_URL="https://github.com/${REPO}/releases/download/${TAG}/${SPK_NAME}"
+TMP_SPK=""
 
-echo "==> Coopeditor SPK installer"
-echo "    tag:    ${TAG}"
-echo "    arch:   ${ARCH}"
-echo "    url:    ${SPK_URL}"
+if [ -n "$SPK_FILE" ]; then
+  [ -f "$SPK_FILE" ] || fail "không tìm thấy SPK_FILE=${SPK_FILE}"
+  TMP_SPK="$SPK_FILE"
+  log "Using local SPK file"
+  echo "    file:   ${TMP_SPK}"
+elif [ -n "$SPK_URL" ]; then
+  TMP_SPK="${TMP_DIR}/coopeditor-install-${ARCH}-$$.spk"
+  log "Downloading explicit SPK_URL"
+  echo "    arch:   ${ARCH}"
+  echo "    url:    ${SPK_URL}"
+  curl -fsSL --retry 3 -o "$TMP_SPK" "$SPK_URL"
+else
+  if [ -z "$TAG" ]; then
+    log "Resolving latest ${CHANNEL} SPK release tag from GitHub …"
+    TAG="$(resolve_latest_tag)"
+  fi
+  SPK_URL="$(resolve_asset_url_from_tag)"
+  TMP_SPK="${TMP_DIR}/coopeditor-install-${ARCH}-$$.spk"
+  log "Downloading release asset"
+  echo "    tag:    ${TAG}"
+  echo "    arch:   ${ARCH}"
+  echo "    url:    ${SPK_URL}"
+  curl -fsSL --retry 3 -o "$TMP_SPK" "$SPK_URL"
+fi
+
+[ -s "$TMP_SPK" ] || fail "SPK file rỗng hoặc tải thất bại: ${TMP_SPK}"
+
+echo ""
+log "Coopeditor SPK installer"
+echo "    package: ${PKG}"
+echo "    arch:    ${ARCH}"
+echo "    source:  ${TMP_SPK}"
 echo ""
 
-# 1. Stop existing if installed (best-effort).
 if synopkg status "$PKG" >/dev/null 2>&1; then
-  echo "==> Stopping existing ${PKG} …"
+  log "Stopping existing ${PKG} …"
   synopkg stop "$PKG" >/dev/null 2>&1 || true
 fi
 
-# 2. Download into /tmp.
-echo "==> Downloading ${SPK_NAME} …"
-TMP_SPK="/tmp/${SPK_NAME}"
-curl -fsSL --retry 3 -o "$TMP_SPK" "$SPK_URL"
-
-# 3. Install (in-place upgrade if already installed; fresh if not).
-echo "==> synopkg install …"
+log "synopkg install …"
 synopkg install "$TMP_SPK"
 
-# 4. Start. DSM sometimes auto-starts after upgrade and sometimes doesn't —
-# always run start ourselves (it's a no-op if already running).
-echo "==> Starting service …"
+log "Starting service …"
 synopkg start "$PKG" 2>&1 || true
-# Wait up to 30s for the API port to bind. Each retry is cheap; the loop
-# exits as soon as /api/version responds.
-for i in $(seq 1 15); do
-  sleep 2
-  if curl -fsS --max-time 1 "http://127.0.0.1:4000/api/version" >/dev/null 2>&1; then
-    echo "==> API up after ${i} attempt(s)"
-    break
-  fi
-done
+wait_for_api || true
 
-# 5. Smoke test.
 echo ""
-echo "==> Smoke test"
+log "Smoke test"
 STATUS_JSON="$(synopkg status "$PKG" 2>/dev/null || echo '{}')"
 echo "    status: $STATUS_JSON"
 echo ""
 echo "    /api/version:"
-curl -fsS http://127.0.0.1:4000/api/version 2>&1 || echo "    (no response)"
+curl -fsS "http://127.0.0.1:${API_PORT}/api/version" 2>&1 || echo "    (no response)"
 echo ""
 
-echo "==> Tail of service log:"
-tail -25 /var/packages/${PKG}/var/log/${PKG}.log 2>/dev/null || echo "    (log not yet created)"
+log "Tail of service log:"
+tail -25 "/var/packages/${PKG}/var/log/${PKG}.log" 2>/dev/null || echo "    (log not yet created)"
 
 echo ""
-# Synology busybox `hostname` doesn't support -I. Try multiple portable fallbacks.
 LAN_IP="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)"
 [ -z "$LAN_IP" ] && LAN_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
 [ -z "$LAN_IP" ] && LAN_IP="$(hostname)"
-echo "==> Done. Open http://${LAN_IP}:4000/ in a browser."
+log "Done. Open http://${LAN_IP}:${API_PORT}/ in a browser."

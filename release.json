@@ -1,10 +1,10 @@
 {
-  "version": "0.2.39",
-  "summary": "Bổ sung chẩn đoán worker/transcode rõ hơn khi NAS mount lệch và giữ ngữ cảnh stale cho proxy storage summary.",
+  "version": "0.2.40",
+  "summary": "Sửa tạo project trên bản SPK/SQLite và sửa modal tạo project cập nhật trạng thái nút theo nhập liệu.",
   "changes": [
-    "Transcode runtime status gio phan biet ro truong hop worker khong gui heartbeat nhung API van thay DSM mount root, giup UI goi y dung huong recreate coopeditor-worker sau khi sua volume NAS.",
-    "Neu job transcode gan nhat chet vi source path not mounted / source file not found, thong diep runtime se kem loi do de khoanh ngay vao worker mount thay vi bao offline mo ho.",
-    "Proxy storage summary API nay giu ca co stale, giup sidebar va trang quan ly proxy khong mat ngu canh khi he thong dang hien snapshot cache gan nhat."
+    "Bo sung nhanh SQLite-compatible query path cho backend SPK, loai bo nhom cau SQL Postgres-only gay loi near SELECT khi tao va doc project.",
+    "Modal Tao project nay rerender ngay khi nhap ten project hoac nguoi quay, nen nut tao bat dung luc thay vi phai bam upload thumbnail roi cancel.",
+    "Them regression test cho luong SPK/SQLite de xac nhan tao project, membership, asset va rendition metadata deu chay dung tren NAS build."
   ],
-  "publishedAt": "2026-06-20T00:00:00.000Z"
+  "publishedAt": "2026-06-23T00:00:00.000Z"
 }

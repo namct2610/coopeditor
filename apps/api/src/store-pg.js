@@ -5,7 +5,7 @@
 // setRenditionStatus, users Map, etc.) so server.js can swap by import.
 
 import { randomUUID } from "node:crypto";
-import { db } from "./db.js";
+import { db, activeDriver } from "./db.js";
 
 const RUNGS = [
   { height: 720, label: "720p", bitrateKbps: 3500 },
@@ -14,6 +14,11 @@ const RUNGS = [
 
 async function q(sql, params) { return (await db().query(sql, params)).rows; }
 async function one(sql, params) { return (await db().query(sql, params)).rows[0] || null; }
+function isSqlite() { return activeDriver() === "sqlite"; }
+function num(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 // camelCase mapping helpers — DB uses snake_case
 // team_user_ids is a Postgres text[] when running on pg, but the SQLite
@@ -137,10 +142,18 @@ export async function duplicateProject(sourceId, { newName, ownerUserId }) {
   const members = await listProjectMembers(sourceId);
   let pos = 0;
   for (const m of members) {
-    await q(`INSERT INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [id, m.userId, m.role, pos++]);
+    if (isSqlite()) {
+      await q(`INSERT OR IGNORE INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, $3, $4)`, [id, m.userId, m.role, pos++]);
+    } else {
+      await q(`INSERT INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, [id, m.userId, m.role, pos++]);
+    }
   }
   if (ownerUserId && !members.some((m) => m.userId === ownerUserId)) {
-    await q(`INSERT INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, 'owner', $3) ON CONFLICT DO NOTHING`, [id, ownerUserId, pos]);
+    if (isSqlite()) {
+      await q(`INSERT OR IGNORE INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, 'owner', $3)`, [id, ownerUserId, pos]);
+    } else {
+      await q(`INSERT INTO project_members (project_id, user_id, role, position) VALUES ($1, $2, 'owner', $3) ON CONFLICT DO NOTHING`, [id, ownerUserId, pos]);
+    }
   }
   return getProject(id);
 }
@@ -225,6 +238,42 @@ export async function patchProject(id, patch) {
 }
 
 export async function listAssetsByProject(pid) {
+  if (isSqlite()) {
+    const rows = await q(`
+      SELECT a.*,
+        COALESCE((
+          SELECT CASE
+            WHEN COUNT(r.id) = 0 THEN a.status
+            WHEN SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 'ready'
+            WHEN SUM(CASE WHEN r.status = 'failed' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 'failed'
+            WHEN SUM(CASE WHEN r.status IN ('processing', 'ready') THEN 1 ELSE 0 END) > 0 THEN 'processing'
+            ELSE 'pending'
+          END
+          FROM asset_versions v
+          LEFT JOIN renditions r ON r.asset_version_id = v.id
+          WHERE v.asset_id = a.id
+            AND v.version_number = (SELECT MAX(version_number) FROM asset_versions WHERE asset_id = a.id)
+        ), a.status) AS derived_status,
+        COALESCE((
+          SELECT CASE
+            WHEN COUNT(r.id) = 0 THEN a.progress
+            WHEN SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 100
+            WHEN SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 0
+            ELSE CAST(ROUND(AVG(CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END)) AS INTEGER)
+          END
+          FROM asset_versions v
+          LEFT JOIN renditions r ON r.asset_version_id = v.id
+          WHERE v.asset_id = a.id
+            AND v.version_number = (SELECT MAX(version_number) FROM asset_versions WHERE asset_id = a.id)
+        ), a.progress) AS derived_progress,
+        (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL) AS comments_count,
+        (SELECT COUNT(*) FROM asset_versions v WHERE v.asset_id = a.id) AS versions_count
+      FROM assets a
+      WHERE a.project_id = $1
+      ORDER BY a.position
+    `, [pid]);
+    return rows.map(assetRow);
+  }
   const rows = await q(`
     SELECT a.*,
       proxy.derived_status,
@@ -314,6 +363,42 @@ export async function findProjectIdForRendition(renditionId) {
 }
 
 export async function listRenditionsForVersion(vid) {
+  if (isSqlite()) {
+    const rows = await q(`
+      SELECT r.*,
+        (
+          SELECT error
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_error,
+        (
+          SELECT status
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_status,
+        (
+          SELECT COALESCE(finished_at, started_at, enqueued_at)
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_at
+      FROM renditions r
+      WHERE r.asset_version_id = $1
+      ORDER BY r.height
+    `, [vid]);
+    return rows.map(renditionRow);
+  }
   const rows = await q(`
     SELECT r.*,
            job.error AS last_job_error,
@@ -333,6 +418,40 @@ export async function listRenditionsForVersion(vid) {
   return rows.map(renditionRow);
 }
 export async function getRendition(id) {
+  if (isSqlite()) {
+    return renditionRow(await one(`
+      SELECT r.*,
+        (
+          SELECT error
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_error,
+        (
+          SELECT status
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_status,
+        (
+          SELECT COALESCE(finished_at, started_at, enqueued_at)
+          FROM transcode_jobs
+          WHERE rendition_id = r.id
+          ORDER BY (COALESCE(finished_at, started_at, enqueued_at) IS NULL) ASC,
+                   COALESCE(finished_at, started_at, enqueued_at) DESC,
+                   id DESC
+          LIMIT 1
+        ) AS last_job_at
+      FROM renditions r
+      WHERE r.id = $1
+    `, [id]));
+  }
   return renditionRow(await one(`
     SELECT r.*,
            job.error AS last_job_error,
@@ -352,6 +471,39 @@ export async function getRendition(id) {
 export async function listRenditionProxyMeta(ids) {
   const uniqueIds = [...new Set((ids || []).filter(Boolean))];
   if (!uniqueIds.length) return [];
+  if (isSqlite()) {
+    const valuesSql = uniqueIds.map((_, index) => `($${index * 2 + 1}, $${index * 2 + 2})`).join(", ");
+    const params = uniqueIds.flatMap((renditionId, index) => [index, renditionId]);
+    const rows = await q(`
+      WITH req(ord, rendition_id) AS (VALUES ${valuesSql})
+      SELECT req.ord,
+             req.rendition_id,
+             r.height,
+             r.label,
+             r.status,
+             a.id AS asset_id,
+             a.title AS asset_title,
+             p.id AS project_id,
+             p.name AS project_name
+        FROM req
+        LEFT JOIN renditions r ON r.id = req.rendition_id
+        LEFT JOIN asset_versions v ON v.id = r.asset_version_id
+        LEFT JOIN assets a ON a.id = v.asset_id
+        LEFT JOIN projects p ON p.id = a.project_id
+       ORDER BY req.ord
+    `, params);
+    return rows.map((r) => ({
+      renditionId: r.rendition_id,
+      orphan: !r.height && !r.label && !r.status && !r.asset_id && !r.project_id,
+      height: r.height || null,
+      label: r.label || null,
+      status: r.status || null,
+      assetId: r.asset_id || null,
+      assetTitle: r.asset_title || null,
+      projectId: r.project_id || null,
+      projectName: r.project_name || null,
+    }));
+  }
   const rows = await q(`
     SELECT req.rendition_id,
            r.height,
@@ -537,7 +689,7 @@ export async function enqueueTranscode(renditionId) {
 export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream" }) {
   const id = "imp_" + randomUUID().slice(0, 8);
   const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],["#15171c","#3a4453"],["#291230","#6e2a55"],["#241a0e","#7a5524"],["#102b2b","#1f5a52"],["#1a1430","#3a2f6e"]];
-  const existing = (await one(`SELECT COUNT(*)::int AS n FROM assets WHERE project_id = $1`, [projectId])).n;
+  const existing = num((await one(`SELECT COUNT(*) AS n FROM assets WHERE project_id = $1`, [projectId]))?.n);
   const [a, b] = PAL[existing % PAL.length];
   const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, width_px, height_px, resolution_label, mime_type, status, progress, palette_a, palette_b)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',0,$14,$15) RETURNING *`,
