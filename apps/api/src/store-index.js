@@ -8,7 +8,12 @@ import * as pg from "./store-pg.js";
 
 const USE_PG = !!process.env.DATABASE_URL;
 const impl = USE_PG ? pg : mem;
-export const backend = USE_PG ? "pg" : "memory";
+// Label the real driver in the boot log. store-pg.js works on both pg and
+// sqlite (db-sqlite.js adapts the pool interface) but the operator should
+// still see which DB is actually live.
+const _DB_URL = String(process.env.DATABASE_URL || "");
+const _IS_SQLITE = _DB_URL.startsWith("sqlite:") || _DB_URL.startsWith("file:");
+export const backend = USE_PG ? (_IS_SQLITE ? "sqlite" : "postgres") : "memory";
 
 // helpers to normalise the memory store's sync results to promises
 const A = (fn) => async (...args) => fn(...args);

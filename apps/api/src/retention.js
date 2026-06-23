@@ -6,7 +6,7 @@
 // Default cadence is once per hour. Memory mode: only step 3 against the in-memory
 // comments map (so dev mode still feels right).
 
-import { db } from "./db.js";
+import { db, activeDriver } from "./db.js";
 import { logger } from "./logger.js";
 import { comments as memComments, projects as memProjects } from "./store.js";
 
@@ -31,25 +31,39 @@ export async function sweepOnce() {
   return sweepMemory();
 }
 
+// Dialect-specific date math. Postgres has interval arithmetic via
+// `now() - ($1 || ' days')::interval`; SQLite uses datetime modifiers
+// like `datetime('now', '-N days')`. Both versions parametrise the day
+// count so the SQL still bind-checks cleanly.
+function ageQuery(table, column, isSqlite) {
+  if (isSqlite) {
+    return `DELETE FROM ${table} WHERE ${column} IS NOT NULL AND ${column} < datetime('now', '-' || ? || ' days')`;
+  }
+  return `DELETE FROM ${table} WHERE ${column} IS NOT NULL AND ${column} < now() - ($1 || ' days')::interval`;
+}
+
 async function sweepPg() {
   const pool = db();
   if (!pool) return { audit: 0, projects: 0, comments: 0 };
+  const isSqlite = activeDriver() === "sqlite";
   let audit = 0, projects = 0, comments = 0;
   try {
     audit = (await pool.query(
-      `DELETE FROM audit_log WHERE created_at < now() - ($1 || ' days')::interval`,
+      isSqlite
+        ? `DELETE FROM audit_log WHERE created_at < datetime('now', '-' || ? || ' days')`
+        : `DELETE FROM audit_log WHERE created_at < now() - ($1 || ' days')::interval`,
       [String(AUDIT_DAYS)],
     )).rowCount || 0;
   } catch (err) { logger.error({ err: err.message }, "audit retention sweep failed"); }
   try {
     projects = (await pool.query(
-      `DELETE FROM projects WHERE archived_at IS NOT NULL AND archived_at < now() - ($1 || ' days')::interval`,
+      ageQuery("projects", "archived_at", isSqlite),
       [String(PROJECT_DAYS)],
     )).rowCount || 0;
   } catch (err) { logger.error({ err: err.message }, "project purge sweep failed"); }
   try {
     comments = (await pool.query(
-      `DELETE FROM comments WHERE deleted_at IS NOT NULL AND deleted_at < now() - ($1 || ' days')::interval`,
+      ageQuery("comments", "deleted_at", isSqlite),
       [String(COMMENT_DAYS)],
     )).rowCount || 0;
   } catch (err) { logger.error({ err: err.message }, "comment purge sweep failed"); }

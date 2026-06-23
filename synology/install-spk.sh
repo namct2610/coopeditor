@@ -69,4 +69,8 @@ echo "==> Tail of service log:"
 tail -25 /var/packages/${PKG}/var/log/${PKG}.log 2>/dev/null || echo "    (log not yet created)"
 
 echo ""
-echo "==> Done. Open http://$(hostname -I | awk '{print $1}'):4000/ in a browser."
+# Synology busybox `hostname` doesn't support -I. Try multiple portable fallbacks.
+LAN_IP="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)"
+[ -z "$LAN_IP" ] && LAN_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
+[ -z "$LAN_IP" ] && LAN_IP="$(hostname)"
+echo "==> Done. Open http://${LAN_IP}:4000/ in a browser."

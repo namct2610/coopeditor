@@ -19,8 +19,14 @@ function cleanChanges(value) {
   return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 12);
 }
 
+function readReleaseRaw() {
+  if (!existsSync(RELEASE_PATH)) return null;
+  return parseJson(readFileSync(RELEASE_PATH, "utf8")) || {};
+}
+
 export function readReleaseManifest() {
-  if (!existsSync(RELEASE_PATH)) {
+  const parsed = readReleaseRaw();
+  if (!parsed) {
     return {
       version: "0.0.0",
       summary: "Release manifest missing",
@@ -28,7 +34,6 @@ export function readReleaseManifest() {
       publishedAt: null,
     };
   }
-  const parsed = parseJson(readFileSync(RELEASE_PATH, "utf8")) || {};
   return {
     version: cleanText(parsed.version, "0.0.0"),
     summary: cleanText(parsed.summary, "No summary provided"),
@@ -39,10 +44,16 @@ export function readReleaseManifest() {
 
 export function buildLocalReleaseMeta() {
   const manifest = readReleaseManifest();
+  const raw = readReleaseRaw() || {};
+  // Prefer the build-time env (Docker / CI), fall back to whatever the
+  // workflow stamped into release.json (SPK build path runs that stamp
+  // step the same way the GHCR workflow does). Last resort: "unknown",
+  // which trips a permanent "Cần cập nhật" banner — both sources should
+  // agree in normal deployments.
   return {
     ...manifest,
-    sha: cleanText(process.env.BUILD_SHA, "unknown"),
-    builtAt: cleanText(process.env.BUILT_AT, "unknown"),
+    sha: cleanText(process.env.BUILD_SHA, "") || cleanText(raw.sha, "unknown"),
+    builtAt: cleanText(process.env.BUILT_AT, "") || cleanText(raw.builtAt, "unknown"),
   };
 }
 
