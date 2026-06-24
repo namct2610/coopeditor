@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc23",
-  "summary": "SPK RC 23 cập nhật bộ icon mới cho web và Package Center, đồng thời giữ mặc định port NAS ở 13000.",
+  "version": "1.0.0-rc24",
+  "summary": "SPK RC 24 sửa favicon web và tránh vỡ UI khi NAS chưa tạo được poster thumbnail.",
   "changes": [
-    "Thay PACKAGE_ICON 72px va 256px cua SPK bang icon Coopeditor moi de Package Center hien giao dien dong bo hon.",
-    "Bo sung favicon web 32px, 256px va apple-touch-icon, dong thoi hien icon moi o boot screen, setup screen va left rail.",
-    "Giu nguyen mac dinh port SPK la 13000 de luong cai dat moi khong bi roi ve 4000."
+    "Web-inline gio phuc vu duoc /favicon.ico va cac file /brand/* ngay trong SPK, tranh 404 icon tren trinh duyet.",
+    "Route poster, project thumb va NAS thumb gio roi ve placeholder hop le thay vi tra 500 neu ffmpeg/chuong trinh tao thumb chua san sang tren NAS.",
+    "Log backend ghi ro ly do fallback thumbnail de de chan doan tiep, trong khi UI van xem duoc binh thuong."
   ],
   "publishedAt": "2026-06-24T00:00:00.000Z"
 }

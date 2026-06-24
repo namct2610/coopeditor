@@ -119,6 +119,27 @@ function sendBinary(res, status, body, contentType, extraHeaders) {
   res.end(body);
 }
 
+function buildThumbPlaceholderSvg(label = "Video") {
+  const text = String(label || "Video").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" rx="28" fill="url(#bg)"/>
+  <rect x="216" y="98" width="208" height="124" rx="22" fill="rgba(59,130,246,0.18)" stroke="#3ba0ff" stroke-width="4"/>
+  <polygon points="286,124 286,196 354,160" fill="#ecf6ff"/>
+  <text x="320" y="286" text-anchor="middle" fill="#d6deea" font-family="Arial, sans-serif" font-size="28" font-weight="700">${text}</text>
+</svg>`;
+}
+
+function sendThumbPlaceholder(res, label, extraHeaders) {
+  return sendBinary(res, 200, Buffer.from(buildThumbPlaceholderSvg(label), "utf8"), "image/svg+xml; charset=utf-8", extraHeaders);
+}
+
 function setSecurityHeaders(res) {
   res.setHeader("x-content-type-options", "nosniff");
   res.setHeader("x-frame-options", "DENY");
@@ -591,7 +612,8 @@ async function handle(req, res, url) {
       const thumbPath = await dsm.ensureVideoThumbnail(file.path, path + ":" + (file.durationMs || 0), { seekMs });
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
-      return bad(res, "Khong tao duoc thumbnail: " + (err && err.message), 500);
+      req.log.warn({ err: String(err && err.message || err), path }, "nas thumb fallback placeholder");
+      return sendThumbPlaceholder(res, "NAS video");
     }
   }
 
@@ -705,7 +727,8 @@ async function handle(req, res, url) {
       const thumbPath = await dsm.ensureVideoThumbnail(firstAsset.nasPath, "project:" + projectId + ":" + firstAsset.id + ":" + (firstAsset.durationMs || 0), { seekMs });
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
-      return bad(res, "Khong tao duoc project thumb: " + (err && err.message), 500);
+      req.log.warn({ err: String(err && err.message || err), projectId, assetId: firstAsset.id }, "project thumb fallback placeholder");
+      return sendThumbPlaceholder(res, firstAsset.title || "Project");
     }
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/audit$/)) && m === "GET") {
@@ -873,7 +896,8 @@ async function handle(req, res, url) {
       const thumbPath = await dsm.ensureVideoThumbnail(asset.nasPath, "asset:" + asset.id + ":" + (asset.durationMs || 0), { seekMs });
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
-      return bad(res, "Khong tao duoc poster: " + (err && err.message), 500);
+      req.log.warn({ err: String(err && err.message || err), assetId, nasPath: asset.nasPath }, "asset poster fallback placeholder");
+      return sendThumbPlaceholder(res, asset.title || "Video");
     }
   }
   if ((mat = p.match(/^\/assets\/([^/]+)\/source$/)) && m === "GET") {

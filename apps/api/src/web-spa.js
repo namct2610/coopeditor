@@ -15,7 +15,7 @@
 
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // web sources sit under /var/packages/coopeditor/target/app/apps/{api,web}.
 // In dev / Docker the same path works because pnpm preserves the apps/ tree.
 const SPA_INDEX = resolve(__dirname, "..", "..", "web", "src", "static", "index.html");
+const SPA_STATIC_DIR = resolve(__dirname, "..", "..", "web", "src", "static");
 
 let _rawHtml = null;
 let _renderedHtml = null;
@@ -85,6 +86,36 @@ export async function serveSpaIndex(res) {
   res.end(_renderedHtml);
 }
 
+function staticContentType(pathname) {
+  if (pathname.endsWith(".png")) return "image/png";
+  if (pathname.endsWith(".ico")) return "image/x-icon";
+  if (pathname.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
+  return "application/octet-stream";
+}
+
+async function serveStaticAsset(res, pathname) {
+  let filePath = "";
+  if (pathname === "/favicon.ico") {
+    filePath = resolve(SPA_STATIC_DIR, "brand", "favicon-32.png");
+  } else if (pathname.startsWith("/brand/")) {
+    filePath = resolve(SPA_STATIC_DIR, "." + pathname);
+    const staticRoot = SPA_STATIC_DIR.endsWith(sep) ? SPA_STATIC_DIR : SPA_STATIC_DIR + sep;
+    if (!filePath.startsWith(staticRoot)) return false;
+  } else {
+    return false;
+  }
+  try {
+    const body = await readFile(filePath);
+    res.statusCode = 200;
+    res.setHeader("content-type", staticContentType(pathname));
+    res.setHeader("cache-control", "public, max-age=3600");
+    res.end(body);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 // Hook for handle(): returns true if it served the request, false otherwise.
 // Callers should invoke this AFTER all API routes have been considered, so
 // the SPA shell never shadows a real endpoint.
@@ -92,8 +123,9 @@ export async function tryServeSpa(req, res, url) {
   if (!webInlineEnabled()) return false;
   if (req.method !== "GET" && req.method !== "HEAD") return false;
   const p = url.pathname;
+  if (await serveStaticAsset(res, p)) return true;
   // Only serve the shell for the root + index.html. Other static assets are
-  // inlined inside the shell, so there's nothing else to deliver.
+  // inlined inside the shell, except the package icon assets above.
   if (p !== "/" && p !== "/index.html") return false;
   if (!(await spaExists())) return false;
   await serveSpaIndex(res);
