@@ -331,6 +331,14 @@ function sceneAt(ms) {
 }
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+function renderMediaThumb(url, alt, { width = "100%", height = "100%" } = {}) {
+  if (!url) return ICON.fileVideo;
+  const safeUrl = esc(url);
+  const safeAlt = esc(alt);
+  const fallback = esc(ICON.fileVideo);
+  return `<img src="${safeUrl}" alt="${safeAlt}" style="width:${width};height:${height};object-fit:cover;display:block;" loading="lazy" onerror="this.onerror=null;this.outerHTML='${fallback}'">`;
+}
+
 function selectedSource() {
   const allSources = Object.values(state.sourcesByProject).flat();
   return allSources.find((x) => x.id === state.selectedId) || allSources[0] || null;
@@ -3236,7 +3244,7 @@ function importModal(vals) {
             <div data-act="toggleSel" data-arg="${it.id}" class="co-hover" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;cursor:pointer;background:${it.rowBg};">
               <div style="width:19px;height:19px;border-radius:5px;border:1.5px solid ${it.checkBorder};background:${it.checkBg};display:grid;place-items:center;flex:0 0 19px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${it.checkColor}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
               <div style="width:54px;height:32px;border-radius:7px;overflow:hidden;background:var(--co-panel-2);flex:0 0 54px;display:grid;place-items:center;">
-                ${it.thumbUrl ? `<img src="${esc(it.thumbUrl)}" alt="${esc(it.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">` : ICON.fileVideo}
+                ${renderMediaThumb(it.thumbUrl, it.name)}
               </div>
               <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;font-size:13px;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(it.name)}</div>

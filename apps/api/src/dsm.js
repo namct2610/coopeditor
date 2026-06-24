@@ -17,6 +17,7 @@ import { join } from "node:path";
 const execFileAsync = promisify(execFile);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const LEGACY_CONTAINER_MOUNT_ROOT = process.env.DSM_LEGACY_MOUNT_ROOT || "/nas";
+const FFMPEG_PATH = process.env.FFMPEG_PATH || "ffmpeg";
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
 const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
 const MEDIA_PROBE_TTL_MS = 15 * 60 * 1000;
@@ -669,7 +670,7 @@ export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000
     await stat(outPath);
     return outPath;
   } catch (_) {}
-  await execFileAsync("ffmpeg", [
+  await execFileAsync(FFMPEG_PATH, [
     "-y",
     "-ss", String(Math.max(0, seekMs) / 1000),
     "-i", localPath,
