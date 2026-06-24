@@ -4,16 +4,16 @@
     "items": [
       {
         "type": "textfield",
-        "desc": "Public URL — địa chỉ trình duyệt sẽ truy cập (gồm http:// hoặc https://). Ví dụ: http://nas.local:4000 hoặc https://review.acme.com",
+        "desc": "Public URL — địa chỉ trình duyệt sẽ truy cập (gồm http:// hoặc https://). Ví dụ: http://nas.local:13000 hoặc https://review.acme.com",
         "subitems": [
-          { "key": "wiz_public_url", "desc": "Public URL", "defaultValue": "http://nas.local:4000" }
+          { "key": "wiz_public_url", "desc": "Public URL", "defaultValue": "http://nas.local:13000" }
         ]
       },
       {
         "type": "textfield",
-        "desc": "TCP port để Coopeditor lắng nghe. Mặc định 4000 — đổi nếu đã có dịch vụ khác chiếm cổng.",
+        "desc": "TCP port để Coopeditor lắng nghe. Mặc định 13000 — đổi nếu đã có dịch vụ khác chiếm cổng.",
         "subitems": [
-          { "key": "wiz_port", "desc": "Port", "defaultValue": "4000", "validator": { "type": "regex", "regex": "^[1-9][0-9]{1,4}$" } }
+          { "key": "wiz_port", "desc": "Port", "defaultValue": "13000", "validator": { "type": "regex", "regex": "^[1-9][0-9]{1,4}$" } }
         ]
       },
       {

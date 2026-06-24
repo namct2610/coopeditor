@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc21",
-  "summary": "SPK RC 21 sửa thumbnail import NAS: dùng đúng ffmpeg của SPK và fallback UI khi thumb lỗi.",
+  "version": "1.0.0-rc22",
+  "summary": "SPK RC 22 khóa mặc định port NAS về 13000 để installer và runtime không tự rơi lại 4000.",
   "changes": [
-    "API tao thumbnail gio uu tien FFMPEG_PATH cua runtime SPK thay vi goi cung lenh ffmpeg, tranh vo thumbnail tren DSM khi binary nam o duong dan rieng.",
-    "Danh sach import NAS gio tu dong roi ve icon video neu thumbnail load loi, khong con hien bieu tuong anh bi vo.",
-    "Giu nguyen luong import va quet NAS hien tai, dong thoi bo sung ban RC moi de UI Update Center nhan dung mo ta thay doi."
+    "Wizard cai SPK gio mac dinh Public URL va port la 13000, khong con quay lai 4000 khi cai moi.",
+    "postinst va start-stop-status cua SPK gio seed runtime theo port 13000 neu chua co gia tri rieng.",
+    "Script install-spk.sh dong bo mac dinh API_PORT=13000 de lenh cai dat va ban runtime khop nhau."
   ],
   "publishedAt": "2026-06-24T00:00:00.000Z"
 }

@@ -22,7 +22,7 @@ CHANNEL="${CHANNEL:-rc}"
 PKG="${PKG:-coopeditor}"
 SPK_URL="${SPK_URL:-}"
 SPK_FILE="${SPK_FILE:-}"
-API_PORT="${API_PORT:-4000}"
+API_PORT="${API_PORT:-13000}"
 TMP_DIR="${TMP_DIR:-/tmp}"
 
 log() {

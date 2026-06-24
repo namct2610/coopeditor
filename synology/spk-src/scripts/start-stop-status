@@ -22,7 +22,7 @@ RUNTIME_ENV="${VAR_DIR}/conf/runtime.env"
 [ -f "$RUNTIME_ENV" ] && . "$RUNTIME_ENV"
 
 # Defaults — overridden by runtime.env if the wizard set them.
-: "${PORT:=4000}"
+: "${PORT:=13000}"
 : "${PUBLIC_URL:=http://$(hostname -I | awk '{print $1}'):${PORT}}"
 : "${DATA_DIR:=${VAR_DIR}}"
 : "${DATABASE_URL:=sqlite:${DATA_DIR}/coopeditor.db}"
