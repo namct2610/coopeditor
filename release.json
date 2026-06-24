@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc24",
-  "summary": "SPK RC 24 sửa favicon web và tránh vỡ UI khi NAS chưa tạo được poster thumbnail.",
+  "version": "1.0.0-rc25",
+  "summary": "SPK RC 25 tinh chỉnh lại icon Coopeditor để đồng bộ hơn với giao diện tối của ứng dụng.",
   "changes": [
-    "Web-inline gio phuc vu duoc /favicon.ico va cac file /brand/* ngay trong SPK, tranh 404 icon tren trinh duyet.",
-    "Route poster, project thumb va NAS thumb gio roi ve placeholder hop le thay vi tra 500 neu ffmpeg/chuong trinh tao thumb chua san sang tren NAS.",
-    "Log backend ghi ro ly do fallback thumbnail de de chan doan tiep, trong khi UI van xem duoc binh thuong."
+    "Thay bo icon web/SPK bang phien ban toi gian hon, nen toi va accent xanh khop header, sidebar va setup screen hien tai.",
+    "Cap nhat dong bo favicon 32px, apple-touch-icon, package icon 72px va poster package 256px de tranh lech nhan dien giua web va DSM.",
+    "Release metadata duoc bump len RC 25 de Update Center hien thi dung mo ta khi ban cap nhat ban moi."
   ],
   "publishedAt": "2026-06-24T00:00:00.000Z"
 }
