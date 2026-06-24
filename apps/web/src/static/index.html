@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Coopeditor — Coopeditor</title>
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="256x256" href="brand/favicon-256.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="brand/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" />
@@ -92,7 +95,9 @@
        leaves users staring at a black screen for 20-40s and they think the app crashed. -->
   <div style="position:fixed;inset:0;background:#07090e;display:grid;place-items:center;color:#8896ab;font-family:system-ui,-apple-system,sans-serif;">
     <div style="text-align:center;max-width:320px;padding:24px;">
-      <div style="width:48px;height:48px;border:3px solid #1c2536;border-top-color:#6c5cf6;border-radius:50%;animation:coSpin 1s linear infinite;margin:0 auto 16px;"></div>
+      <div style="width:48px;height:48px;margin:0 auto 16px;padding:4px;border-radius:14px;background:rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(0,0,0,0.35);">
+        <img src="brand/favicon-256.png" alt="Coopeditor" style="width:100%;height:100%;display:block;border-radius:10px;">
+      </div>
       <div style="font-size:14px;font-weight:600;">Đang khởi động Coopeditor…</div>
       <div id="bootHint" style="margin-top:10px;font-size:11px;color:#5d6b82;font-weight:500;">Kết nối tới máy chủ…</div>
     </div>
@@ -1196,8 +1201,8 @@ function leftRail(vals) {
   const notif = vals.notificationCount || 0;
   return `
   <nav style="width:64px;flex:0 0 64px;background:var(--co-bg);border-right:1px solid var(--co-border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;z-index:30;">
-    <div data-act="goProjects" title="Synoframe" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2.5px;width:20px;height:20px;margin-bottom:8px;cursor:pointer;opacity:0.85;">
-      ${Array.from({length: 9}).map(() => `<span style="width:5px;height:5px;border-radius:1.5px;background:var(--co-text-2);"></span>`).join("")}
+    <div data-act="goProjects" title="Coopeditor" style="width:32px;height:32px;margin-bottom:8px;cursor:pointer;border-radius:10px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,0.28);">
+      <img src="brand/favicon-32.png" alt="Coopeditor" style="width:100%;height:100%;display:block;">
     </div>
     <div data-act="goProjects" title="Home" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:${isProjects ? "var(--co-text)" : "var(--co-muted)"};background:${isProjects ? "rgba(108,92,246,0.14)" : "transparent"};">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
@@ -4681,7 +4686,7 @@ function setupOverlay() {
   <div style="position:fixed;inset:0;background:radial-gradient(circle at 25% 15%,rgba(108,92,246,0.22),transparent 42%),linear-gradient(160deg,#07090e,#0b0e15);z-index:220;overflow:auto;padding:24px;">
     <div style="max-width:760px;margin:0 auto;background:#11151e;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
+        <div style="width:38px;height:38px;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.35);"><img src="brand/favicon-256.png" alt="Coopeditor" style="width:100%;height:100%;display:block;"></div>
         <div>
           <div style="font-weight:800;font-size:20px;color:#e9eef6;">Thiết lập Coopeditor</div>
           <div style="color:#8896ab;font-size:12px;font-weight:600;">Cấu hình này sẽ được lưu trong volume ứng dụng, không cần chỉnh <code>.env</code>.</div>
