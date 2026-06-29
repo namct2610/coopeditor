@@ -373,6 +373,9 @@ export function listAssetsByProject(pid) {
       const latestVersion = (versionsByAsset.get(asset.id) || []).slice(-1)[0];
       const renditionList = latestVersion ? (renditionsByVersion.get(latestVersion.id) || []) : [];
       if (!renditionList.length) return asset;
+      const processing = renditionList.filter((r) => r.status === "processing");
+      const ready = renditionList.filter((r) => r.status === "ready");
+      const failed = renditionList.filter((r) => r.status === "failed");
       let status = "pending";
       let progress = 0;
       if (renditionList.every((r) => r.status === "ready")) {
@@ -380,9 +383,17 @@ export function listAssetsByProject(pid) {
         progress = 100;
       } else if (renditionList.every((r) => r.status === "failed")) {
         status = "failed";
-      } else if (renditionList.some((r) => r.status === "processing" || r.status === "ready")) {
+      } else if (processing.length) {
         status = "processing";
-        progress = Math.round(renditionList.reduce((sum, rendition) => sum + (rendition.status === "ready" ? 100 : (rendition.progress || 0)), 0) / renditionList.length);
+        const active = [...ready, ...processing];
+        progress = active.length
+          ? Math.round(active.reduce((sum, rendition) => sum + (rendition.status === "ready" ? 100 : (rendition.progress || 0)), 0) / active.length)
+          : 0;
+      } else if (ready.length) {
+        status = "ready";
+        progress = 100;
+      } else if (failed.length) {
+        status = "failed";
       }
       return { ...asset, status, progress };
     });

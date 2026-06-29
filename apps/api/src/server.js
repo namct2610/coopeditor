@@ -140,6 +140,13 @@ function sendThumbPlaceholder(res, label, extraHeaders) {
   return sendBinary(res, 200, Buffer.from(buildThumbPlaceholderSvg(label), "utf8"), "image/svg+xml; charset=utf-8", extraHeaders);
 }
 
+function pickProjectThumbAsset(projectId, assets) {
+  const candidates = (assets || []).filter((asset) => asset && asset.nasPath);
+  if (!candidates.length) return null;
+  const seed = String(projectId || "").split("").reduce((acc, ch) => ((acc * 33) + ch.charCodeAt(0)) >>> 0, 5381);
+  return candidates[seed % candidates.length];
+}
+
 function setSecurityHeaders(res) {
   res.setHeader("x-content-type-options", "nosniff");
   res.setHeader("x-frame-options", "DENY");
@@ -720,7 +727,7 @@ async function handle(req, res, url) {
     const customThumb = await loadProjectThumb(projectId);
     if (customThumb) return sendBinary(res, 200, customThumb.body, customThumb.contentType);
     const assets = await store.listAssetsByProject(projectId);
-    const firstAsset = assets[0];
+    const firstAsset = pickProjectThumbAsset(projectId, assets);
     if (!firstAsset || !firstAsset.nasPath) return bad(res, "Project thumb not found", 404);
     try {
       const seekMs = Math.min(Math.max(1000, Math.round((firstAsset.durationMs || 0) * 0.1)), Math.max(1000, (firstAsset.durationMs || 0) - 1000));
@@ -1275,7 +1282,7 @@ async function decorateProject(p, userId) {
   const member = userId ? await store.getProjectMember(p.id, userId) : null;
   let thumbUrl = "";
   try {
-    if (await loadProjectThumb(p.id)) thumbUrl = "/projects/" + p.id + "/thumb";
+    if ((await loadProjectThumb(p.id)) || pickProjectThumbAsset(p.id, assets)) thumbUrl = "/projects/" + p.id + "/thumb";
   } catch (_) {}
   return { ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl };
 }

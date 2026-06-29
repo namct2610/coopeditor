@@ -1,10 +1,11 @@
 {
-  "version": "1.0.0-rc25",
-  "summary": "SPK RC 25 tinh chỉnh lại icon Coopeditor để đồng bộ hơn với giao diện tối của ứng dụng.",
+  "version": "1.0.0-rc26",
+  "summary": "SPK RC 26 dong bo logo moi, sua progress proxy va bo sung thumbnail tu dong cho video/project.",
   "changes": [
-    "Thay bo icon web/SPK bang phien ban toi gian hon, nen toi va accent xanh khop header, sidebar va setup screen hien tai.",
-    "Cap nhat dong bo favicon 32px, apple-touch-icon, package icon 72px va poster package 256px de tranh lech nhan dien giua web va DSM.",
-    "Release metadata duoc bump len RC 25 de Update Center hien thi dung mo ta khi ban cap nhat ban moi."
+    "Resize logo 1024px thanh day du favicon 32px, favicon 256px, apple-touch-icon 180px va icon SPK 72px/256px de dong bo nhan dien tren web va DSM.",
+    "Sua logic progress proxy: chi hien loading khi thuc su con rendition dang xu ly; neu proxy da xong va khong con job chay thi an spinner dung nhu mong doi.",
+    "Thumbnail video/project duoc fallback tu frame video that tot hon, project khong co anh rieng se lay mot thumbnail ngau nhien on dinh tu source trong project.",
+    "Tang do phan hoi UI o cac thao tac dieu huong/mo modal chinh de giam cam giac tre khi bam."
   ],
-  "publishedAt": "2026-06-24T00:00:00.000Z"
+  "publishedAt": "2026-06-29T00:00:00.000Z"
 }

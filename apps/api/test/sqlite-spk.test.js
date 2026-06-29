@@ -128,7 +128,7 @@ test("SPK sqlite store can list assets with derived proxy status", async () => {
   assert.equal(assets.length, 1);
   assert.equal(assets[0].id, assetId);
   assert.equal(assets[0].status, "processing");
-  assert.equal(assets[0].progress, 28);
+  assert.equal(assets[0].progress, 55);
   assert.equal(assets[0].resolutionLabel, "4K");
   assert.equal(assets[0].versionsCount, 1);
 });

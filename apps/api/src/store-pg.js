@@ -246,7 +246,8 @@ export async function listAssetsByProject(pid) {
             WHEN COUNT(r.id) = 0 THEN a.status
             WHEN SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 'ready'
             WHEN SUM(CASE WHEN r.status = 'failed' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 'failed'
-            WHEN SUM(CASE WHEN r.status IN ('processing', 'ready') THEN 1 ELSE 0 END) > 0 THEN 'processing'
+            WHEN SUM(CASE WHEN r.status = 'processing' THEN 1 ELSE 0 END) > 0 THEN 'processing'
+            WHEN SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) > 0 THEN 'ready'
             ELSE 'pending'
           END
           FROM asset_versions v
@@ -258,8 +259,10 @@ export async function listAssetsByProject(pid) {
           SELECT CASE
             WHEN COUNT(r.id) = 0 THEN a.progress
             WHEN SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 100
+            WHEN SUM(CASE WHEN r.status = 'processing' THEN 1 ELSE 0 END) = 0
+             AND SUM(CASE WHEN r.status = 'ready' THEN 1 ELSE 0 END) > 0 THEN 100
             WHEN SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) = COUNT(r.id) THEN 0
-            ELSE CAST(ROUND(AVG(CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END)) AS INTEGER)
+            ELSE CAST(ROUND(AVG(CASE WHEN r.status IN ('ready', 'processing') THEN CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END END)) AS INTEGER)
           END
           FROM asset_versions v
           LEFT JOIN renditions r ON r.asset_version_id = v.id
@@ -287,14 +290,16 @@ export async function listAssetsByProject(pid) {
           WHEN COUNT(r.id) = 0 THEN a.status
           WHEN BOOL_AND(r.status = 'ready') THEN 'ready'
           WHEN BOOL_AND(r.status = 'failed') THEN 'failed'
-          WHEN BOOL_OR(r.status = 'processing') OR BOOL_OR(r.status = 'ready') THEN 'processing'
+          WHEN BOOL_OR(r.status = 'processing') THEN 'processing'
+          WHEN BOOL_OR(r.status = 'ready') THEN 'ready'
           ELSE 'pending'
         END AS derived_status,
         CASE
           WHEN COUNT(r.id) = 0 THEN a.progress
           WHEN BOOL_AND(r.status = 'ready') THEN 100
+          WHEN NOT BOOL_OR(r.status = 'processing') AND BOOL_OR(r.status = 'ready') THEN 100
           WHEN BOOL_AND(r.status = 'pending') THEN 0
-          ELSE ROUND(AVG(CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END))::int
+          ELSE ROUND(AVG(CASE WHEN r.status IN ('ready', 'processing') THEN CASE WHEN r.status = 'ready' THEN 100 ELSE COALESCE(r.progress, 0) END END))::int
         END AS derived_progress
       FROM asset_versions v
       LEFT JOIN renditions r ON r.asset_version_id = v.id

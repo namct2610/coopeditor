@@ -315,6 +315,11 @@ function scheduleRender() {
   });
 }
 function setState(patch) { Object.assign(state, patch); scheduleRender(); }
+function setStateNow(patch) {
+  Object.assign(state, patch);
+  _renderQueued = false;
+  render();
+}
 function effStatus(p) { if (!p) return "progress"; return state.projectStatus[p.id] || p.status; }
 
 function fmtDur(ms) { const s = Math.floor(ms / 1000); const m = Math.floor(s / 60), ss = s % 60; return m + ":" + String(ss).padStart(2, "0"); }
@@ -337,11 +342,13 @@ function sceneAt(ms) {
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function renderMediaThumb(url, alt, { width = "100%", height = "100%" } = {}) {
-  if (!url) return ICON.fileVideo;
+  const fallback = `<div class="thumb-fallback" style="position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(180deg,rgba(10,18,30,0.72),rgba(8,12,20,0.92));">${ICON.fileVideo}</div>`;
+  if (!url) {
+    return `<div style="position:relative;width:${width};height:${height};overflow:hidden;">${fallback}</div>`;
+  }
   const safeUrl = esc(url);
   const safeAlt = esc(alt);
-  const fallback = esc(ICON.fileVideo);
-  return `<img src="${safeUrl}" alt="${safeAlt}" style="width:${width};height:${height};object-fit:cover;display:block;" loading="lazy" onerror="this.onerror=null;this.outerHTML='${fallback}'">`;
+  return `<div style="position:relative;width:${width};height:${height};overflow:hidden;">${fallback}<img src="${safeUrl}" alt="${safeAlt}" style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onload="const fb=this.parentNode&&this.parentNode.querySelector('.thumb-fallback');if(fb)fb.style.display='none';" onerror="this.style.display='none';const fb=this.parentNode&&this.parentNode.querySelector('.thumb-fallback');if(fb)fb.style.display='grid';"></div>`;
 }
 
 function selectedSource() {
@@ -450,7 +457,7 @@ function bindReviewVideo() {
 }
 
 // ---- navigation ----
-function goProjects() { pause(); setState({ view: "projects", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
+function goProjects() { pause(); setStateNow({ view: "projects", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 async function goSettings() {
   pause();
   setState({ view: "settings", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showStatusMenu: false });
@@ -509,14 +516,14 @@ async function saveSettingsChanges() {
     render();
   }
 }
-function openProject(pid) { pause(); setState({ view: "project", selectedProjectId: pid, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
+function openProject(pid) { pause(); setStateNow({ view: "project", selectedProjectId: pid, showStatusMenu: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function openSource(id) {
   pause();
   const pid = state.selectedProjectId;
   const src = ((state.sourcesByProject[pid] || []).find((item) => item.id === id)) || null;
-  setState({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
+  setStateNow({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
 }
-function setStatusFilter(key) { setState({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
+function setStatusFilter(key) { setStateNow({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function toggleTheme() { const t = state.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("co-theme", t); } catch (_) {} setState({ theme: t }); }
 
 function clampMenuPos(x, y) {
@@ -5193,7 +5200,7 @@ async function doLogout() {
 function createNewProject() {
   if (!remote.me) return;
   // Open the proper form modal instead of the old two-step window.prompt().
-  setState({
+  setStateNow({
     showCreateProject: true,
     createProjectName: "",
     createProjectClient: "",
@@ -5210,7 +5217,7 @@ function createNewProject() {
 }
 
 function closeCreateProjectModal() {
-  setState({ showCreateProject: false, createProjectBusy: false, createProjectError: "" });
+  setStateNow({ showCreateProject: false, createProjectBusy: false, createProjectError: "" });
 }
 
 async function submitCreateProject() {

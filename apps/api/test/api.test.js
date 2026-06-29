@@ -5,7 +5,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as wait } from "node:timers/promises";
@@ -17,6 +17,7 @@ const PORT = 4399;
 const BASE = "http://localhost:" + PORT;
 let proc;
 let appDataDir = "";
+const releaseMeta = JSON.parse(await readFile(new URL("../../../release.json", import.meta.url), "utf8"));
 
 async function waitReady(tries = 60) {
   for (let i = 0; i < tries; i++) {
@@ -106,7 +107,7 @@ test("DSM dev login + /me round trip", async () => {
 test("/version returns release metadata", async () => {
   const r = await http("/version");
   assert.equal(r.status, 200);
-  assert.equal(r.json.version, "0.2.39");
+  assert.equal(r.json.version, releaseMeta.version);
   assert.equal(typeof r.json.summary, "string");
   assert.ok(Array.isArray(r.json.changes));
 });
@@ -114,7 +115,7 @@ test("/version returns release metadata", async () => {
 test("owner can read update status without feed", async () => {
   const r = await http("/admin/update-status");
   assert.equal(r.status, 200);
-  assert.equal(r.json.local.version, "0.2.39");
+  assert.equal(r.json.local.version, releaseMeta.version);
   assert.equal(typeof r.json.checkAvailable, "boolean");
   assert.equal(r.json.triggerAvailable, false);
 });
