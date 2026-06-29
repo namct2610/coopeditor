@@ -59,9 +59,9 @@ release_list_json() {
 }
 
 require_valid_json() {
-  JSON_PAYLOAD="$1" python3 -c '
-import json, os, sys
-raw = os.environ.get("JSON_PAYLOAD", "")
+  printf '%s' "$1" | python3 -c '
+import json, sys
+raw = sys.stdin.read()
 if not raw.strip():
     sys.stderr.write("empty response from GitHub API\n")
     raise SystemExit(1)
@@ -81,12 +81,12 @@ resolve_latest_tag() {
   json="$(release_list_json)"
   require_valid_json "$json" || fail "GitHub API trả về dữ liệu không hợp lệ khi đọc danh sách release. Nếu đang bị rate-limit, thử lại sau hoặc truyền TAG=... trực tiếp."
   asset_regex="coopeditor-${ARCH}-[^\"]+\\.spk"
-  selected="$(RELEASES_JSON="$json" python3 -c '
+  selected="$(printf '%s' "$json" | python3 -c '
 import json, re, sys
 
 channel = sys.argv[1]
 asset_regex = re.compile(sys.argv[2])
-releases = json.loads(__import__("os").environ["RELEASES_JSON"])
+releases = json.loads(sys.stdin.read())
 
 def wanted(tag: str) -> bool:
     t = (tag or "").lower()
@@ -118,11 +118,11 @@ resolve_asset_url_from_tag() {
     -H "User-Agent: coopeditor-install-spk" \
     "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
   require_valid_json "$json" || fail "Không đọc được metadata release cho TAG=${TAG}. Kiểm tra tag có tồn tại chưa hoặc truyền SPK_URL trực tiếp."
-  url="$(RELEASE_JSON="$json" python3 -c '
+  url="$(printf '%s' "$json" | python3 -c '
 import json, sys
 
 want = sys.argv[1]
-release = json.loads(__import__("os").environ["RELEASE_JSON"])
+release = json.loads(sys.stdin.read())
 for asset in release.get("assets") or []:
     if asset.get("name") == want:
         print(asset.get("browser_download_url") or "")
