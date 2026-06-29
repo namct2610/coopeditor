@@ -12,6 +12,21 @@ test("summarizeTranscodeWorkers reports offline when no worker heartbeat exists"
   assert.match(summary.message, /worker online|heartbeat|coopeditor-worker/i);
 });
 
+test("summarizeTranscodeWorkers uses SPK-specific wording when worker is inline", () => {
+  const summary = summarizeTranscodeWorkers([], {
+    spkRuntime: true,
+    apiMount: {
+      mountReady: true,
+      dsmMountRoot: "/volume1/PCNgon",
+      mountError: "",
+    },
+    runtimeConfigPresent: true,
+  });
+  assert.equal(summary.status, "offline");
+  assert.match(summary.message, /package Coopeditor|worker inline/i);
+  assert.doesNotMatch(summary.message, /coopeditor-worker chưa được recreate/i);
+});
+
 test("summarizeTranscodeWorkers reports warning when mount fallback is active", () => {
   const summary = summarizeTranscodeWorkers([{
     workerId: "w1",

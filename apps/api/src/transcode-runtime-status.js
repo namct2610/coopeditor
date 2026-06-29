@@ -16,7 +16,9 @@ function isoOrNull(value) {
 }
 
 function staleMessage(worker) {
-  return "Worker heartbeat đã cũ, có thể container worker vừa dừng hoặc chưa restart lại sau khi đổi cấu hình.";
+  return isSpkRuntime()
+    ? "Worker heartbeat đã cũ, có thể worker inline trong package Coopeditor vừa dừng hoặc package chưa restart lại sau khi đổi cấu hình."
+    : "Worker heartbeat đã cũ, có thể container worker vừa dừng hoặc chưa restart lại sau khi đổi cấu hình.";
 }
 
 function mountMessage(worker) {
@@ -27,6 +29,13 @@ function mountMessage(worker) {
 
 function normalizeMountRoot(root) {
   return String(root || "").trim().replace(/\/+$/, "") || DEFAULT_MOUNT_ROOT;
+}
+
+function isSpkRuntime(env = process.env) {
+  return String(env.WORKER_INLINE || "") === "1"
+    || String(env.WEB_INLINE || "") === "1"
+    || /^\/var\/packages\/coopeditor\//.test(configPath())
+    || /^\/var\/packages\/coopeditor\//.test(String(env.APP_DATA_DIR || ""));
 }
 
 function mountRootLooksLikeHostPath(root) {
@@ -72,6 +81,41 @@ async function detectApiMountHealth() {
 }
 
 async function loadLatestMountFailure() {
+  if (store.backend === "sqlite") {
+    const sql = `
+      SELECT job.id,
+             job.error,
+             job.status,
+             COALESCE(job.finished_at, job.started_at, job.enqueued_at) AS happened_at,
+             r.id AS rendition_id,
+             a.id AS asset_id,
+             a.title AS asset_title,
+             a.nas_path AS asset_nas_path
+        FROM transcode_jobs job
+        JOIN renditions r ON r.id = job.rendition_id
+        JOIN asset_versions v ON v.id = r.asset_version_id
+        JOIN assets a ON a.id = v.asset_id
+       WHERE job.error IS NOT NULL
+         AND job.error <> ''
+       ORDER BY (COALESCE(job.finished_at, job.started_at, job.enqueued_at) IS NULL) ASC,
+                COALESCE(job.finished_at, job.started_at, job.enqueued_at) DESC,
+                job.id DESC
+       LIMIT 50
+    `;
+    const { rows } = await db().query(sql);
+    const row = rows.find((item) => MOUNT_ERROR_RE.test(String(item && item.error || "")));
+    if (!row) return null;
+    return {
+      jobId: Number(row.id || 0),
+      renditionId: row.rendition_id || "",
+      assetId: row.asset_id || "",
+      assetTitle: row.asset_title || "",
+      assetNasPath: row.asset_nas_path || "",
+      status: row.status || "",
+      error: row.error || "",
+      happenedAt: isoOrNull(row.happened_at),
+    };
+  }
   const sql = `
     SELECT job.id,
            job.error,
@@ -117,9 +161,12 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   const runtimeConfigPresent = diagnostics.runtimeConfigPresent == null
     ? !!readRuntimeConfig()
     : !!diagnostics.runtimeConfigPresent;
+  const spkRuntime = diagnostics.spkRuntime == null ? isSpkRuntime() : !!diagnostics.spkRuntime;
 
   let status = "offline";
-  let message = "Chưa có worker online. Kiểm tra container coopeditor-worker đã chạy và gửi heartbeat chưa.";
+  let message = spkRuntime
+    ? "Chưa có worker online. Kiểm tra package Coopeditor đã chạy hoàn tất và worker inline đã gửi heartbeat chưa."
+    : "Chưa có worker online. Kiểm tra container coopeditor-worker đã chạy và gửi heartbeat chưa.";
   if (warningWorkers.length) {
     status = "warning";
     message = mountMessage(warningWorkers[0]);
@@ -139,14 +186,20 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
 
   if (!activeWorkers.length) {
     if (apiMount && apiMount.mountReady) {
-      message += " API đang thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT)
-        + ", nên nhiều khả năng container coopeditor-worker chưa được recreate sau khi thêm volume NAS hoặc đang crash trước khi gửi heartbeat.";
+      message += spkRuntime
+        ? (" API đang thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT)
+          + ", nên nhiều khả năng worker inline trong package Coopeditor chưa khởi động được hoặc package đang crash trước khi gửi heartbeat.")
+        : (" API đang thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT)
+          + ", nên nhiều khả năng container coopeditor-worker chưa được recreate sau khi thêm volume NAS hoặc đang crash trước khi gửi heartbeat.");
     } else if (apiMount && apiMount.mountError) {
       message += " " + apiMount.mountError;
     }
     if (runtimeConfigPresent) {
-      message += " API đã có runtime config tại " + configPath()
-        + ", nên cũng cần kiểm tra container worker có mount cùng app-data volume vào /data hay không.";
+      message += spkRuntime
+        ? (" API đã có runtime config tại " + configPath()
+          + ", nên hãy kiểm tra log package Coopeditor và restart package để worker inline đọc lại cấu hình.")
+        : (" API đã có runtime config tại " + configPath()
+          + ", nên cũng cần kiểm tra container worker có mount cùng app-data volume vào /data hay không.");
     }
     if (latestMountFailure && latestMountFailure.error) {
       message += " Job lỗi gần nhất: " + latestMountFailure.error;
@@ -172,7 +225,7 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
 }
 
 export async function getTranscodeRuntimeStatus(nowMs = Date.now()) {
-  if (store.backend !== "pg") {
+  if (store.backend === "memory") {
     return {
       backend: store.backend,
       workerHeartbeatPresent: false,
@@ -180,7 +233,7 @@ export async function getTranscodeRuntimeStatus(nowMs = Date.now()) {
       canTranscode: true,
       mountReady: null,
       status: "memory",
-      message: "Runtime transcode status chỉ bật khi dùng Postgres + worker thật.",
+      message: "Runtime transcode status chỉ bật khi dùng database thật + worker thật.",
       workers: [],
       diagnostics: {
         apiMount: null,
@@ -226,12 +279,12 @@ export async function getTranscodeRuntimeStatus(nowMs = Date.now()) {
 
 export async function ensureTranscodeRuntimeReady() {
   const summary = await getTranscodeRuntimeStatus();
-  if (summary.backend !== "pg") return summary;
+  if (summary.backend === "memory") return summary;
   if (!summary.workerHeartbeatPresent || summary.activeWorkers <= 0) {
-    throw new Error(summary.message + " Khởi động lại container worker hoặc redeploy project để nhận runtime mới.");
+    throw new Error(summary.message + " Khởi động lại worker hoặc redeploy runtime để nhận cấu hình mới.");
   }
   if (!summary.canTranscode) {
-    throw new Error(summary.message + " Kiểm tra volume NAS của container worker rồi redeploy project.");
+    throw new Error(summary.message + " Kiểm tra DSM mount root rồi khởi động lại worker.");
   }
   return summary;
 }
