@@ -180,18 +180,20 @@ fi
 if [ "${SKIP_DEPS:-0}" != "1" ]; then
   echo "==> Installing production deps (target arch: ${NPM_ARCH})"
   pushd "${PKG_STAGE}/app/apps/api" >/dev/null
-  # Force prebuild-install to grab the linux-${NPM_ARCH} binary for native
-  # modules (currently only better-sqlite3 ships natives in our tree).
-  npm_config_target_arch="${NPM_ARCH}" \
-  npm_config_target_platform="linux" \
-  npm_config_target_libc="glibc" \
+  # Force npm/prebuild-install to fetch linux-${NPM_ARCH} natives even when
+  # the packer runs on macOS. target_* env vars are ignored by npm v10+, so
+  # we must use the standard platform/arch knobs plus --os/--cpu flags.
+  npm_config_platform="linux" \
+  npm_config_arch="${NPM_ARCH}" \
+  npm_config_libc="glibc" \
   npm_config_build_from_source=false \
-  npm install --omit=dev --no-audit --no-fund --no-package-lock 2>&1 | tail -8
+  npm install --omit=dev --no-audit --no-fund --no-package-lock --os=linux --cpu="${NPM_ARCH}" 2>&1 | tail -8
   popd >/dev/null
   # Same for worker (no natives currently, fast).
   pushd "${PKG_STAGE}/app/apps/worker" >/dev/null
-  npm_config_target_arch="${NPM_ARCH}" \
-  npm install --omit=dev --no-audit --no-fund --no-package-lock 2>&1 | tail -5
+  npm_config_platform="linux" \
+  npm_config_arch="${NPM_ARCH}" \
+  npm install --omit=dev --no-audit --no-fund --no-package-lock --os=linux --cpu="${NPM_ARCH}" 2>&1 | tail -5
   popd >/dev/null
 fi
 
