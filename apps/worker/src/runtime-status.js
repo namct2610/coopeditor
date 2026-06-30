@@ -87,8 +87,36 @@ export function createWorkerRuntimeReporter(pool, {
 } = {}) {
   let timer = null;
 
+  function asText(value, fallback = "") {
+    if (value == null) return fallback;
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function asInteger(value, fallback = 0) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : fallback;
+  }
+
   async function reportOnce() {
     const mount = await detectWorkerMountHealth(env);
+    const params = [
+      asText(workerId, "worker-" + process.pid),
+      asText(hostname, ""),
+      asInteger(pid, process.pid),
+      asText(mode, ""),
+      asText(hwaccel, ""),
+      asText(codecLadder, ""),
+      asText(mount.dsmMountRoot, ""),
+      mount.mountReady ? 1 : 0,
+      mount.mountError ? asText(mount.mountError, "") : null,
+      asText(appDataDir, "/data"),
+    ];
     await pool.query(`
       INSERT INTO worker_runtime_status (
         worker_id, hostname, pid, mode, hwaccel, codec_ladder,
@@ -107,18 +135,7 @@ export function createWorkerRuntimeReporter(pool, {
         mount_error = EXCLUDED.mount_error,
         app_data_dir = EXCLUDED.app_data_dir,
         updated_at = now()
-    `, [
-      workerId,
-      hostname,
-      pid,
-      mode,
-      hwaccel,
-      codecLadder,
-      mount.dsmMountRoot,
-      mount.mountReady,
-      mount.mountError || null,
-      appDataDir,
-    ]);
+    `, params);
     if (!mount.mountReady) logger.warn("[worker] DSM mount check:", mount.mountError);
     return mount;
   }

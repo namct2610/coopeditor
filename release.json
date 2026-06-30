@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc34",
-  "summary": "SPK RC 34 chuan hoa lifecycle native: bat worker inline mac dinh trong script package va dong bo voi FFmpeg runtime moi.",
+  "version": "1.0.0-rc35",
+  "summary": "SPK RC 35 sua dut diem worker heartbeat tren SQLite de giao dien native khong con bao worker stale du worker dang chay.",
   "changes": [
-    "Script start-stop-status cua SPK gio export WORKER_INLINE=1 mac dinh, nen package native luon spawn worker inline sau khi API boot.",
-    "Dong bo script package voi logic FFmpeg usable moi, tranh tinh trang ban SPK moi nhung lifecycle van dung script RC cu tren NAS.",
-    "Release note nay danh dau moc de cai lai SPK native ma khong can sua tay file /var/packages/coopeditor/scripts/start-stop-status."
+    "Worker runtime heartbeat tren SPK gio ep tat ca field ve primitive truoc khi ghi SQLite, tranh loi bind lam UI bao 'Worker heartbeat da cu' du worker dang online.",
+    "Bo sung test SQLite ghi heartbeat that vao bang worker_runtime_status, mo phong dung runtime native tren Synology Package Center.",
+    "Ban nay giu nguyen lifecycle worker inline cua RC34 nhung sua phan status/runtime de giao dien transcode nhan worker online dung cach."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }
