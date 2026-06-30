@@ -1,11 +1,10 @@
 {
-  "version": "1.0.0-rc28",
-  "summary": "SPK RC 28 lam ro bootstrap worker inline va chan doan dung loi mount/quyen Shared Folder tren DSM.",
+  "version": "1.0.0-rc29",
+  "summary": "SPK RC 29 sua worker SQLite tren DSM: het xung dot transaction khi worker inline claim job song song.",
   "changes": [
-    "API ghi log ro hon khi spawn worker inline trong SPK, gom duong dan bootstrap, PID va mount root dang dung de debug worker heartbeat nhanh hon tren NAS.",
-    "Runtime transcode tren SPK gio uu tien hien loi mount/quyen Shared Folder that neu package user coopeditor khong doc duoc DSM mount root, thay vi chi bao worker heartbeat da cu.",
-    "Import NAS khi gap EACCES tren mounted folder se tra ve thong diep ro rang hon, nhac cap quyen Shared Folder cho package user coopeditor.",
-    "Bo sung regression test cho chan doan worker runtime tren SPK va dong bo test worker bootstrap voi kieu du lieu heartbeat SQLite."
+    "Worker SQLite trong SPK gio claim transcode job bang cau UPDATE ... RETURNING nguyen tu, bo hẳn BEGIN/COMMIT thu cong gay loi cannot start a transaction within a transaction.",
+    "Auto-requeue, queue-depth va reschedule cua worker duoc tach rieng cho SQLite/Postgres de worker inline tren DSM khong dung chung duong transaction cua Docker/Postgres.",
+    "Bo sung regression test mo phong 2 slot worker SQLite claim job song song de khoa chat bug worker heartbeat cu tren NAS."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

@@ -27,12 +27,12 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import pg from "pg";
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { isPermanentTranscodeError, shouldAutoRequeueFailedJob, terminalFailureAttempts } from "./error-policy.js";
 import { createWorkerRuntimeReporter, detectWorkerMountHealth } from "./runtime-status.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
+import { initDb, db, activeDriver } from "../../api/src/db.js";
 
 if (!process.env.DATABASE_URL) { console.error("[worker] DATABASE_URL required"); process.exit(1); }
 
@@ -113,12 +113,18 @@ if (HW && FFMPEG_PATH) {
 }
 
 const mode = FFMPEG_PATH && MINIO_ENDPOINT ? "full" : (FFMPEG_PATH ? "ffmpeg-only" : "sim");
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: scalingPolicy.maxConcurrency + 2 });
-const listenClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
-await listenClient.connect();
-await listenClient.query("LISTEN coopeditor_jobs");
-listenClient.on("notification", () => wakeUp());
+await initDb();
+const pool = db();
+const SQL_DRIVER = activeDriver() || "postgres";
+let listenClient = null;
+if (SQL_DRIVER === "postgres") {
+  const mod = await import("pg");
+  const pg = mod.default || mod;
+  listenClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await listenClient.connect();
+  await listenClient.query("LISTEN coopeditor_jobs");
+  listenClient.on("notification", () => wakeUp());
+}
 
 let wakeWaiters = [];
 function wakeUp() { wakeWaiters.splice(0).forEach((r) => r()); }
@@ -179,20 +185,50 @@ function logMountWait(status) {
 // box without /dev/dri) should get one fresh try with the new hwaccel path
 // the moment the worker starts. The user shouldn't have to learn psql.
 try {
-  const r = await pool.query(`
-    UPDATE transcode_jobs
-       SET status='queued',
-           attempts=0,
-           error=NULL,
-           next_run_at=now(),
-           started_at=NULL
-     WHERE status='running'
-        OR (status='failed' AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
-        OR (status='queued' AND attempts >= max_attempts AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
-    RETURNING id
-  `);
-  if (r.rowCount > 0) {
-    console.log("[worker] auto-requeued", r.rowCount, "stale/failed jobs on startup");
+  if (SQL_DRIVER === "sqlite") {
+    const rows = (await pool.query(`
+      SELECT id, status, attempts, max_attempts, error
+        FROM transcode_jobs
+       WHERE status IN ('running', 'failed', 'queued')
+       ORDER BY id
+    `)).rows;
+    let requeued = 0;
+    for (const row of rows) {
+      const errMsg = row.error || "";
+      const shouldReset = row.status === "running"
+        || (row.status === "failed" && shouldAutoRequeueFailedJob(errMsg))
+        || (row.status === "queued" && Number(row.attempts || 0) >= Number(row.max_attempts || 0) && shouldAutoRequeueFailedJob(errMsg));
+      if (!shouldReset) continue;
+      await pool.query(`
+        UPDATE transcode_jobs
+           SET status='queued',
+               attempts=0,
+               error=NULL,
+               next_run_at=CURRENT_TIMESTAMP,
+               started_at=NULL
+         WHERE id = $1
+      `, [row.id]);
+      requeued++;
+    }
+    if (requeued > 0) {
+      console.log("[worker] auto-requeued", requeued, "stale/failed jobs on startup");
+    }
+  } else {
+    const r = await pool.query(`
+      UPDATE transcode_jobs
+         SET status='queued',
+             attempts=0,
+             error=NULL,
+             next_run_at=now(),
+             started_at=NULL
+       WHERE status='running'
+          OR (status='failed' AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
+          OR (status='queued' AND attempts >= max_attempts AND (error IS NULL OR error = '' OR error !~* '(ENOENT|EACCES|not mounted|cannot read source path|khong tim thay|khong du quyen|ffmpeg exit 127|spawn .*ffmpeg|duplicate active transcode job|superseded by a newer claim)'))
+      RETURNING id
+    `);
+    if (r.rowCount > 0) {
+      console.log("[worker] auto-requeued", r.rowCount, "stale/failed jobs on startup");
+    }
   }
 } catch (err) {
   console.warn("[worker] auto-requeue at boot failed:", err.message);
@@ -280,6 +316,34 @@ async function loadJob() {
     logMountWait(mount);
     return null;
   }
+  if (SQL_DRIVER === "sqlite") {
+    const claimed = await pool.query(`
+      UPDATE transcode_jobs
+         SET status='running',
+             started_at=CURRENT_TIMESTAMP,
+             attempts=attempts + 1
+       WHERE id = (
+         SELECT id
+           FROM transcode_jobs
+          WHERE status='queued'
+            AND next_run_at <= CURRENT_TIMESTAMP
+          ORDER BY next_run_at, id
+          LIMIT 1
+       )
+         AND status='queued'
+      RETURNING id, rendition_id, attempts, max_attempts
+    `);
+    if (!claimed.rows.length) return null;
+    const job = claimed.rows[0];
+    const r = (await pool.query(`
+      SELECT r.id, r.height, r.label, r.bitrate_kbps, r.asset_version_id, v.asset_id, a.nas_path, a.title
+        FROM renditions r
+        JOIN asset_versions v ON v.id = r.asset_version_id
+        JOIN assets a ON a.id = v.asset_id
+       WHERE r.id = $1
+    `, [job.rendition_id])).rows[0];
+    return { job, rendition: r };
+  }
   // claim one queued job whose backoff has expired
   const { rows } = await pool.query(`
     UPDATE transcode_jobs SET status='running', started_at=now(), attempts = attempts + 1
@@ -299,6 +363,14 @@ async function loadJob() {
 }
 
 async function currentQueueDepth() {
+  if (SQL_DRIVER === "sqlite") {
+    const { rows } = await pool.query(`
+      SELECT COUNT(*) AS depth
+        FROM transcode_jobs
+       WHERE status = 'queued' AND next_run_at <= CURRENT_TIMESTAMP
+    `);
+    return rows[0] ? Number(rows[0].depth || 0) : 0;
+  }
   const { rows } = await pool.query(`
     SELECT COUNT(*)::int AS depth
       FROM transcode_jobs
@@ -345,6 +417,18 @@ async function finishJob(jobId, ok, errorMsg = null, options = {}) {
 async function rescheduleJob(jobId, attempts, errorMsg) {
   // exponential backoff: 5s, 25s, 125s, ... capped at 10min
   const delaySec = Math.min(600, 5 * Math.pow(5, attempts - 1));
+  if (SQL_DRIVER === "sqlite") {
+    await pool.query(`
+      UPDATE transcode_jobs
+         SET status='queued',
+             error=$2,
+             next_run_at = datetime('now', '+' || $3 || ' seconds'),
+             started_at=NULL
+       WHERE id=$1
+    `, [jobId, errorMsg || null, String(delaySec)]);
+    console.log("[worker] job", jobId, "rescheduled in", delaySec, "s");
+    return;
+  }
   await pool.query(`
     UPDATE transcode_jobs
     SET status='queued', error=$2, next_run_at = now() + ($3 || ' seconds')::interval, started_at=NULL
