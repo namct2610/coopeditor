@@ -1,13 +1,11 @@
 {
-  "version": "1.0.0-rc27",
-  "summary": "SPK RC 27 sua triệt để goi NAS: worker runtime dung ngu canh SPK va native SQLite chay dung tren DSM x86_64.",
+  "version": "1.0.0-rc28",
+  "summary": "SPK RC 28 lam ro bootstrap worker inline va chan doan dung loi mount/quyen Shared Folder tren DSM.",
   "changes": [
-    "Resize logo 1024px thanh day du favicon 32px, favicon 256px, apple-touch-icon 180px va icon SPK 72px/256px de dong bo nhan dien tren web va DSM.",
-    "Sua logic progress proxy: chi hien loading khi thuc su con rendition dang xu ly; neu proxy da xong va khong con job chay thi an spinner dung nhu mong doi.",
-    "Thumbnail video/project duoc fallback tu frame video that tot hon, project khong co anh rieng se lay mot thumbnail ngau nhien on dinh tu source trong project.",
-    "Tang do phan hoi UI o cac thao tac dieu huong/mo modal chinh de giam cam giac tre khi bam.",
-    "Worker runtime diagnostics tu dong phan biet Docker va SPK, khong con hien huong dan sai ve container coopeditor-worker khi dang chay package DSM.",
-    "SPK x86_64 duoc va lai better-sqlite3 bang binary ELF Linux phu hop DSM de khong con loi invalid ELF header khi package khoi dong."
+    "API ghi log ro hon khi spawn worker inline trong SPK, gom duong dan bootstrap, PID va mount root dang dung de debug worker heartbeat nhanh hon tren NAS.",
+    "Runtime transcode tren SPK gio uu tien hien loi mount/quyen Shared Folder that neu package user coopeditor khong doc duoc DSM mount root, thay vi chi bao worker heartbeat da cu.",
+    "Import NAS khi gap EACCES tren mounted folder se tra ve thong diep ro rang hon, nhac cap quyen Shared Folder cho package user coopeditor.",
+    "Bo sung regression test cho chan doan worker runtime tren SPK va dong bo test worker bootstrap voi kieu du lieu heartbeat SQLite."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

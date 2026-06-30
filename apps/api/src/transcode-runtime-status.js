@@ -27,6 +27,15 @@ function mountMessage(worker) {
   return "Worker chưa thấy DSM mount root " + (worker.dsmMountRoot || "/nas") + ".";
 }
 
+function mountPermissionHint(message, { spkRuntime = false } = {}) {
+  const detail = String(message || "").trim();
+  if (!detail) return "";
+  if (!/không đủ quyền|khong du quyen|cannot read source path/i.test(detail)) return "";
+  return spkRuntime
+    ? " Package user `coopeditor` chưa có quyền đọc/traverse Shared Folder này. Hãy cấp quyền cho Shared Folder rồi restart package Coopeditor."
+    : " Kiểm tra lại quyền volume NAS của container worker rồi restart runtime.";
+}
+
 function normalizeMountRoot(root) {
   return String(root || "").trim().replace(/\/+$/, "") || DEFAULT_MOUNT_ROOT;
 }
@@ -167,6 +176,17 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   let message = spkRuntime
     ? "Chưa có worker online. Kiểm tra package Coopeditor đã chạy hoàn tất và worker inline đã gửi heartbeat chưa."
     : "Chưa có worker online. Kiểm tra container coopeditor-worker đã chạy và gửi heartbeat chưa.";
+  const latestWorkerMountIssue = latestWorker && String(latestWorker.mountError || "").trim() ? latestWorker : null;
+  if (!activeWorkers.length && apiMount && !apiMount.mountReady) {
+    status = "mount-error";
+    message = (apiMount.mountError || ("API chưa thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT) + "."))
+      + mountPermissionHint(apiMount.mountError, { spkRuntime });
+  } else if (!activeWorkers.length && latestWorkerMountIssue) {
+    status = "mount-error";
+    message = mountMessage(latestWorkerMountIssue)
+      + " Heartbeat worker cũ nên worker có thể đã dừng sau khi gặp lỗi mount/quyền."
+      + mountPermissionHint(latestWorkerMountIssue.mountError, { spkRuntime });
+  } else
   if (warningWorkers.length) {
     status = "warning";
     message = mountMessage(warningWorkers[0]);
@@ -185,21 +205,23 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   }
 
   if (!activeWorkers.length) {
-    if (apiMount && apiMount.mountReady) {
+    if (status === "offline" && apiMount && apiMount.mountReady) {
       message += spkRuntime
         ? (" API đang thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT)
           + ", nên nhiều khả năng worker inline trong package Coopeditor chưa khởi động được hoặc package đang crash trước khi gửi heartbeat.")
         : (" API đang thấy DSM mount root " + (apiMount.dsmMountRoot || DEFAULT_MOUNT_ROOT)
           + ", nên nhiều khả năng container coopeditor-worker chưa được recreate sau khi thêm volume NAS hoặc đang crash trước khi gửi heartbeat.");
-    } else if (apiMount && apiMount.mountError) {
+    } else if (status === "offline" && apiMount && apiMount.mountError) {
       message += " " + apiMount.mountError;
     }
     if (runtimeConfigPresent) {
-      message += spkRuntime
-        ? (" API đã có runtime config tại " + configPath()
-          + ", nên hãy kiểm tra log package Coopeditor và restart package để worker inline đọc lại cấu hình.")
-        : (" API đã có runtime config tại " + configPath()
-          + ", nên cũng cần kiểm tra container worker có mount cùng app-data volume vào /data hay không.");
+      message += status === "offline"
+        ? (spkRuntime
+          ? (" API đã có runtime config tại " + configPath()
+            + ", nên hãy kiểm tra log package Coopeditor và restart package để worker inline đọc lại cấu hình.")
+          : (" API đã có runtime config tại " + configPath()
+            + ", nên cũng cần kiểm tra container worker có mount cùng app-data volume vào /data hay không."))
+        : (" Runtime config hiện tại nằm tại " + configPath() + ".");
     }
     if (latestMountFailure && latestMountFailure.error) {
       message += " Job lỗi gần nhất: " + latestMountFailure.error;

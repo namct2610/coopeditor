@@ -27,6 +27,38 @@ test("summarizeTranscodeWorkers uses SPK-specific wording when worker is inline"
   assert.doesNotMatch(summary.message, /coopeditor-worker chưa được recreate/i);
 });
 
+test("summarizeTranscodeWorkers prioritizes API mount permission errors on SPK", () => {
+  const summary = summarizeTranscodeWorkers([], {
+    spkRuntime: true,
+    apiMount: {
+      mountReady: false,
+      dsmMountRoot: "/volume1/PCNgon",
+      mountError: "API không đủ quyền đọc DSM mount root /volume1/PCNgon.",
+    },
+    runtimeConfigPresent: true,
+  });
+  assert.equal(summary.status, "mount-error");
+  assert.match(summary.message, /không đủ quyền đọc DSM mount root/i);
+  assert.match(summary.message, /package user `coopeditor`/i);
+  assert.doesNotMatch(summary.message, /worker inline trong package Coopeditor chưa khởi động được/i);
+});
+
+test("summarizeTranscodeWorkers surfaces stale worker mount errors before generic heartbeat wording", () => {
+  const summary = summarizeTranscodeWorkers([{
+    workerId: "w-stale",
+    stale: true,
+    mountReady: false,
+    mountError: "Worker không đủ quyền đọc DSM mount root /volume1/PCNgon.",
+    dsmMountRoot: "/volume1/PCNgon",
+  }], {
+    spkRuntime: true,
+    runtimeConfigPresent: true,
+  });
+  assert.equal(summary.status, "mount-error");
+  assert.match(summary.message, /Worker không đủ quyền đọc DSM mount root/i);
+  assert.match(summary.message, /heartbeat worker cũ/i);
+});
+
 test("summarizeTranscodeWorkers reports warning when mount fallback is active", () => {
   const summary = summarizeTranscodeWorkers([{
     workerId: "w1",

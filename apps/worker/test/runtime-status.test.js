@@ -76,5 +76,5 @@ test("reportWorkerBootstrapFailure writes a failed mount heartbeat row", async (
   assert.equal(calls.length, 1);
   assert.match(calls[0].sql, /INSERT INTO worker_runtime_status/i);
   assert.equal(calls[0].params[0], "boot-worker-1");
-  assert.equal(calls[0].params[7], false);
+  assert.equal(calls[0].params[7], 0);
 });

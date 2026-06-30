@@ -564,7 +564,7 @@ async function listMountedFolder(path) {
       throw new Error("Khong tim thay thu muc NAS da mount tai " + lastErr.path + " — kiem tra lai DSM mount root");
     }
     if (lastErr && lastErr.err && lastErr.err.code === "EACCES") {
-      throw new Error("Khong du quyen doc thu muc NAS da mount tai " + lastErr.path);
+      throw new Error("Khong du quyen doc thu muc NAS da mount tai " + lastErr.path + ". Neu dang chay SPK, hay cap quyen Shared Folder cho package user coopeditor.");
     }
     throw lastErr && lastErr.err ? lastErr.err : new Error("Khong doc duoc thu muc NAS da mount");
   }
