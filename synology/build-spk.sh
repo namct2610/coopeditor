@@ -22,6 +22,10 @@
 #   SKIP_DEPS=1       — skip `npm install` inside the staged dir. Useful for
 #                       smoke-testing the packaging logic without the slow
 #                       deps install.
+#   PREBUILT_API_NODE_MODULES / PREBUILT_WORKER_NODE_MODULES
+#                     — reuse already-built linux node_modules trees instead
+#                       of hitting npm again. Handy when only JS changed and
+#                       we want a deterministic offline rebuild of the SPK.
 #   PNG72 / PNG256    — paths to real package icons. Otherwise placeholders.
 
 set -euo pipefail
@@ -170,6 +174,16 @@ data['sha'] = '${SHA}'
 data['builtAt'] = '${BUILT_AT}'
 with open('${PKG_STAGE}/app/release.json', 'w') as f: json.dump(data, f, indent=2, ensure_ascii=False)
 "
+fi
+
+if [ -n "${PREBUILT_API_NODE_MODULES:-}" ]; then
+  echo "==> Reusing prebuilt API node_modules"
+  rsync -a "${PREBUILT_API_NODE_MODULES}/" "${PKG_STAGE}/app/apps/api/node_modules/"
+fi
+
+if [ -n "${PREBUILT_WORKER_NODE_MODULES:-}" ]; then
+  echo "==> Reusing prebuilt worker node_modules"
+  rsync -a "${PREBUILT_WORKER_NODE_MODULES}/" "${PKG_STAGE}/app/apps/worker/node_modules/"
 fi
 
 # 2d. Install production deps for the target arch. We use npm (not pnpm)
