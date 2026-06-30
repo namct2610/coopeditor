@@ -57,6 +57,7 @@ function startInlineWorker() {
       shuttingDown = true;
       if (restartTimer) clearTimeout(restartTimer);
       if (child) try { child.kill(signal); } catch (_) {}
+      setTimeout(() => process.exit(0), 50);
     };
     process.on("SIGTERM", stop("SIGTERM"));
     process.on("SIGINT", stop("SIGINT"));
