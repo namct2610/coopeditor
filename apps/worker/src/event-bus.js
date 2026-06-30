@@ -47,6 +47,7 @@ export async function publishWorkerEvent(pool, event) {
     ]);
     return;
   }
+  if (driver !== "pg") return;
   await pool.query(`SELECT pg_notify($1, $2)`, [PG_EVENT_CHANNEL, payload]);
 }
 

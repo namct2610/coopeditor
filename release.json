@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc37",
-  "summary": "SPK RC 37 sua worker SQLite khong con goi pg_notify nham, tranh proxy bi treo o trang thai running/cho.",
+  "version": "1.0.0-rc38",
+  "summary": "SPK RC 38 bo sung day du guard trong worker event bus de package native SQLite khong goi pg_notify nham.",
   "changes": [
-    "Resolver event bus gio ep moi runtime SQLite/SPK ve local-only, ke ca khi env cu con sot EVENT_BUS_DRIVER=pg.",
-    "Worker SQLite khong con roi vao loi 'no such function: pg_notify' khi bat dau transcode, nen job se tiep tuc chay thay vi ket running vo thoi han.",
-    "Bo sung test khoa truong hop SPK native dung SQLite nhung con mang config event bus Postgres tu runtime cu."
+    "Worker event-bus gio co guard local-only ngay tai publishWorkerEvent, nen bundle SPK native se dung transcode an toan ca khi runtime SQLite khong dung cluster bus.",
+    "Dong bo day du fix resolver + worker publish path, tranh tinh trang version/release dung nhung file worker trong goi van con thieu patch.",
+    "Ban nay danh rieng cho loi proxy bi treo running/cho do worker goi pg_notify tren SQLite."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }
