@@ -10,9 +10,18 @@ const MOUNT_ERROR_RE = /(not mounted|cannot read source path|source file not fou
 
 export { WORKER_HEARTBEAT_STALE_MS };
 
+export function normalizeDbTimestamp(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
+    return raw.replace(" ", "T") + "Z";
+  }
+  return raw;
+}
+
 function isoOrNull(value) {
   if (!value) return null;
-  try { return new Date(value).toISOString(); } catch (_) { return null; }
+  try { return new Date(normalizeDbTimestamp(value)).toISOString(); } catch (_) { return null; }
 }
 
 function staleMessage(worker) {

@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc35",
-  "summary": "SPK RC 35 sua dut diem worker heartbeat tren SQLite de giao dien native khong con bao worker stale du worker dang chay.",
+  "version": "1.0.0-rc36",
+  "summary": "SPK RC 36 sua parse timestamp SQLite theo UTC de worker heartbeat SPK khong bi danh stale sai mui gio.",
   "changes": [
-    "Worker runtime heartbeat tren SPK gio ep tat ca field ve primitive truoc khi ghi SQLite, tranh loi bind lam UI bao 'Worker heartbeat da cu' du worker dang online.",
-    "Bo sung test SQLite ghi heartbeat that vao bang worker_runtime_status, mo phong dung runtime native tren Synology Package Center.",
-    "Ban nay giu nguyen lifecycle worker inline cua RC34 nhung sua phan status/runtime de giao dien transcode nhan worker online dung cach."
+    "API gio chuan hoa timestamp dang 'YYYY-MM-DD HH:MM:SS' cua SQLite thanh UTC truoc khi tinh stale worker heartbeat, tranh lech 7 tieng tren SPK.",
+    "Bo sung test cho normalizeDbTimestamp de khoa loi worker online nhung UI van bao stale do parse gio local sai.",
+    "Ban nay giu nguyen fix heartbeat SQLite cua RC35 va sua them lop doc runtime status de popup transcode hien worker active dung cach."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { summarizeTranscodeWorkers } from "../src/transcode-runtime-status.js";
+import { summarizeTranscodeWorkers, normalizeDbTimestamp } from "../src/transcode-runtime-status.js";
 
 test("summarizeTranscodeWorkers reports offline when no worker heartbeat exists", () => {
   const summary = summarizeTranscodeWorkers([]);
@@ -107,4 +107,15 @@ test("summarizeTranscodeWorkers marks sim-only worker as not transcode-ready on 
   assert.equal(summary.canTranscode, false);
   assert.equal(summary.spkRuntime, true);
   assert.match(summary.message, /mô phỏng|FFmpeg/i);
+});
+
+test("normalizeDbTimestamp treats sqlite timestamps as UTC instead of local time", () => {
+  assert.equal(
+    normalizeDbTimestamp("2026-06-30 10:18:05"),
+    "2026-06-30T10:18:05Z",
+  );
+  assert.equal(
+    normalizeDbTimestamp("2026-06-30T10:18:05.000Z"),
+    "2026-06-30T10:18:05.000Z",
+  );
 });
