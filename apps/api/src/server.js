@@ -1614,11 +1614,16 @@ async function sendMetrics(res) {
 }
 
 async function transcodeMetrics() {
-  if (store.backend !== "pg") {
+  if (store.backend === "memory") {
     return { queued: pendingTranscodeCount(), running: 0 };
   }
   const pool = db();
-  const { rows } = await pool.query(`
+  const { rows } = await pool.query(store.backend === "sqlite" ? `
+    SELECT
+      SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) AS queued,
+      SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running
+    FROM transcode_jobs
+  ` : `
     SELECT
       COUNT(*) FILTER (WHERE status = 'queued')::int AS queued,
       COUNT(*) FILTER (WHERE status = 'running')::int AS running

@@ -16,6 +16,7 @@ let userId = "";
 let assetId = "";
 let versionId = "";
 let renditionId = "";
+let workerRuntime;
 
 function spawnAndCollect(file, env) {
   return new Promise((resolve, reject) => {
@@ -54,6 +55,7 @@ before(async () => {
 
   dbMod = await import("../src/db.js");
   store = await import("../src/store-index.js");
+  workerRuntime = await import("../src/worker-runtime.js");
   await dbMod.initDb();
 
   const user = await store.upsertUserFromDsm({ uid: 1001, name: "minh", email: "minh@example.com" });
@@ -151,4 +153,26 @@ test("SPK sqlite store can read rendition job metadata and proxy storage ownersh
   assert.equal(meta[0].assetId, assetId);
   assert.equal(meta[0].projectId, projectId);
   assert.equal(meta[1].orphan, true);
+});
+
+test("SPK sqlite requestTranscode enqueues a real transcode job instead of simulating progress in API", async () => {
+  await dbMod.db().query(`DELETE FROM transcode_jobs WHERE rendition_id = $1`, [renditionId]);
+  await store.setRenditionStatus(renditionId, {
+    status: "pending",
+    progress: 0,
+    hlsMasterUrl: null,
+  });
+
+  await workerRuntime.requestTranscode(renditionId);
+
+  const refreshed = await store.getRendition(renditionId);
+  assert.equal(refreshed.status, "pending");
+  assert.equal(refreshed.progress, 0);
+
+  const queued = await dbMod.db().query(
+    `SELECT status, attempts, max_attempts FROM transcode_jobs WHERE rendition_id = $1 ORDER BY id DESC LIMIT 1`,
+    [renditionId],
+  );
+  assert.equal(queued.rows.length, 1);
+  assert.equal(queued.rows[0].status, "queued");
 });

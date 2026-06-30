@@ -1,7 +1,7 @@
-// Two modes:
+// Two runtime families:
 //   - memory backend: in-process tick simulator (so dev works without a worker)
-//   - pg backend: enqueue to transcode_jobs; the out-of-process worker
-//     (apps/worker) does the actual work and publishes progress via the cluster event bus.
+//   - real DB backends (sqlite/postgres): enqueue to transcode_jobs; the worker
+//     (inline for SPK, separate process/container elsewhere) does the real work.
 
 import * as store from "./store-index.js";
 import { publishEvent } from "./event-bus.js";
@@ -13,7 +13,7 @@ export async function requestTranscode(rid) {
   if (!r) return;
   if (r.status === "ready" || r.status === "processing") return;
 
-  if (store.backend === "pg") {
+  if (store.backend !== "memory") {
     await store.setRenditionStatus(rid, { status: "pending", progress: 0, hlsMasterUrl: null });
     await store.enqueueTranscode(rid);
     return;
@@ -61,7 +61,7 @@ async function tickAssets() {
 let timer = null;
 export async function startWorker() {
   if (timer) return;
-  if (store.backend === "pg") return; // pg mode uses the external worker
+  if (store.backend !== "memory") return; // real DB backends use the real worker runtime
   for (const r of await store.listProcessingRenditions()) pendingRenditions.add(r.id);
   timer = setInterval(() => { tickAssets().catch(() => {}); tickRenditions().catch(() => {}); }, 600);
   timer.unref && timer.unref();
