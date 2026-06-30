@@ -2068,7 +2068,7 @@ function projectDetail(vals) {
         <button data-act="setListView" title="Danh sách" style="width:30px;height:26px;display:grid;place-items:center;border:none;border-radius:7px;cursor:pointer;background:${vals.listBtnBg};color:${vals.listBtnColor};">${ICON.list}</button>
       </div>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:6px 22px 30px;">
+    <div id="projectSourcesScroll" style="flex:1;overflow-y:auto;padding:6px 22px 30px;">
       ${vals.sources.length ? `
         <div style="display:flex;align-items:center;gap:12px;padding:14px 4px;color:var(--co-faint);font-size:13px;">
           <div style="width:18px;height:18px;border-radius:5px;border:1.5px solid var(--co-border-2);"></div>
@@ -2082,7 +2082,7 @@ function projectDetail(vals) {
   return `
   <div style="flex:1;display:flex;min-width:0;min-height:0;">
     ${state.panels && state.panels.nav !== false ? projectNavPanel(vals) : ""}
-  <main style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column;">
+  <main id="projectDetailScroll" style="flex:1;min-width:0;overflow-y:auto;display:flex;flex-direction:column;">
     <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--co-border);">
       <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto;">
         <span data-act="goProjects" class="co-text-hover" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;flex:0 0 auto;white-space:nowrap;">All Projects</span>
@@ -3242,7 +3242,7 @@ function importModal(vals) {
         </div>
         <button data-act="closeImport" class="co-attach-hover" style="width:34px;height:34px;display:grid;place-items:center;background:var(--co-hover);border:none;border-radius:9px;color:var(--co-text-2);cursor:pointer;flex:0 0 34px;">${ICON.x}</button>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:12px 14px;">
+      <div id="importListScroll" style="flex:1;overflow-y:auto;padding:12px 14px;">
         ${vals.nasError ? `<div style="margin-bottom:10px;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(vals.nasError)}</div>` : ""}
         ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
         <div style="display:flex;flex-direction:column;gap:4px;">
@@ -3718,11 +3718,35 @@ function computeVals() {
 }
 
 let lastNasListMeta = [];
+const PERSIST_SCROLL_IDS = ["projectDetailScroll", "projectSourcesScroll", "importListScroll"];
+
+function capturePersistedScrollPositions() {
+  const out = {};
+  for (const id of PERSIST_SCROLL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    out[id] = { top: el.scrollTop, left: el.scrollLeft };
+  }
+  return out;
+}
+
+function restorePersistedScrollPositions(saved) {
+  if (!saved || typeof saved !== "object") return;
+  for (const id of PERSIST_SCROLL_IDS) {
+    const pos = saved[id];
+    if (!pos) continue;
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.scrollTop = Number(pos.top || 0);
+    el.scrollLeft = Number(pos.left || 0);
+  }
+}
 
 function render() {
   // Clear any pending scheduled-render flag — a direct render() call already
   // does the work, so the rAF callback can be a noop when it fires.
   _renderQueued = false;
+  const savedScroll = capturePersistedScrollPositions();
   const vals = computeVals();
   lastNasListMeta = vals.nasList;
   const app = document.getElementById("app");
@@ -3758,6 +3782,7 @@ function render() {
     ${sourceContextMenu()}
   `;
   syncHashRoute();
+  restorePersistedScrollPositions(savedScroll);
 
   // Restore focus to comment input if it had it
   const ta = document.getElementById("commentInput");
