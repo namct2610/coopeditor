@@ -33,14 +33,20 @@ import { createWorkerRuntimeReporter, detectWorkerMountHealth } from "./runtime-
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
 import { initDb, db, activeDriver } from "../../api/src/db.js";
+import { resolveUsableFfmpeg } from "../../api/src/ffmpeg-runtime.js";
 
 if (!process.env.DATABASE_URL) { console.error("[worker] DATABASE_URL required"); process.exit(1); }
 
-const FFMPEG_PATH = process.env.FFMPEG_PATH || "";
+const ffmpegRuntime = await resolveUsableFfmpeg("proxy", process.env);
+const FFMPEG_PATH = ffmpegRuntime.usable ? ffmpegRuntime.path : "";
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
 const scalingPolicy = createScalingPolicy(process.env);
 const BASE_CONCURRENCY = scalingPolicy.baseConcurrency;
 const RUNG_BITRATE = { 720: "3500k", 1080: "8000k" };
+
+if (!ffmpegRuntime.usable) {
+  console.warn("[worker] ffmpeg unavailable:", ffmpegRuntime.reason);
+}
 
 // "nvenc" → NVIDIA. "qsv" → Intel QuickSync (libmfx). "vaapi" → generic Linux
 // VAAPI (works with Intel iGPU on Alpine where libmfx is missing). "" → CPU.

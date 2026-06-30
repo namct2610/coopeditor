@@ -167,13 +167,29 @@ set -eu
 last=""
 want_mjpeg=0
 prev=""
+mode=""
 for arg in "$@"; do
+  mode="$arg"
   if [ "$prev" = "-f" ] && [ "$arg" = "mjpeg" ]; then
     want_mjpeg=1
   fi
   prev="$arg"
   last="$arg"
 done
+if [ "$mode" = "-decoders" ]; then
+  cat <<'EOF'
+ V..... h264
+EOF
+  exit 0
+fi
+if [ "$mode" = "-encoders" ]; then
+  cat <<'EOF'
+ A..... aac
+ V..... libx264
+ V..... mjpeg
+EOF
+  exit 0
+fi
 if [ "$want_mjpeg" -ne 1 ]; then
   echo "Unable to find a suitable output format for '$last'" >&2
   exit 1
@@ -188,6 +204,7 @@ printf 'JPEGDATA' > "$last"
   process.env.DSM_DEV_LOGIN = "1";
   process.env.FFMPEG_PATH = fakeFfmpeg;
   process.env.APP_DATA_DIR = join(root, "app-data");
+  process.env.COOPEDITOR_FFMPEG_DISABLE_SYSTEM_LOOKUP = "1";
 
   const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?thumb-fallback=" + Date.now());
   const thumbPath = await mod.ensureVideoThumbnail("/C1967.MP4", "thumb:test", { seekMs: 1000, width: 640 });

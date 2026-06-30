@@ -13,11 +13,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { resolveUsableFfmpeg } from "./ffmpeg-runtime.js";
 
 const execFileAsync = promisify(execFile);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const LEGACY_CONTAINER_MOUNT_ROOT = process.env.DSM_LEGACY_MOUNT_ROOT || "/nas";
-const FFMPEG_PATH = process.env.FFMPEG_PATH || "ffmpeg";
 const VIDEO_EXTENSIONS = new Set(["mp4", "mov", "mxf", "m4v", "mkv", "webm", "avi"]);
 const HIDDEN_NAMES = new Set(["@eaDir", "#recycle", "@SynoResource", "@tmp"]);
 const MEDIA_PROBE_TTL_MS = 15 * 60 * 1000;
@@ -680,11 +680,15 @@ function normalizeCodec(codecName) {
 export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000, width = 640 } = {}) {
   const localPath = await assertReadableSourcePath(sourcePath, { actor: "api" });
   const outPath = thumbCachePath(cacheKey || sourcePath);
+  const ffmpeg = await resolveUsableFfmpeg("thumbnail", process.env);
   await mkdir(join(APP_DATA_DIR, "system", "thumbs"), { recursive: true });
   try {
     await stat(outPath);
     return outPath;
   } catch (_) {}
+  if (!ffmpeg.usable) {
+    throw new Error(ffmpeg.reason);
+  }
   const baseArgs = [
     "-y",
     "-ss", String(Math.max(0, seekMs) / 1000),
@@ -694,13 +698,13 @@ export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000
     "-q:v", "3",
   ];
   try {
-    await execFileAsync(FFMPEG_PATH, [
+    await execFileAsync(ffmpeg.path, [
       ...baseArgs,
       outPath,
     ]);
   } catch (err) {
     if (!isImageMuxerUnavailable(err)) throw err;
-    await execFileAsync(FFMPEG_PATH, [
+    await execFileAsync(ffmpeg.path, [
       ...baseArgs,
       "-c:v", "mjpeg",
       "-f", "mjpeg",

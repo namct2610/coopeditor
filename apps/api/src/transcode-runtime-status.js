@@ -29,12 +29,12 @@ function mountMessage(worker) {
 
 function ffmpegMissingMessage(worker, { spkRuntime = false } = {}) {
   const base = spkRuntime
-    ? "Worker inline đang online nhưng đang chạy chế độ mô phỏng vì package Coopeditor chưa tìm thấy FFmpeg thật."
-    : "Worker đang online nhưng đang chạy chế độ mô phỏng vì runtime chưa tìm thấy FFmpeg thật.";
+    ? "Worker inline đang online nhưng đang chạy chế độ mô phỏng vì package Coopeditor chưa tìm thấy FFmpeg usable cho HLS proxy."
+    : "Worker đang online nhưng đang chạy chế độ mô phỏng vì runtime chưa tìm thấy FFmpeg usable cho HLS proxy.";
   const path = String(process.env.FFMPEG_PATH || "").trim();
   return path
-    ? (base + " FFMPEG_PATH hiện tại: " + path)
-    : (base + " Hãy cài Synology Codec Pack hoặc bundle FFmpeg rồi restart runtime.");
+    ? (base + " FFMPEG_PATH hiện tại: " + path + ". Binary này có thể đang thiếu H.264 decoder hoặc AAC/libx264 encoder.")
+    : (base + " Hãy bundle FFmpeg đầy đủ codec rồi restart package/runtime.");
 }
 
 function mountPermissionHint(message, { spkRuntime = false } = {}) {

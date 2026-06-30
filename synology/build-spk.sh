@@ -132,6 +132,9 @@ if [ -n "${FFMPEG_BIN:-}" ] && [ -x "$FFMPEG_BIN" ]; then
   cp "$FFMPEG_BIN" "${PKG_STAGE}/lib/bin/ffmpeg"
   chmod +x "${PKG_STAGE}/lib/bin/ffmpeg"
   echo "==> Bundled ffmpeg: $(basename "$FFMPEG_BIN")"
+elif [[ ! "$VERSION" =~ ^0\.0\.0- ]] && [[ "$VERSION" != *smoke* ]]; then
+  echo "WARN: Building release-like SPK without bundled ffmpeg."
+  echo "      Runtime will fall back to DSM CodecPack/system ffmpeg, which often lacks H.264/AAC support."
 fi
 
 # 2c. App sources. Trim tests, dev-only files, host node_modules.

@@ -68,9 +68,25 @@ jobs:
           tar -xJf node.tar.xz -C node-runtime --strip-components=1
           echo "node_bin=$(pwd)/node-runtime/bin/node" >> "$GITHUB_OUTPUT"
 
+      - name: Download ffmpeg runtime for ${{ matrix.arch }}
+        id: ffmpeg
+        run: |
+          mkdir -p ffmpeg-runtime
+          pushd ffmpeg-runtime >/dev/null
+          npm init -y >/dev/null 2>&1
+          npm_config_platform=linux \
+          npm_config_arch=${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }} \
+          npm_config_libc=glibc \
+          npm install --no-save ffmpeg-static >/dev/null 2>&1
+          FFMPEG_BIN="$(node -p "require('ffmpeg-static') || ''")"
+          [ -n "$FFMPEG_BIN" ] && [ -x "$FFMPEG_BIN" ]
+          echo "ffmpeg_bin=${FFMPEG_BIN}" >> "$GITHUB_OUTPUT"
+          popd >/dev/null
+
       - name: Build SPK
         env:
           NODE_BIN: ${{ steps.node.outputs.node_bin }}
+          FFMPEG_BIN: ${{ steps.ffmpeg.outputs.ffmpeg_bin }}
           BUILD_SHA: ${{ github.sha }}
           BUILT_AT: ${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
         run: |

@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc32",
-  "summary": "SPK RC 32 lam ro runtime worker tren NAS: tach bai toan stale worker va sim-mode do thieu FFmpeg.",
+  "version": "1.0.0-rc33",
+  "summary": "SPK RC 33 kiem tra FFmpeg usable that su cho worker/API va chan release SPK thieu codec can cho proxy.",
   "changes": [
-    "Worker runtime summary gio phan biet ro worker da stale voi worker dang online nhung bi roi vao sim mode vi chua thay FFmpeg that.",
-    "Popup Proxy ladder tren web gio chi hien huong dan dung voi SPK native, khong con tron thong diep Docker gay nhieu.",
-    "Bo sung regression test de khoa chat chuan doan sim-mode tren SPK va giu on dinh flow transcode SQLite da sua o RC31."
+    "Worker inline va API gio tu probe decoder/encoder can thiet truoc khi dung ffmpeg, nen se khong coi binary DSM bi cat H.264/AAC la runtime hop le nua.",
+    "Transcode runtime message tren SPK gio noi ro worker dang roi vao sim mode vi thieu FFmpeg usable cho HLS proxy, thay vi chi bao heartbeat cu mo ho.",
+    "Pipeline build SPK duoc bo sung buoc bundle ffmpeg va canh bao khi release build khong kem ffmpeg, de tranh lap lai ban SPK khong transcode duoc."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }
