@@ -5,15 +5,18 @@ export const REDIS_STREAM_KEY_DEFAULT = "coopeditor_events";
 
 export function resolveEventBusDriver(env = process.env) {
   const configured = (env.EVENT_BUS_DRIVER || "").trim().toLowerCase();
+  const dbUrl = String(env.DATABASE_URL || "").trim().toLowerCase();
   if (configured === "redis" || configured === "redis-streams") return "redis-streams";
+  // Native SPK/sqlite deploys are always single-node. Even if an old runtime
+  // env still carries EVENT_BUS_DRIVER=pg from a Docker-era config, forcing
+  // pg_notify on SQLite crashes the worker mid-transcode.
+  if (dbUrl.startsWith("sqlite:") || dbUrl.startsWith("file:")) return "none";
   if (configured === "pg" || configured === "postgres" || configured === "postgres-listen") return "pg";
   if (configured === "none" || configured === "memory" || configured === "off") return "none";
   if (env.REDIS_URL) return "redis-streams";
   // SQLite has no LISTEN/NOTIFY analogue. In a single-process SPK deploy
   // the API + worker share the same EventEmitter, so cluster fanout is
   // unnecessary — "none" means the in-process bus carries every event.
-  const dbUrl = String(env.DATABASE_URL || "").trim().toLowerCase();
-  if (dbUrl.startsWith("sqlite:") || dbUrl.startsWith("file:")) return "none";
   if (env.DATABASE_URL) return "pg";
   return "none";
 }

@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc36",
-  "summary": "SPK RC 36 sua parse timestamp SQLite theo UTC de worker heartbeat SPK khong bi danh stale sai mui gio.",
+  "version": "1.0.0-rc37",
+  "summary": "SPK RC 37 sua worker SQLite khong con goi pg_notify nham, tranh proxy bi treo o trang thai running/cho.",
   "changes": [
-    "API gio chuan hoa timestamp dang 'YYYY-MM-DD HH:MM:SS' cua SQLite thanh UTC truoc khi tinh stale worker heartbeat, tranh lech 7 tieng tren SPK.",
-    "Bo sung test cho normalizeDbTimestamp de khoa loi worker online nhung UI van bao stale do parse gio local sai.",
-    "Ban nay giu nguyen fix heartbeat SQLite cua RC35 va sua them lop doc runtime status de popup transcode hien worker active dung cach."
+    "Resolver event bus gio ep moi runtime SQLite/SPK ve local-only, ke ca khi env cu con sot EVENT_BUS_DRIVER=pg.",
+    "Worker SQLite khong con roi vao loi 'no such function: pg_notify' khi bat dau transcode, nen job se tiep tuc chay thay vi ket running vo thoi han.",
+    "Bo sung test khoa truong hop SPK native dung SQLite nhung con mang config event bus Postgres tu runtime cu."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }
