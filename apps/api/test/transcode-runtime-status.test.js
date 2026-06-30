@@ -91,3 +91,20 @@ test("summarizeTranscodeWorkers explains offline worker when API mount is ready"
   assert.match(summary.message, /Source path not mounted in worker/i);
   assert.equal(summary.diagnostics.apiMount.mountReady, true);
 });
+
+test("summarizeTranscodeWorkers marks sim-only worker as not transcode-ready on SPK", () => {
+  const summary = summarizeTranscodeWorkers([{
+    workerId: "w-sim",
+    stale: false,
+    mountReady: true,
+    mountError: "",
+    mode: "sim",
+    dsmMountRoot: "/volume1/PCNgon",
+  }], {
+    spkRuntime: true,
+  });
+  assert.equal(summary.status, "sim");
+  assert.equal(summary.canTranscode, false);
+  assert.equal(summary.spkRuntime, true);
+  assert.match(summary.message, /mô phỏng|FFmpeg/i);
+});

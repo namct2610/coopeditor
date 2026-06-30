@@ -3089,7 +3089,7 @@ function transcodeModal(vals) {
           <div style="margin-bottom:12px;padding:12px 14px;background:rgba(239,77,87,0.09);border:1px solid rgba(239,77,87,0.24);border-radius:12px;">
             <div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#ef4d57;">Worker runtime</div>
             <div style="margin-top:5px;color:var(--co-text);font-size:13px;font-weight:700;line-height:1.55;">${esc(vals.transcodeRuntimeMessage || "Worker chưa sẵn sàng để transcode.")}</div>
-            <div style="margin-top:5px;color:var(--co-muted);font-size:11.5px;font-weight:600;line-height:1.55;">Nếu đang chạy Docker: kiểm tra volume NAS/app-data của <code>coopeditor-worker</code> rồi redeploy. Nếu đang chạy SPK: kiểm tra log package Coopeditor rồi restart package để worker inline đọc lại cấu hình.</div>
+            <div style="margin-top:5px;color:var(--co-muted);font-size:11.5px;font-weight:600;line-height:1.55;">${esc(vals.transcodeRuntimeHelpText || "")}</div>
           </div>
         ` : ""}
         ${vals.ladder.map((l) => `
@@ -3437,6 +3437,7 @@ function computeVals() {
     : "Nguồn gốc";
   const transcodeRuntime = remote.transcodeRuntime || null;
   const transcodeRuntimeMessage = normalizeTranscodeRuntimeMessage(transcodeRuntime);
+  const transcodeRuntimeHelpTextValue = transcodeRuntimeHelpText(transcodeRuntime);
   const qualities = qualityList.map((q) => {
     const isActive = q.id === s.quality;
     let tag = "Sẵn sàng", tagColor = "#2bbe6e", tagBg = "rgba(43,190,110,0.14)";
@@ -3664,6 +3665,7 @@ function computeVals() {
     ladder,
     transcodeRuntime,
     transcodeRuntimeMessage,
+    transcodeRuntimeHelpText: transcodeRuntimeHelpTextValue,
     visibleComments: visible, countAll, countOpen, countDone, emptyState: visible.length === 0,
     tabAllBg: tabBg(s.filter === "all"), tabAllColor: tabColor(s.filter === "all"),
     tabOpenBg: tabBg(s.filter === "open"), tabOpenColor: tabColor(s.filter === "open"),
@@ -4645,6 +4647,17 @@ function normalizeTranscodeRuntimeMessage(status) {
   if (!status) return "";
   const text = String(status.message || "").trim();
   return text;
+}
+
+function transcodeRuntimeHelpText(status) {
+  if (!status) return "";
+  if (status.spkRuntime) {
+    if (status.status === "sim") {
+      return "SPK đang thấy worker nhưng chưa có FFmpeg thật để encode. Cài Synology Codec Pack hoặc bundle FFmpeg, rồi restart package Coopeditor.";
+    }
+    return "Đây là bản SPK native. Hãy kiểm tra log package Coopeditor và restart package để worker inline đọc lại cấu hình mới.";
+  }
+  return "Nếu đang chạy Docker: kiểm tra volume NAS/app-data của coopeditor-worker rồi redeploy để worker đọc lại mount và config.";
 }
 
 function openEventStream() {

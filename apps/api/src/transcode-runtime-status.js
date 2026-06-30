@@ -27,6 +27,16 @@ function mountMessage(worker) {
   return "Worker chưa thấy DSM mount root " + (worker.dsmMountRoot || "/nas") + ".";
 }
 
+function ffmpegMissingMessage(worker, { spkRuntime = false } = {}) {
+  const base = spkRuntime
+    ? "Worker inline đang online nhưng đang chạy chế độ mô phỏng vì package Coopeditor chưa tìm thấy FFmpeg thật."
+    : "Worker đang online nhưng đang chạy chế độ mô phỏng vì runtime chưa tìm thấy FFmpeg thật.";
+  const path = String(process.env.FFMPEG_PATH || "").trim();
+  return path
+    ? (base + " FFMPEG_PATH hiện tại: " + path)
+    : (base + " Hãy cài Synology Codec Pack hoặc bundle FFmpeg rồi restart runtime.");
+}
+
 function mountPermissionHint(message, { spkRuntime = false } = {}) {
   const detail = String(message || "").trim();
   if (!detail) return "";
@@ -161,7 +171,9 @@ async function loadLatestMountFailure() {
 
 export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   const activeWorkers = workers.filter((worker) => !worker.stale);
-  const readyWorkers = activeWorkers.filter((worker) => worker.mountReady);
+  const simWorkers = activeWorkers.filter((worker) => worker.mode === "sim");
+  const transcodeWorkers = activeWorkers.filter((worker) => worker.mode !== "sim");
+  const readyWorkers = transcodeWorkers.filter((worker) => worker.mountReady);
   const mountIssueWorkers = activeWorkers.filter((worker) => !worker.mountReady);
   const warningWorkers = readyWorkers.filter((worker) => String(worker.mountError || "").trim());
   const latestWorker = workers[0] || null;
@@ -190,6 +202,9 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
   if (warningWorkers.length) {
     status = "warning";
     message = mountMessage(warningWorkers[0]);
+  } else if (simWorkers.length && !transcodeWorkers.length) {
+    status = "sim";
+    message = ffmpegMissingMessage(simWorkers[0], { spkRuntime });
   } else if (activeWorkers.length && readyWorkers.length === activeWorkers.length) {
     status = "ready";
     message = "Worker đang online và nhìn thấy DSM mount root.";
@@ -232,6 +247,7 @@ export function summarizeTranscodeWorkers(workers, diagnostics = {}) {
 
   return {
     backend: store.backend,
+    spkRuntime,
     workerHeartbeatPresent: workers.length > 0,
     activeWorkers: activeWorkers.length,
     canTranscode: readyWorkers.length > 0,
