@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 
 import { publishWorkerEvent, startWorkerEventBus, workerEventBusMode } from "./event-bus.js";
 import { isPermanentTranscodeError, shouldAutoRequeueFailedJob, terminalFailureAttempts } from "./error-policy.js";
+import { resolveFfmpegOutputDir } from "./output-paths.js";
 import { createWorkerRuntimeReporter, detectWorkerMountHealth } from "./runtime-status.js";
 import { computeTargetConcurrency, createScalingPolicy, shouldKeepWorkerAlive } from "./scaling.js";
 import { assertReadableSourcePath } from "../../api/src/dsm.js";
@@ -454,7 +455,9 @@ async function runSim(rid, assetVersionId) {
 async function runFfmpeg(rendition) {
   // Source path: rendition.nas_path. Mode "full" uploads to MinIO; "ffmpeg-only" writes locally.
   const localSourcePath = await assertReadableSourcePath(rendition.nas_path, { actor: "worker" });
-  const outDir = mode === "full" ? await fs.mkdtemp(join(tmpdir(), "co-")) : (process.env.OUTPUT_DIR || join(tmpdir(), "co-out", rendition.id));
+  const outDir = mode === "full"
+    ? await fs.mkdtemp(join(tmpdir(), "co-"))
+    : resolveFfmpegOutputDir(process.env.OUTPUT_DIR, rendition.id);
   await fs.mkdir(outDir, { recursive: true });
   const bitrate = RUNG_BITRATE[rendition.height] || "3500k";
   const codec = codecForHeight(rendition.height);
@@ -522,7 +525,7 @@ async function runFfmpeg(rendition) {
           await updateRendition(rendition.id, { status: "ready", progress: 100, hlsMasterUrl: "/hls/" + rendition.id + "/master.m3u8" });
           await fs.rm(outDir, { recursive: true, force: true });
         } else {
-          await updateRendition(rendition.id, { status: "ready", progress: 100, hlsMasterUrl: "file://" + join(outDir, "master.m3u8") });
+          await updateRendition(rendition.id, { status: "ready", progress: 100, hlsMasterUrl: "/hls/" + rendition.id + "/master.m3u8" });
         }
         resolve();
       } catch (e) { reject(e); }

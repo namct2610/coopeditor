@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc38",
-  "summary": "SPK RC 38 bo sung day du guard trong worker event bus de package native SQLite khong goi pg_notify nham.",
+  "version": "1.0.0-rc39",
+  "summary": "SPK RC 39 sua output HLS native theo tung rendition rieng de proxy 720p/1080p khong ghi de vao cung mot master.m3u8.",
   "changes": [
-    "Worker event-bus gio co guard local-only ngay tai publishWorkerEvent, nen bundle SPK native se dung transcode an toan ca khi runtime SQLite khong dung cluster bus.",
-    "Dong bo day du fix resolver + worker publish path, tranh tinh trang version/release dung nhung file worker trong goi van con thieu patch.",
-    "Ban nay danh rieng cho loi proxy bi treo running/cho do worker goi pg_notify tren SQLite."
+    "Worker ffmpeg-only gio luu HLS vao OUTPUT_DIR/<renditionId>/... dung voi cach API /hls doc file tren SPK native, tranh 720p va 1080p cung ghi vao mot thu muc goc.",
+    "Rendition tren SQLite/SPK sau khi transcode xong se luon tro ve /hls/<renditionId>/master.m3u8 thay vi file://..., nen UI va player su dung cung mot duong proxy xac thuc.",
+    "Bo sung test khoa logic path output theo rendition de tranh tai phat loi backend transcode xong nhung playback/thumbnail proxy van sai duong dan."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

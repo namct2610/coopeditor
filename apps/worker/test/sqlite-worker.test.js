@@ -128,3 +128,15 @@ exit 0
     for (const key of Object.keys(baseEnv)) delete process.env[key];
   }
 });
+
+test("sqlite worker resolves ffmpeg-only output dir per rendition", async () => {
+  const { resolveFfmpegOutputDir } = await import("../src/output-paths.js");
+  assert.equal(
+    resolveFfmpegOutputDir("/var/packages/coopeditor/var/proxy", "imp_56234c96_v1_720p"),
+    join("/var/packages/coopeditor/var/proxy", "imp_56234c96_v1_720p"),
+  );
+  assert.equal(
+    resolveFfmpegOutputDir("", "imp_56234c96_v1_1080p"),
+    join(tmpdir(), "co-out", "imp_56234c96_v1_1080p"),
+  );
+});
