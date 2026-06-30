@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc29",
-  "summary": "SPK RC 29 sua worker SQLite tren DSM: het xung dot transaction khi worker inline claim job song song.",
+  "version": "1.0.0-rc30",
+  "summary": "SPK RC 30 sua thumbnail DSM: ffmpeg Synology tat image2 van tao duoc JPEG that cho NAS import/poster.",
   "changes": [
-    "Worker SQLite trong SPK gio claim transcode job bang cau UPDATE ... RETURNING nguyen tu, bo hẳn BEGIN/COMMIT thu cong gay loi cannot start a transaction within a transaction.",
-    "Auto-requeue, queue-depth va reschedule cua worker duoc tach rieng cho SQLite/Postgres de worker inline tren DSM khong dung chung duong transaction cua Docker/Postgres.",
-    "Bo sung regression test mo phong 2 slot worker SQLite claim job song song de khoa chat bug worker heartbeat cu tren NAS."
+    "Thumbnail NAS va poster asset/project gio tu dong retry bang muxer mjpeg khi ffmpeg DSM cua Synology da tat image2/image2pipe, nen khong con roi ve placeholder tren man hinh import.",
+    "Giữ nguyen cache thumbnail .jpg va flow import hien tai, chi them fallback thong minh khi gap loi Unable to find a suitable output format tren DSM.",
+    "Bo sung regression test mo phong ffmpeg Synology tu choi image2 de khoa chat bug thumbnail tren ban SPK."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

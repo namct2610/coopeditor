@@ -192,6 +192,21 @@ function thumbCachePath(key) {
   return join(APP_DATA_DIR, "system", "thumbs", hash + ".jpg");
 }
 
+function ffmpegErrorText(err) {
+  return [
+    err && err.message,
+    err && err.stderr,
+    err && err.stdout,
+  ].filter(Boolean).join("\n");
+}
+
+function isImageMuxerUnavailable(err) {
+  const text = ffmpegErrorText(err);
+  return /Unable to find a suitable output format/i.test(text)
+    || /Requested output format ['"]?image2/i.test(text)
+    || /Requested output format ['"]?image2pipe/i.test(text);
+}
+
 async function buildVideoEntry({ name, path, bytes = 0, probePath = null }) {
   if (!looksLikeVideoName(name)) return null;
   const normalizedPath = normalizeStoredNasPath(path);
@@ -670,15 +685,28 @@ export async function ensureVideoThumbnail(sourcePath, cacheKey, { seekMs = 1000
     await stat(outPath);
     return outPath;
   } catch (_) {}
-  await execFileAsync(FFMPEG_PATH, [
+  const baseArgs = [
     "-y",
     "-ss", String(Math.max(0, seekMs) / 1000),
     "-i", localPath,
     "-frames:v", "1",
     "-vf", "scale=" + width + ":-2",
     "-q:v", "3",
-    outPath,
-  ]);
+  ];
+  try {
+    await execFileAsync(FFMPEG_PATH, [
+      ...baseArgs,
+      outPath,
+    ]);
+  } catch (err) {
+    if (!isImageMuxerUnavailable(err)) throw err;
+    await execFileAsync(FFMPEG_PATH, [
+      ...baseArgs,
+      "-c:v", "mjpeg",
+      "-f", "mjpeg",
+      outPath,
+    ]);
+  }
   return outPath;
 }
 

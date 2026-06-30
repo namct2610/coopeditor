@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -155,4 +155,42 @@ test("mounted NAS listing stays inside the shared folder when mount root already
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("ensureVideoThumbnail retries with mjpeg when DSM ffmpeg disables image2 muxer", async () => {
+  const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-thumb-"));
+  const fakeVideo = join(root, "C1967.MP4");
+  const fakeFfmpeg = join(root, "fake-ffmpeg.sh");
+  await writeFile(fakeVideo, "demo");
+  await writeFile(fakeFfmpeg, `#!/bin/sh
+set -eu
+last=""
+want_mjpeg=0
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-f" ] && [ "$arg" = "mjpeg" ]; then
+    want_mjpeg=1
+  fi
+  prev="$arg"
+  last="$arg"
+done
+if [ "$want_mjpeg" -ne 1 ]; then
+  echo "Unable to find a suitable output format for '$last'" >&2
+  exit 1
+fi
+printf 'JPEGDATA' > "$last"
+`);
+  await chmod(fakeFfmpeg, 0o755);
+
+  process.env.DSM_HOST = "";
+  process.env.DSM_MOUNT_ROOT = root;
+  process.env.DSM_LIBRARY_ROOT = "/";
+  process.env.DSM_DEV_LOGIN = "1";
+  process.env.FFMPEG_PATH = fakeFfmpeg;
+  process.env.APP_DATA_DIR = join(root, "app-data");
+
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?thumb-fallback=" + Date.now());
+  const thumbPath = await mod.ensureVideoThumbnail("/C1967.MP4", "thumb:test", { seekMs: 1000, width: 640 });
+  const body = await readFile(thumbPath, "utf8");
+  assert.equal(body, "JPEGDATA");
 });
