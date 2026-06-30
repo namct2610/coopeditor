@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc33",
-  "summary": "SPK RC 33 kiem tra FFmpeg usable that su cho worker/API va chan release SPK thieu codec can cho proxy.",
+  "version": "1.0.0-rc34",
+  "summary": "SPK RC 34 chuan hoa lifecycle native: bat worker inline mac dinh trong script package va dong bo voi FFmpeg runtime moi.",
   "changes": [
-    "Worker inline va API gio tu probe decoder/encoder can thiet truoc khi dung ffmpeg, nen se khong coi binary DSM bi cat H.264/AAC la runtime hop le nua.",
-    "Transcode runtime message tren SPK gio noi ro worker dang roi vao sim mode vi thieu FFmpeg usable cho HLS proxy, thay vi chi bao heartbeat cu mo ho.",
-    "Pipeline build SPK duoc bo sung buoc bundle ffmpeg va canh bao khi release build khong kem ffmpeg, de tranh lap lai ban SPK khong transcode duoc."
+    "Script start-stop-status cua SPK gio export WORKER_INLINE=1 mac dinh, nen package native luon spawn worker inline sau khi API boot.",
+    "Dong bo script package voi logic FFmpeg usable moi, tranh tinh trang ban SPK moi nhung lifecycle van dung script RC cu tren NAS.",
+    "Release note nay danh dau moc de cai lai SPK native ma khong can sua tay file /var/packages/coopeditor/scripts/start-stop-status."
   ],
   "publishedAt": "2026-06-30T00:00:00.000Z"
 }

@@ -34,17 +34,15 @@ RUNTIME_ENV="${VAR_DIR}/conf/runtime.env"
 # (which doesn't exist → isRuntimeConfigured() false → setup mode loop).
 export APP_DATA_DIR="${DATA_DIR}"
 export APP_CONFIG_PATH="${RUNTIME_CONFIG_PATH}"
+export COOPEDITOR_LIB_DIR="${LIB_DIR}"
 export PORT PUBLIC_URL DATA_DIR DATABASE_URL OUTPUT_DIR RUNTIME_CONFIG_PATH
 export NODE_ENV=production
 # Single-process SPK: API owns the web SPA shell. No Caddy, no compose,
 # no separate web container.
 export WEB_INLINE=1
-# RC1: WORKER_INLINE disabled. apps/worker still imports pg statically
-# and is not yet SQLite-aware. Until that port (tracked as phase 2b),
-# the SPK runs UI + DB + import + comments + playback against existing
-# proxies. Transcoding new proxies happens via the Docker stack or by
-# setting WORKER_INLINE=1 + DATABASE_URL=postgres://… in runtime.env.
-# export WORKER_INLINE=1
+# SPK chạy SQLite + worker inline ngay trong cùng package lifecycle.
+# Worker tự đọc runtime-config, dùng ffmpeg local, và ghi HLS ra OUTPUT_DIR.
+export WORKER_INLINE=1
 # Default ffmpeg path: use DSM's CodecPack binary if installed, else the
 # bundled static binary the SPK shipped under lib/bin/.
 if [ -z "${FFMPEG_PATH:-}" ]; then
