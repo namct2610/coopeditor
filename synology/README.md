@@ -4,9 +4,13 @@ Goal: package Coopeditor as a true DSM-native SPK installable from Package
 Center, with **no Docker, no Container Manager dependency**, no external
 Postgres/Redis/MinIO services.
 
-## Architecture diff vs current Docker stack
+## Architecture diff vs the retired Docker stack
 
-| Layer | Docker stack (today) | Native SPK (target) |
+The Docker/compose flow has been removed from the repo — SPK is the only
+supported deployment. The table stays as a record of what each container
+was replaced with.
+
+| Layer | Docker stack (retired) | Native SPK (current) |
 |---|---|---|
 | Database | Postgres 16 container | SQLite (`better-sqlite3`) inside the SPK |
 | Realtime bus | Redis 7 streams | In-process `EventEmitter` (single-process SPK) |
@@ -56,7 +60,7 @@ DSM 6.x is out of scope — release.json bumps target DSM ≥ 7.2.
 
 ## Phased roadmap
 
-Each phase ships independently. Docker stack stays supported until SPK is GA.
+Each phase ships independently. The Docker stack has been retired — SPK is the only deploy target.
 
 | # | Phase | Status |
 |---|---|---|

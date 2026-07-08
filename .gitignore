@@ -14,5 +14,5 @@ docker-compose.override.yml
 docker-compose.*.local.yml
 .DS_Store
 synology/build/*.spk
-/-decoders
-/-encoders
+-decoders
+-encoders

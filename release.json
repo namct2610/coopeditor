@@ -1,10 +1,15 @@
 {
-  "version": "1.0.0-rc41",
-  "summary": "SPK RC 41 giu nguyen vi tri cuon trong UI khi click menu video va tick chon file import, khong con nhay ve dau danh sach.",
+  "version": "1.0.0-rc42",
+  "summary": "SPK RC 42 sua playback/timeline/annotation/comment tren man review va go bo hoan toan luong deploy Docker — SPK la kenh deploy duy nhat.",
   "changes": [
-    "Worker ffmpeg-only gio luu HLS vao OUTPUT_DIR/<renditionId>/... dung voi cach API /hls doc file tren SPK native, tranh 720p va 1080p cung ghi vao mot thu muc goc.",
-    "Rendition tren SQLite/SPK sau khi transcode xong se luon tro ve /hls/<renditionId>/master.m3u8 thay vi file://..., nen UI va player su dung cung mot duong proxy xac thuc.",
-    "Frontend gio luu va phuc hoi scrollTop cho danh sach source trong project va modal import NAS, nen click chuot trai vao menu video hoac tick checkbox se khong con tu dong truot ve tren cung."
+    "Video khong con tu dung khi he thong re-render (presence/comment/transcode event): phan tu <video> duoc giu nguyen qua cac lan render nen buffer khong bi vut bo giua chung.",
+    "Tu dong phat tiep sau khi het nghen buffer (canplaythrough hoac da dem truoc >=20s); nguoi dung chu dong pause thi van dung yen.",
+    "Buffer bat dau ngay khi mo video (preload=auto) va hls.js giu toi da 40s phia truoc, back-buffer 30s.",
+    "Timeline: di chuot chi hien tooltip timecode, khong con pause + seek video theo con tro; click moi seek va giu nguyen trang thai phat.",
+    "Ve chu thich muot va chinh xac hon: chi ve lai net dang keo moi frame, dung coalesced pointer events, khong cat mat phan dau net dai.",
+    "Comment hien ngay sau khi gui, khong can refresh trang; gui loi se co toast bao.",
+    "Worker bao loi mount qua driver db chung nen hoat dong dung tren SPK/sqlite.",
+    "Go bo toan bo Docker flow: compose files, Dockerfile, Caddyfile, workflow GHCR, script watchtower/nas-update. Deploy va update chi qua SPK + DSM Package Center."
   ],
-  "publishedAt": "2026-06-30T00:00:00.000Z"
+  "publishedAt": "2026-07-08T00:00:00.000Z"
 }
