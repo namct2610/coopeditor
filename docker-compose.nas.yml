@@ -1,5 +1,9 @@
 name: coopeditor
 
+# NAS deploy chuẩn cho DSM UI.
+# Chỉ dùng file này + Caddyfile.nas khi import lại project trên Synology.
+# Không cần .env.
+
 services:
   postgres:
     image: postgres:16
@@ -96,9 +100,14 @@ services:
       "
     volumes:
       - coopeditor_app_data:/data
-      # Thay duy nhat dong ben duoi thanh Shared Folder / Team Folder can import.
-      # Vi du dung voi Team Folder PCNgon:
+      # Thay duy nhất dòng bên dưới thành Shared Folder / Team Folder cần import.
+      # Ví dụ dùng với Team Folder PCNgon:
       # - /volume1/PCNgon:/nas:ro
+      #
+      # Lưu ý:
+      # - Không mount /volume1:/nas:ro
+      # - Không để api và worker khác nhau
+      # - Nếu đã từng deploy sai mount, hãy xóa project cũ rồi import lại file này
       - /volume1/PCNgon:/nas:ro
 
   worker:
@@ -131,8 +140,8 @@ services:
       FFMPEG_HWACCEL: qsv
     volumes:
       - coopeditor_app_data:/data
-      # Bat buoc giong 100% service api. Neu khac nhau, worker se bao
-      # "Source path not mounted in worker" va transcode khong chay.
+      # Bắt buộc giống 100% service api. Nếu khác nhau, worker sẽ báo
+      # "Source path not mounted in worker" và transcode không chạy.
       - /volume1/PCNgon:/nas:ro
 
   web:
@@ -156,7 +165,7 @@ services:
     labels:
       com.centurylinklabs.watchtower.enable: "true"
     ports:
-      # Neu 8080 bi trung, doi ben trai. Vi du: 18080:80
+      # Nếu 8080 bị trùng, đổi bên trái. Ví dụ: 18080:80
       - "8080:80"
     volumes:
       - ./Caddyfile.nas:/etc/caddy/Caddyfile:ro

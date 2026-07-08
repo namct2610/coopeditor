@@ -22,7 +22,7 @@ if docker ps --format '{{.Names}}' | grep -q '^coopeditor-watchtower$'; then
   ok "Watchtower container đang chạy"
 else
   fail "Watchtower container KHÔNG chạy"
-  echo "   → docker compose -f docker-compose.nas-auto.yml up -d watchtower"
+  echo "   → docker compose -f docker-compose.nas.yml up -d watchtower"
 fi
 
 # 2. Watchtower log → có poll thật không?

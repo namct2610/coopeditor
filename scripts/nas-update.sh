@@ -17,7 +17,9 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 # 0. Tự dò compose file
-COMPOSE_CANDIDATES=("${COMPOSE_FILE:-}" "docker-compose.nas-auto.yml" "docker-compose.nas-clean.yml" "docker-compose.yml")
+# Ưu tiên đúng file chuẩn DSM là docker-compose.nas.yml.
+# Không fallback sang các biến thể NAS cũ để tránh kéo lại volume mount sai.
+COMPOSE_CANDIDATES=("${COMPOSE_FILE:-}" "docker-compose.nas.yml" "docker-compose.yml")
 COMPOSE_FILE=""
 for f in "${COMPOSE_CANDIDATES[@]}"; do
   [ -z "$f" ] && continue

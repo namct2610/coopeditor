@@ -12,3 +12,7 @@ storage
 # Compose tự merge với docker-compose.yml khi `docker compose up`.
 docker-compose.override.yml
 docker-compose.*.local.yml
+.DS_Store
+synology/build/*.spk
+/-decoders
+/-encoders

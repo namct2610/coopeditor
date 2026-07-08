@@ -210,7 +210,6 @@ const state = {
   annotationTexts: [],
   annotationTextDraft: "",
   annotationDrawing: null,
-  timelineHoverMs: null,
   timelineBarWidth: 0,
   showTranscode: false,
   showImport: false,
@@ -288,14 +287,6 @@ const state = {
 // timers
 let playTimer = null, lastTick = 0;
 let speedTimer = null;
-const timelineHover = {
-  active: false,
-  committed: false,
-  restoreMs: 0,
-  restoreWasPlaying: false,
-};
-let _timelinePreviewRaf = 0;
-let _timelinePreviewPendingMs = null;
 let _timelineResizeObserver = null;
 let _timelineResizeFallback = null;
 
@@ -411,6 +402,10 @@ function attachHlsIfNeeded(video) {
     xhrSetup: (xhr) => { xhr.withCredentials = true; },
     enableWorker: true,
     lowLatencyMode: false,
+    // Keep a healthy forward buffer (user requirement: ≥20s ahead) with a
+    // 30s back-buffer cap so long sessions don't balloon memory.
+    maxBufferLength: 40,
+    backBufferLength: 30,
   });
   _activeHls.loadSource(url);
   _activeHls.attachMedia(video);
@@ -450,6 +445,31 @@ function bindReviewVideo() {
   video.addEventListener("play", updateFromVideo);
   video.addEventListener("pause", updateFromVideo);
   video.addEventListener("ended", updateFromVideo);
+  video.addEventListener("ended", () => { state._playIntent = false; });
+  // Auto-resume: if the user wants playback (_playIntent) but the element is
+  // paused (buffer stall, or the element was recreated on a src change), start
+  // again once ≥20s — or everything up to the end — is buffered ahead.
+  const bufferedAheadSec = () => {
+    try {
+      const t = video.currentTime || 0;
+      for (let i = 0; i < video.buffered.length; i++) {
+        if (video.buffered.start(i) <= t + 0.1 && video.buffered.end(i) > t) return video.buffered.end(i) - t;
+      }
+    } catch (_) {}
+    return 0;
+  };
+  const tryResume = (force) => {
+    if (!state._playIntent || !video.paused) return;
+    if (force !== true) {
+      const remaining = (Number.isFinite(video.duration) ? video.duration : Infinity) - (video.currentTime || 0);
+      if (bufferedAheadSec() < Math.min(20, Math.max(0.5, remaining - 0.25))) return;
+    }
+    video.play().catch(() => {});
+  };
+  video.addEventListener("progress", () => tryResume(false));
+  // canplaythrough = the browser itself estimates uninterrupted playback is
+  // possible — resume without the 20s threshold (covers unknown-duration media).
+  video.addEventListener("canplaythrough", () => tryResume(true));
   if (state.currentMs > 0) {
     try { video.currentTime = state.currentMs / 1000; } catch (_) {}
   }
@@ -521,7 +541,7 @@ function openSource(id) {
   pause();
   const pid = state.selectedProjectId;
   const src = ((state.sourcesByProject[pid] || []).find((item) => item.id === id)) || null;
-  setStateNow({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
+  setStateNow({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, _playIntent: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
 }
 function setStatusFilter(key) { setStateNow({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function toggleTheme() { const t = state.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("co-theme", t); } catch (_) {} setState({ theme: t }); }
@@ -696,6 +716,7 @@ function startTimer() {
 function togglePlay() {
   const video = document.getElementById("reviewVideo");
   if (video) {
+    state._playIntent = video.paused; // user just asked to play (or pause)
     if (video.paused) video.play().catch(() => {});
     else video.pause();
     return;
@@ -707,6 +728,7 @@ function togglePlay() {
 }
 function pause() {
   clearInterval(playTimer);
+  state._playIntent = false;
   const video = document.getElementById("reviewVideo");
   if (video && !video.paused) video.pause();
   state.playing = false;
@@ -715,6 +737,7 @@ function pause() {
 function frameFwd() {
   const video = document.getElementById("reviewVideo");
   if (video) {
+    state._playIntent = false;
     video.pause();
     video.currentTime = Math.min(video.duration || (state.duration / 1000), (video.currentTime || 0) + (1 / state.fps));
     return;
@@ -725,6 +748,7 @@ function frameFwd() {
 function frameBack() {
   const video = document.getElementById("reviewVideo");
   if (video) {
+    state._playIntent = false;
     video.pause();
     video.currentTime = Math.max(0, (video.currentTime || 0) - (1 / state.fps));
     return;
@@ -743,6 +767,7 @@ function seekBy(ms) {
 function jumpTo(ms) {
   const video = document.getElementById("reviewVideo");
   if (video) {
+    state._playIntent = false;
     video.pause();
     video.currentTime = Math.max(0, Math.min(video.duration || (state.duration / 1000), ms / 1000));
     return;
@@ -765,81 +790,22 @@ function timelineMsFromClientX(clientX, bar) {
   return p * timelineDurationMs();
 }
 
-function applyTimelinePreview(ms, opts) {
-  const config = opts || {};
-  const nextMs = Math.max(0, Math.min(timelineDurationMs(), ms || 0));
-  const video = document.getElementById("reviewVideo");
-  state.currentMs = nextMs;
-  state.timelineHoverMs = nextMs;
-  const pct = timelineDurationMs() > 0 ? (nextMs / timelineDurationMs()) * 100 : 0;
-  const needle = document.getElementById("reviewNeedle");
-  const playBar = document.getElementById("reviewPlayPct");
-  const tcA = document.getElementById("reviewTcCurrent");
-  const tcB = document.getElementById("reviewTcCurrentInline");
-  const tcHover = document.getElementById("reviewTimelineHoverTc");
-  if (needle) needle.style.left = pct + "%";
-  if (playBar) playBar.style.width = pct + "%";
-  if (tcA) tcA.textContent = fmtTc(nextMs);
-  if (tcB) tcB.textContent = fmtTc(nextMs);
-  if (tcHover) tcHover.textContent = fmtTc(nextMs);
-  if (video) {
-    _timelinePreviewPendingMs = nextMs;
-    if (_timelinePreviewRaf) return;
-    _timelinePreviewRaf = requestAnimationFrame(() => {
-      _timelinePreviewRaf = 0;
-      const targetMs = _timelinePreviewPendingMs;
-      _timelinePreviewPendingMs = null;
-      if (targetMs == null) return;
-      if (config.pause !== false) video.pause();
-      const targetSec = targetMs / 1000;
-      const currentSec = video.currentTime || 0;
-      if (Math.abs(currentSec - targetSec) < 0.06) return;
-      if (typeof video.fastSeek === "function") {
-        try { video.fastSeek(targetSec); return; } catch (_) {}
-      }
-      video.currentTime = targetSec;
-    });
-  }
+// Hover = tooltip only. The video keeps playing and the playhead stays put;
+// only a click actually seeks (Frame.io behavior). The previous hover-scrub
+// (pause + fastSeek per mousemove) is what made "trỏ chuột vào là video dừng".
+function updateTimelineHoverUi(clientX, bar) {
+  const rect = bar.getBoundingClientRect();
+  const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+  const line = document.getElementById("reviewHoverLine");
+  const tip = document.getElementById("reviewHoverTc");
+  if (line) { line.style.display = "block"; line.style.left = x + "px"; }
+  if (tip) { tip.style.display = "block"; tip.style.left = x + "px"; tip.textContent = fmtTc(timelineMsFromClientX(clientX, bar)); }
 }
-
-function restoreTimelinePreview() {
-  if (!timelineHover.active || timelineHover.committed) return;
-  const restoreMs = timelineHover.restoreMs || 0;
-  const shouldResume = timelineHover.restoreWasPlaying;
-  timelineHover.active = false;
-  timelineHover.committed = false;
-  state.timelineHoverMs = null;
-  state.currentMs = restoreMs;
-  _timelinePreviewPendingMs = null;
-  if (_timelinePreviewRaf) { cancelAnimationFrame(_timelinePreviewRaf); _timelinePreviewRaf = 0; }
-  const video = document.getElementById("reviewVideo");
-  if (video) {
-    video.currentTime = restoreMs / 1000;
-    if (shouldResume) video.play().catch(() => {});
-    else video.pause();
-  } else {
-    state.currentMs = restoreMs;
-    state.playing = shouldResume;
-  }
-  render();
-}
-
-function commitTimelinePreview(ms) {
-  timelineHover.active = false;
-  timelineHover.committed = true;
-  state.timelineHoverMs = null;
-  state.currentMs = ms;
-  _timelinePreviewPendingMs = null;
-  if (_timelinePreviewRaf) { cancelAnimationFrame(_timelinePreviewRaf); _timelinePreviewRaf = 0; }
-  jumpTo(ms);
-}
-
-function beginTimelineHover() {
-  if (timelineHover.active) return;
-  timelineHover.active = true;
-  timelineHover.committed = false;
-  timelineHover.restoreMs = state.currentMs || 0;
-  timelineHover.restoreWasPlaying = !!state.playing;
+function hideTimelineHoverUi() {
+  const line = document.getElementById("reviewHoverLine");
+  const tip = document.getElementById("reviewHoverTc");
+  if (line) line.style.display = "none";
+  if (tip) tip.style.display = "none";
 }
 // node = the bar element with data-act="seekFromEvent" (passed from the
 // delegated click dispatcher). e.currentTarget is `document` in delegated
@@ -847,7 +813,12 @@ function beginTimelineHover() {
 function seekFromEvent(e, node) {
   const bar = node || (e.target && e.target.closest && e.target.closest('[data-act="seekFromEvent"]'));
   if (!bar) return;
-  commitTimelinePreview(timelineMsFromClientX(e.clientX, bar));
+  const ms = timelineMsFromClientX(e.clientX, bar);
+  state.currentMs = ms;
+  const video = document.getElementById("reviewVideo");
+  // Seek without pause() so playback continues across the seek.
+  if (video) video.currentTime = ms / 1000;
+  else setState({ currentMs: ms });
 }
 
 function bindTimelinePreview() {
@@ -875,11 +846,8 @@ function bindTimelinePreview() {
     _timelineResizeFallback = syncTimelineBarWidth;
     window.addEventListener("resize", _timelineResizeFallback, { passive: true });
   }
-  bar.addEventListener("mousemove", (ev) => {
-    beginTimelineHover();
-    applyTimelinePreview(timelineMsFromClientX(ev.clientX, bar));
-  });
-  wrap.addEventListener("mouseleave", () => restoreTimelinePreview());
+  bar.addEventListener("mousemove", (ev) => updateTimelineHoverUi(ev.clientX, bar));
+  wrap.addEventListener("mouseleave", () => hideTimelineHoverUi());
 }
 
 // ---- transcode ----
@@ -2349,7 +2317,7 @@ function annotationOverlay() {
   const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
   const texts = [...savedTexts, ...(state.annotationTexts || [])];
   const drawing = state.annotationDrawing;
-  const all = drawing ? [...strokes, ...texts, drawing] : [...strokes, ...texts];
+  const all = [...strokes, ...texts];
   const active = !!state.annotationMode;
   return `
     <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:${active ? "crosshair" : "default"};touch-action:none;z-index:40;pointer-events:${active ? "auto" : "none"};"
@@ -2358,7 +2326,7 @@ function annotationOverlay() {
          onpointerup="window.__annPtr&&window.__annPtr('up',event)"
          onpointercancel="window.__annPtr&&window.__annPtr('up',event)"
          onpointerleave="window.__annPtr&&window.__annPtr('up',event)">
-      ${all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")}
+      ${all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")}<g id="annLiveG">${drawing ? renderStrokeSvg(drawing) : ""}</g>
     </svg>`;
 }
 
@@ -2377,7 +2345,9 @@ function renderStrokeSvg(s) {
   }
   if (s.tool === "arrow" && s.points.length >= 2) {
     const a = s.points[0], b = s.points[s.points.length - 1];
-    const id = "arrh-" + Math.round(Math.random() * 100000);
+    // Deterministic per-color id: same-color arrows share one marker, and the
+    // live-drag repaint doesn't mint a new <defs> entry every frame.
+    const id = "arrh-" + String(c).replace(/[^a-zA-Z0-9]/g, "");
     return `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${c}"/></marker></defs>
       <line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${sw}" marker-end="url(#${id})" vector-effect="non-scaling-stroke" />`;
   }
@@ -2406,32 +2376,45 @@ function renderAnnotationText(t) {
 // pointerdown (to swap the play-overlay → annotation SVG) and once on
 // pointerup (to commit the stroke into state.annotationStrokes and update
 // the toolbar counter).
-function repaintAnnotationSvg() {
+function repaintAnnotationSvg(liveOnly) {
   const svg = document.getElementById("annotationSvg");
   if (!svg) return;
+  const drawing = state.annotationDrawing;
+  const live = document.getElementById("annLiveG");
+  // During a drag only the in-progress stroke changes — rewrite just its <g>
+  // instead of re-serializing every saved stroke on every frame.
+  if (liveOnly && live) {
+    live.innerHTML = drawing ? renderStrokeSvg(drawing) : "";
+    return;
+  }
   const anchored = visibleAnchoredAnnotations();
   const savedStrokes = anchored.flatMap((a) => a.strokes || []);
   const savedTexts = anchored.flatMap((a) => a.texts || []);
   const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
   const texts = [...savedTexts, ...(state.annotationTexts || [])];
-  const drawing = state.annotationDrawing;
-  const all = drawing ? [...strokes, ...texts, drawing] : [...strokes, ...texts];
-  svg.innerHTML = all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("");
+  const all = [...strokes, ...texts];
+  svg.innerHTML = all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")
+    + `<g id="annLiveG">${drawing ? renderStrokeSvg(drawing) : ""}</g>`;
 }
 
 let _annRafQueued = false;
-function requestAnnRepaint() {
+function requestAnnRepaint(liveOnly) {
   if (_annRafQueued) return;
   _annRafQueued = true;
-  requestAnimationFrame(() => { _annRafQueued = false; repaintAnnotationSvg(); });
+  requestAnimationFrame(() => { _annRafQueued = false; repaintAnnotationSvg(liveOnly); });
 }
 
+let _annRect = null; // cached on pointerdown — getBoundingClientRect per move forces layout
 window.__annPtr = function (phase, ev) {
   if (!state.annotationMode) return;
   const svg = ev.currentTarget;
-  const rect = svg.getBoundingClientRect();
-  const x = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-  const y = Math.max(0, Math.min(1, (ev.clientY - rect.top) / rect.height));
+  if (phase === "down" || !_annRect) _annRect = svg.getBoundingClientRect();
+  const rect = _annRect;
+  const norm = (e) => [
+    Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+    Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+  ];
+  const [x, y] = norm(ev);
   if (state.annotationTool === "text" && phase === "down") {
     const text = String(state.annotationTextDraft || "").trim();
     if (!text) return;
@@ -2443,16 +2426,25 @@ window.__annPtr = function (phase, ev) {
   if (phase === "down") {
     state.annotationDrawing = { tool: state.annotationTool, color: state.annotationColor, points: [[x, y]] };
     try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
-    requestAnnRepaint();
+    requestAnnRepaint(true);
   } else if (phase === "move" && state.annotationDrawing) {
     const pts = state.annotationDrawing.points;
-    const last = pts[pts.length - 1];
-    if (Math.hypot(x - last[0], y - last[1]) < 0.002) return;
-    pts.push([x, y]);
-    if (pts.length > 256) pts.splice(0, pts.length - 256);
-    requestAnnRepaint();
+    // Coalesced events carry the full-rate pointer trail between frames —
+    // without them fast strokes get corner-cut on 60Hz event delivery.
+    const evs = (typeof ev.getCoalescedEvents === "function" && ev.getCoalescedEvents().length) ? ev.getCoalescedEvents() : [ev];
+    for (const e of evs) {
+      const [px, py] = norm(e);
+      const last = pts[pts.length - 1];
+      if (Math.hypot(px - last[0], py - last[1]) < 0.002) continue;
+      pts.push([px, py]);
+    }
+    requestAnnRepaint(true);
   } else if (phase === "up" && state.annotationDrawing) {
-    state.annotationStrokes = [...(state.annotationStrokes || []), state.annotationDrawing];
+    const d = state.annotationDrawing;
+    // Thin long strokes on commit (keeps payload bounded) instead of dropping
+    // the stroke's beginning mid-draw like the old 256-point live cap did.
+    while (d.points.length > 400) d.points = d.points.filter((_, i) => i % 2 === 0 || i === d.points.length - 1);
+    state.annotationStrokes = [...(state.annotationStrokes || []), d];
     state.annotationDrawing = null;
     if (state.annotationStrokes.length > 50) state.annotationStrokes = state.annotationStrokes.slice(-50);
     // Full render only on commit so the toolbar's "N nét" counter updates.
@@ -2807,7 +2799,7 @@ function review(vals) {
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#060608;">
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 22px 10px;position:relative;overflow:auto;">
         <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 300px));aspect-ratio:16/9;border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);background:#000;flex:0 0 auto;">
-          <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="metadata" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
+          <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;bottom:0;height:7.5%;background:#000;pointer-events:none;"></div>
@@ -2850,7 +2842,9 @@ function review(vals) {
             <div id="reviewBufferedPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.bufferedPct}%;background:var(--co-border);pointer-events:none;"></div>
             <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(108,92,246,0.22);border-right:2px solid #6c5cf6;pointer-events:none;"></div>
             <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(108,92,246,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(108,92,246,0.9);"></div></div>
+            <div id="reviewHoverLine" style="position:absolute;top:0;bottom:0;width:1.5px;background:rgba(255,255,255,0.6);display:none;pointer-events:none;"></div>
           </div>
+          <div id="reviewHoverTc" style="position:absolute;bottom:44px;transform:translateX(-50%);display:none;pointer-events:none;background:rgba(7,9,14,0.92);border:1px solid var(--co-border-2);color:#fff;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:6;"></div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-top:13px;">
           <div style="display:flex;align-items:center;gap:4px;">
@@ -3649,7 +3643,6 @@ function computeVals() {
     versions,
     playPct: (s.currentMs / s.duration) * 100, bufferedPct: Math.min(100, (s.currentMs / s.duration) * 100 + 16),
     tcCurrent: fmtTc(s.currentMs), tcDuration: fmtTc(s.duration), frameNumber: Math.round((s.currentMs / 1000) * s.fps),
-    timelineHoverTc: fmtTc(s.timelineHoverMs == null ? s.currentMs : s.timelineHoverMs),
     // Default playback is the raw original (/assets/:id/source). When the user
     // pins to a proxy rung in the quality menu AND that rendition is "ready",
     // swap to the HLS master so they actually get the smaller stream.
@@ -3752,6 +3745,12 @@ function render() {
   const app = document.getElementById("app");
   const isWorkspace = state.view === "projects" || state.view === "project";
   const isProjects = state.view === "projects";
+  // Preserve the live <video> across the innerHTML rebuild below. Without
+  // this, EVERY render (presence event, comment event, menu toggle…) destroys
+  // the element mid-playback: the video pauses, the entire media buffer is
+  // thrown away, and nothing resumes it. Detached media elements keep their
+  // playback + buffer state, so we lift it out and swap it back in.
+  const liveVideo = document.getElementById("reviewVideo");
 
   document.documentElement.setAttribute("data-theme", state.theme);
   app.setAttribute("data-theme", state.theme);
@@ -3781,6 +3780,20 @@ function render() {
     ${projectContextMenu()}
     ${sourceContextMenu()}
   `;
+  // Swap the preserved video back in place of the freshly created one, as
+  // long as it still plays the same source (hls.js strips the src attribute
+  // and stamps data-hls instead, so compare whichever is set).
+  const freshVideo = document.getElementById("reviewVideo");
+  if (liveVideo && freshVideo !== liveVideo) {
+    const liveSrc = liveVideo.dataset.hls || liveVideo.getAttribute("src") || "";
+    if (freshVideo && liveSrc && liveSrc === (freshVideo.getAttribute("src") || "")) {
+      freshVideo.replaceWith(liveVideo);
+    } else {
+      // Dropped element (source switched or review closed): stop it —
+      // a detached media element otherwise keeps playing audio.
+      try { liveVideo.pause(); } catch (_) {}
+    }
+  }
   syncHashRoute();
   restorePersistedScrollPositions(savedScroll);
 
@@ -4962,7 +4975,14 @@ async function refreshProjectMembers(pid) {
 
 async function refreshComments(versionId) {
   if (!versionId || !remote.me) return;
-  try { REMOTE_COMMENTS[versionId] = await api("/asset-versions/" + versionId + "/comments"); } catch (_) {}
+  try {
+    REMOTE_COMMENTS[versionId] = await api("/asset-versions/" + versionId + "/comments");
+    // Re-point the render-time reference: applyRemoteToState() reads
+    // REMOTE_COMMENTS_FOR_SELECTED on every render, and the fetch above just
+    // replaced the array it pointed at — without this, new comments only
+    // appear after a full page reload.
+    if (versionId === state._currentVersionId) REMOTE_COMMENTS_FOR_SELECTED = REMOTE_COMMENTS[versionId];
+  } catch (_) {}
 }
 async function refreshRenditions(versionId) {
   if (!versionId || !remote.me) return;
@@ -5036,7 +5056,8 @@ async function remotePostComment(versionId, content, timestampMs, frameNumber, a
   const body = { content, timestampMs, frameNumber };
   if (annotation && ((annotation.strokes && annotation.strokes.length) || (annotation.texts && annotation.texts.length))) body.annotation = annotation;
   if (parentId) body.parentId = parentId;
-  try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body }); await refreshComments(versionId); render(); } catch (_) {}
+  try { await api("/asset-versions/" + versionId + "/comments", { method: "POST", body }); await refreshComments(versionId); render(); }
+  catch (err) { toast("Không gửi được comment: " + ((err && err.message) || "lỗi mạng"), "error"); }
 }
 async function remoteToggleResolve(commentId, resolved) {
   if (!remote.me) return;

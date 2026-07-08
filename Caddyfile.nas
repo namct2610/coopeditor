@@ -1,4 +1,7 @@
 :80 {
+	# Caddyfile chuẩn cho bản NAS deploy qua DSM UI.
+	# Gateway chỉ public 1 port HTTP, còn api/web giao tiếp nội bộ trong Docker network.
+
 	header {
 		Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate"
 		Pragma "no-cache"
