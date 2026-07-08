@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import pg from "pg";
 
 import { applyRuntimeEnvFromConfig, isRuntimeConfigured, publicRuntimeSummary } from "../../api/src/runtime-config.js";
+import { initDb, db } from "../../api/src/db.js";
 import { detectWorkerMountHealth, reportWorkerBootstrapFailure, shouldFailWorkerStartup } from "./runtime-status.js";
 import { createRuntimeConfigWatcher } from "./runtime-watch.js";
 
@@ -15,17 +15,13 @@ const mountStatus = await detectWorkerMountHealth(process.env);
 if (!mountStatus.mountReady && shouldFailWorkerStartup(process.env)) {
   if (process.env.DATABASE_URL) {
     try {
-      const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-      try {
-        await reportWorkerBootstrapFailure(pool, {
-          mode: "bootstrap-failed",
-          hwaccel: (process.env.FFMPEG_HWACCEL || "").toLowerCase() || "none",
-          codecLadder: (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase(),
-          appDataDir: process.env.APP_DATA_DIR || "/data",
-        });
-      } finally {
-        await pool.end().catch(() => {});
-      }
+      await initDb();
+      await reportWorkerBootstrapFailure(db(), {
+        mode: "bootstrap-failed",
+        hwaccel: (process.env.FFMPEG_HWACCEL || "").toLowerCase() || "none",
+        codecLadder: (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase(),
+        appDataDir: process.env.APP_DATA_DIR || "/data",
+      });
     } catch (err) {
       console.warn("[worker-bootstrap] failed to report mount error to worker_runtime_status:", err && err.message || err);
     }
