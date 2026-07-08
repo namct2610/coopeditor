@@ -39,6 +39,7 @@ import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
+import { buildSpkCatalog } from "./spk-feed.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
@@ -542,6 +543,24 @@ async function handle(req, res, url) {
   }
   if (p === "/version" && m === "GET") {
     return send(res, 200, buildLocalReleaseMeta());
+  }
+  // Synology Package Center "package source" — DSM polls this (GET on source
+  // validation, form-encoded POST with arch codename on refresh) and gets a
+  // catalog pointing at the newest GitHub release .spk. Public by design:
+  // Package Center has no way to carry a session.
+  if (p === "/spkserver" && (m === "GET" || m === "POST")) {
+    let arch = url.searchParams.get("arch") || "";
+    if (m === "POST") {
+      const raw = await new Promise((resolve) => {
+        let body = "";
+        req.on("data", (c) => { body += c; if (body.length > 65536) req.destroy(); });
+        req.on("end", () => resolve(body));
+        req.on("error", () => resolve(""));
+      });
+      arch = new URLSearchParams(raw).get("arch") || arch;
+    }
+    try { return send(res, 200, await buildSpkCatalog(arch)); }
+    catch (err) { return send(res, 200, { packages: [], error: String(err && err.message || err) }); }
   }
   if (p === "/metrics" && m === "GET") return sendMetrics(res);
   if (p === "/auth/dsm/login" && m === "POST") return handleLogin(req, res);
@@ -1109,11 +1128,6 @@ async function handle(req, res, url) {
     return send(res, 200, await checkUpdateStatus({ force: url.searchParams.get("refresh") === "1" }));
   }
 
-  if (p === "/admin/update-trigger" && m === "POST") {
-    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
-    return send(res, 200, await triggerUpdateRun());
-  }
-
   // Settings page: read the full runtime-config.json (owner-only). The
   // /setup/status response is a sanitized summary; this endpoint returns the
   // raw JSON so edit forms can populate fields. Secrets are masked.
@@ -1131,7 +1145,6 @@ async function handle(req, res, url) {
       }
     }
     if (masked.hls) { maskField(masked.hls, "cdnSigningSecret"); }
-    if (masked.updater) { maskField(masked.updater, "triggerToken"); }
     return send(res, 200, { config: masked, configPath: readRuntimeConfig() ? undefined : null });
   }
 
@@ -1428,76 +1441,6 @@ async function checkUpdateStatus({ force = false } = {}) {
   }
 }
 
-async function triggerUpdateRun() {
-  let updater = null;
-  try {
-    updater = resolveUpdaterConfig(readRuntimeConfig());
-  } catch (err) {
-    return { ok: false, triggerAvailable: false, error: err.message || "Updater config invalid" };
-  }
-  const triggerUrl = updater.triggerUrl || "";
-  const triggerToken = updater.triggerToken || "";
-  if (!triggerUrl) {
-    return { ok: false, triggerAvailable: false, error: "Manual update trigger chua duoc cau hinh" };
-  }
-
-  try {
-    const headers = {
-      accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-      "user-agent": "coopeditor-updater",
-    };
-    if (triggerToken) {
-      headers.authorization = "Bearer " + triggerToken;
-      headers["x-update-token"] = triggerToken;
-    }
-    const attempts = [
-      { method: "GET" },
-      { method: "POST", body: JSON.stringify({
-        source: "coopeditor-ui",
-        requestedAt: new Date().toISOString(),
-        currentVersion: buildLocalReleaseMeta().version,
-        currentSha: buildLocalReleaseMeta().sha,
-      }) },
-    ];
-    let lastFailure = null;
-    for (const attempt of attempts) {
-      const reqHeaders = { ...headers };
-      if (attempt.body) reqHeaders["content-type"] = "application/json";
-      const r = await fetch(triggerUrl, {
-        method: attempt.method,
-        headers: reqHeaders,
-        body: attempt.body,
-        signal: fetchTimeoutSignal(12000),
-      });
-      const raw = await r.text();
-      let responseBody = raw;
-      try { responseBody = raw ? JSON.parse(raw) : null; } catch (_) {}
-      if (r.ok) {
-        _updateCache = null;
-        return {
-          ok: true,
-          triggerAvailable: true,
-          status: r.status,
-          accepted: true,
-          method: attempt.method,
-          message: "Da gui lenh cap nhat toi updater service",
-          response: responseBody,
-        };
-      }
-      lastFailure = {
-        ok: false,
-        triggerAvailable: true,
-        status: r.status,
-        method: attempt.method,
-        error: typeof responseBody === "string" ? responseBody.slice(0, 240) : ("trigger HTTP " + r.status),
-      };
-      if (r.status !== 404 && r.status !== 405) break;
-    }
-    return lastFailure || { ok: false, triggerAvailable: true, error: "Update trigger failed" };
-  } catch (err) {
-    return { ok: false, triggerAvailable: true, error: err.message || "Update trigger failed" };
-  }
-}
 
 function clampPositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ""), 10);

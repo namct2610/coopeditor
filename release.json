@@ -1,15 +1,13 @@
 {
-  "version": "1.0.0-rc42",
-  "summary": "SPK RC 42 sua playback/timeline/annotation/comment tren man review va go bo hoan toan luong deploy Docker — SPK la kenh deploy duy nhat.",
+  "version": "1.0.0-rc43",
+  "summary": "SPK RC 43 don sach UI khong co backend va them nguon update ngay trong DSM Package Center (khong can upload .spk thu cong nua).",
   "changes": [
-    "Video khong con tu dung khi he thong re-render (presence/comment/transcode event): phan tu <video> duoc giu nguyen qua cac lan render nen buffer khong bi vut bo giua chung.",
-    "Tu dong phat tiep sau khi het nghen buffer (canplaythrough hoac da dem truoc >=20s); nguoi dung chu dong pause thi van dung yen.",
-    "Buffer bat dau ngay khi mo video (preload=auto) va hls.js giu toi da 40s phia truoc, back-buffer 30s.",
-    "Timeline: di chuot chi hien tooltip timecode, khong con pause + seek video theo con tro; click moi seek va giu nguyen trang thai phat.",
-    "Ve chu thich muot va chinh xac hon: chi ve lai net dang keo moi frame, dung coalesced pointer events, khong cat mat phan dau net dai.",
-    "Comment hien ngay sau khi gui, khong can refresh trang; gui loi se co toast bao.",
-    "Worker bao loi mount qua driver db chung nen hoat dong dung tren SPK/sqlite.",
-    "Go bo toan bo Docker flow: compose files, Dockerfile, Caddyfile, workflow GHCR, script watchtower/nas-update. Deploy va update chi qua SPK + DSM Package Center."
+    "Go bo cac nut trang tri chua co tinh nang: Phu de / Annotation focus / Sang mau (sap co), thanh volume gia, chip Appearance / Fields / Sorted by, folder Collections va Recently Deleted, muc Share Links.",
+    "Nut toan man hinh hoat dong that (fullscreen video), truoc day bam vao chi bat khung an toan.",
+    "Thanh buffered tren timeline hien dung du lieu buffer that cua video thay vi con so gia.",
+    "Go toan bo flow 'Cap nhat ngay' qua Watchtower (UI + API + config) — tan du cua ban Docker cu.",
+    "Them endpoint /spkserver: dung lam Package Source trong DSM Package Center. Them mot lan, tu do ve sau ban moi se hien nut Update ngay trong Package Center, du lieu giu nguyen.",
+    "Release CI dinh kem checksums.json (md5 + size) de DSM xac thuc file tai ve."
   ],
   "publishedAt": "2026-07-08T00:00:00.000Z"
 }

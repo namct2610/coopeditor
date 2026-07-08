@@ -115,25 +115,43 @@ jobs:
       - name: List artifacts
         run: ls -lh spks/
 
+      # md5 + size per .spk — the app's /spkserver Package Center feed serves
+      # these so DSM can verify the download.
+      - name: Generate checksums.json
+        run: |
+          cd spks
+          python3 - <<'EOF'
+          import hashlib, json, os
+          out = {}
+          for f in sorted(os.listdir(".")):
+              if f.endswith(".spk"):
+                  out[f] = {"md5": hashlib.md5(open(f, "rb").read()).hexdigest(), "size": os.path.getsize(f)}
+          json.dump(out, open("checksums.json", "w"), indent=2)
+          print(json.dumps(out, indent=2))
+          EOF
+
       - name: Attach SPK files to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: spks/*.spk
+          files: |
+            spks/*.spk
+            spks/checksums.json
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
           body: |
             ## Coopeditor SPK release
 
-            Native Synology DSM package — installable via Package Center → Manual Install.
+            Native Synology DSM package — installable via Package Center.
 
-            ### Install
+            ### Install (first time)
             1. Download the `.spk` matching your NAS architecture (most Plus/FS/DS+ models are `x86_64`; ARM-based DS124/RS422+ are `aarch64`).
             2. Open DSM Package Center → Settings → Allow installation from "Any publisher".
             3. Manual Install → upload the `.spk` → follow the wizard (public URL + port + NAS root).
             4. After install the app is reachable at `http://nas.local:<port>/`.
 
-            ### Update
-            Updates ship via DSM Package Center auto-update once `latest.json` is enabled.
-            Until then, download the new `.spk` and Manual Install to upgrade in place
-            — the SQLite DB + proxy files in `/var/packages/coopeditor/var` survive.
+            ### Update (automatic, via Package Center)
+            Add the app's own feed once: Package Center → Settings → Package Sources →
+            Add → `http://<nas>:<port>/spkserver`. From then on new releases show a
+            native **Update** button in Package Center. Data in
+            `/var/packages/coopeditor/var` (SQLite DB + proxies) survives upgrades.

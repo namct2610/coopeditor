@@ -4,9 +4,8 @@ import { dirname, join } from "node:path";
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const CONFIG_PATH = process.env.APP_CONFIG_PATH || join(APP_DATA_DIR, "system", "config.json");
 const DEFAULT_UPDATE_FEED_URL = "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json";
-const DEFAULT_UPDATE_TRIGGER_URL = "http://watchtower:8080/v1/update";
 
-export { DEFAULT_UPDATE_FEED_URL, DEFAULT_UPDATE_TRIGGER_URL };
+export { DEFAULT_UPDATE_FEED_URL };
 
 function ensureDir(path) {
   mkdirSync(dirname(path), { recursive: true });
@@ -29,10 +28,6 @@ function normalizeNasLibraryRoot(value) {
   return "/" + parts.join("/");
 }
 
-function envOr(value, fallback = "") {
-  const text = String(value ?? "").trim();
-  return text || fallback;
-}
 
 function hasOwnText(value) {
   return typeof value === "string" ? !!value.trim() : false;
@@ -83,11 +78,8 @@ export function publicRuntimeSummary() {
   const updater = resolveUpdaterConfig(cfg);
   const updaterSummary = {
     feedUrl: updater.feedUrl,
-    triggerUrl: updater.triggerUrl,
     pollIntervalSeconds: updater.pollIntervalSeconds,
     feedConfigured: updater.feedConfigured,
-    triggerConfigured: updater.triggerConfigured,
-    triggerTokenConfigured: updater.triggerTokenConfigured,
   };
   if (!cfg) {
     return {
@@ -181,8 +173,6 @@ export function normalizeRuntimeConfig(input) {
     },
     updater: {
       feedUrl: normalizeHttpUrl(updater.feedUrl || process.env.UPDATE_FEED_URL || DEFAULT_UPDATE_FEED_URL, { label: "Updater feed URL" }),
-      triggerUrl: normalizeHttpUrl(updater.triggerUrl || process.env.UPDATE_TRIGGER_URL || DEFAULT_UPDATE_TRIGGER_URL, { label: "Updater trigger URL" }),
-      triggerToken: String(updater.triggerToken || "").trim(),
       pollIntervalSeconds: clampInt(updater.pollIntervalSeconds, clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400), 30, 86400),
     },
     savedAt: new Date().toISOString(),
@@ -249,8 +239,6 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.RETENTION_SWEEP_MINUTES = String(config.retention && config.retention.sweepMinutes || 60);
 
   process.env.UPDATE_FEED_URL = updater.feedUrl;
-  process.env.UPDATE_TRIGGER_URL = updater.triggerUrl;
-  process.env.UPDATE_TRIGGER_TOKEN = updater.triggerToken;
   process.env.UPDATE_POLL_INTERVAL_SECONDS = String(updater.pollIntervalSeconds);
   return true;
 }
@@ -259,21 +247,11 @@ export function resolveUpdaterConfig(config = readRuntimeConfig()) {
   const configUpdater = config && config.updater && typeof config.updater === "object" ? config.updater : null;
   const configFeed = configUpdater && hasOwnText(configUpdater.feedUrl) ? String(configUpdater.feedUrl).trim() : "";
   const envFeed = hasOwnText(process.env.UPDATE_FEED_URL) ? String(process.env.UPDATE_FEED_URL).trim() : "";
-  const configTrigger = configUpdater && hasOwnText(configUpdater.triggerUrl) ? String(configUpdater.triggerUrl).trim() : "";
-  const envTrigger = hasOwnText(process.env.UPDATE_TRIGGER_URL) ? String(process.env.UPDATE_TRIGGER_URL).trim() : "";
-  const configToken = configUpdater && hasOwnText(configUpdater.triggerToken) ? String(configUpdater.triggerToken).trim() : "";
-  const envToken = hasOwnText(process.env.UPDATE_TRIGGER_TOKEN) ? String(process.env.UPDATE_TRIGGER_TOKEN).trim() : "";
   const feedConfigured = !!(configFeed || envFeed);
-  const triggerConfigured = !!(configTrigger || envTrigger);
-  const triggerTokenConfigured = !!(configToken || envToken);
   return {
     feedUrl: normalizeHttpUrl(configFeed || envFeed || DEFAULT_UPDATE_FEED_URL, { label: "Updater feed URL" }),
-    triggerUrl: normalizeHttpUrl(configTrigger || envTrigger || DEFAULT_UPDATE_TRIGGER_URL, { label: "Updater trigger URL" }),
-    triggerToken: envOr(configToken, envToken),
     pollIntervalSeconds: (config && config.updater && config.updater.pollIntervalSeconds) || clampInt(process.env.UPDATE_POLL_INTERVAL_SECONDS, 900, 30, 86400),
     feedConfigured,
-    triggerConfigured,
-    triggerTokenConfigured,
   };
 }
 

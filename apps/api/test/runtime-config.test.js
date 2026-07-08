@@ -21,8 +21,6 @@ test("applyRuntimeEnvFromConfig preserves updater defaults from env for old conf
   process.env.APP_DATA_DIR = root;
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json";
-  process.env.UPDATE_TRIGGER_URL = "http://watchtower:8080/v1/update";
-  process.env.UPDATE_TRIGGER_TOKEN = "token-demo";
 
   const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?runtime=" + Date.now());
   const cfg = mod.readRuntimeConfig();
@@ -30,8 +28,6 @@ test("applyRuntimeEnvFromConfig preserves updater defaults from env for old conf
   mod.applyRuntimeEnvFromConfig(cfg);
 
   assert.equal(process.env.UPDATE_FEED_URL, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
-  assert.equal(process.env.UPDATE_TRIGGER_URL, "http://watchtower:8080/v1/update");
-  assert.equal(process.env.UPDATE_TRIGGER_TOKEN, "token-demo");
 });
 
 test("publicRuntimeSummary exposes default updater feed for legacy config", async () => {
@@ -50,14 +46,11 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
   process.env.APP_DATA_DIR = root;
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "";
-  process.env.UPDATE_TRIGGER_URL = "";
-  process.env.UPDATE_TRIGGER_TOKEN = "super-secret-token";
 
   const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?summary=" + Date.now());
   const summary = mod.publicRuntimeSummary();
   assert.equal(summary.updater.feedUrl, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
-  assert.equal(summary.updater.triggerUrl, "http://watchtower:8080/v1/update");
-  assert.equal(summary.updater.triggerTokenConfigured, true);
+  assert.equal("triggerUrl" in summary.updater, false);
   assert.equal("triggerToken" in summary.updater, false);
 });
 
@@ -114,8 +107,6 @@ test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs"
     scheme: "https",
     updater: {
       feedUrl: "https://updates.example.com/release.json",
-      triggerUrl: "http://watchtower:8080/v1/update",
-      triggerToken: "runtime-secret",
       pollIntervalSeconds: 600,
     },
   }), "utf8");
@@ -123,14 +114,10 @@ test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs"
   process.env.APP_DATA_DIR = root;
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "https://env.example.com/feed.json";
-  process.env.UPDATE_TRIGGER_URL = "https://env.example.com/trigger";
-  process.env.UPDATE_TRIGGER_TOKEN = "env-secret";
 
   const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?resolve-updater=" + Date.now());
   const updater = mod.resolveUpdaterConfig(mod.readRuntimeConfig());
   assert.equal(updater.feedUrl, "https://updates.example.com/release.json");
-  assert.equal(updater.triggerUrl, "http://watchtower:8080/v1/update");
-  assert.equal(updater.triggerToken, "runtime-secret");
   assert.equal(updater.pollIntervalSeconds, 600);
   assert.throws(() => mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
@@ -138,7 +125,6 @@ test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs"
     dsmMountRoot: "/nas",
     updater: {
       feedUrl: "https://user:pass@updates.example.com/release.json",
-      triggerUrl: "http://watchtower:8080/v1/update",
     },
   }), /user\/password|không được chứa/i);
 });

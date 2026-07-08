@@ -110,8 +110,27 @@ Push a tag matching `v*-spk*` (e.g. `v1.0.0-spk-rc1`) → the
 `publish-spk.yml` workflow builds both arches, downloads matching Node
 runtimes, installs prod deps with `npm_config_target_arch` so
 better-sqlite3 prebuilds resolve correctly, and attaches the `.spk`
-files to a GitHub Release. Synology DSM users then install via
-Package Center → Manual Install.
+files + `checksums.json` (md5/size per arch) to a GitHub Release.
+
+## Updates inside Package Center (no manual upload)
+
+The API exposes a Synology **package source** at `/spkserver`: it proxies the
+latest GitHub release as a Package Center catalog (right `.spk` per arch,
+version normalised to DSM's `x.y.z-n` format, md5 + size from
+`checksums.json`).
+
+One-time setup on the NAS (after the first manual install):
+
+1. Package Center → **Settings → General**: Trust Level = "Any publisher".
+2. **Settings → Package Sources → Add**:
+   - Name: `Coopeditor`
+   - Location: `http://<nas>:<port>/spkserver` (the app's own URL)
+3. Done. When a new `v*-spk*` release is published, Package Center shows a
+   native **Update** button for Coopeditor — data in
+   `/var/packages/coopeditor/var` survives the upgrade.
+
+The feed repo can be overridden with the `SPK_FEED_REPO` env var
+(default `namct2610/coopeditor`).
 
 ## Auto-install on NAS
 

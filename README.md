@@ -56,4 +56,4 @@ Ban SPK native la kenh deploy duy nhat — khong con Docker/Watchtower.
 - Build + huong dan chi tiet: [synology/README.md](synology/README.md).
 - Release: push tag `v*-spk*` de workflow [publish-spk.yml](.github/workflows/publish-spk.yml) build `.spk` cho x86_64 + aarch64 va dinh kem vao GitHub Release.
 - Cai dat: upload `.spk` qua DSM Package Center (Manual Install), hoac dung `synology/install-spk.sh`.
-- Update: cai de len (Manual Install voi ban moi hon) — du lieu trong `/var/packages/coopeditor/var` duoc giu nguyen.
+- Update: them package source `http://<nas>:<port>/spkserver` vao Package Center (Settings → Package Sources) — ban moi se hien nut Update ngay trong Package Center. Du lieu trong `/var/packages/coopeditor/var` duoc giu nguyen.
