@@ -1,13 +1,10 @@
 {
-  "version": "1.0.0-rc43",
-  "summary": "SPK RC 43 don sach UI khong co backend va them nguon update ngay trong DSM Package Center (khong can upload .spk thu cong nua).",
+  "version": "1.0.0-rc44",
+  "summary": "SPK RC 44 sua loi khong luu duoc DSM mount root dang /volumeN trong Runtime config — tan du kiem tra tu thoi Docker.",
   "changes": [
-    "Go bo cac nut trang tri chua co tinh nang: Phu de / Annotation focus / Sang mau (sap co), thanh volume gia, chip Appearance / Fields / Sorted by, folder Collections va Recently Deleted, muc Share Links.",
-    "Nut toan man hinh hoat dong that (fullscreen video), truoc day bam vao chi bat khung an toan.",
-    "Thanh buffered tren timeline hien dung du lieu buffer that cua video thay vi con so gia.",
-    "Go toan bo flow 'Cap nhat ngay' qua Watchtower (UI + API + config) — tan du cua ban Docker cu.",
-    "Them endpoint /spkserver: dung lam Package Source trong DSM Package Center. Them mot lan, tu do ve sau ban moi se hien nut Update ngay trong Package Center, du lieu giu nguyen.",
-    "Release CI dinh kem checksums.json (md5 + size) de DSM xac thuc file tai ve."
+    "Runtime config khong con chan gia tri dsmMountRoot kieu /volume1/... nua. Tren SPK native (khong co container), day chinh la duong dan dung — validator cu bat buoc phai la /nas la sai tu khi go Docker.",
+    "Gia tri mac dinh cua dsmMountRoot doi tu /nas sang /volume1, khop voi gia tri wizard cai dat SPK da ghi san.",
+    "Validator moi chi con kiem tra dsmMountRoot phai la duong dan tuyet doi (bat dau bang /)."
   ],
-  "publishedAt": "2026-07-08T00:00:00.000Z"
+  "publishedAt": "2026-07-10T00:00:00.000Z"
 }

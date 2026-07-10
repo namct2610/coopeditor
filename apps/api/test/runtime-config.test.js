@@ -54,13 +54,23 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
   assert.equal("triggerToken" in summary.updater, false);
 });
 
-test("normalizeRuntimeConfig rejects Synology host paths for dsmMountRoot", async () => {
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-host-path=" + Date.now());
-  assert.throws(() => mod.normalizeRuntimeConfig({
+test("normalizeRuntimeConfig accepts Synology host paths for dsmMountRoot (SPK runs natively, no container indirection)", async () => {
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?accept-host-path=" + Date.now());
+  const cfg = mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
     dsmHost: "https://nas.example.com:5001",
     dsmMountRoot: "/volume1/PCNgon",
-  }), /container|\/nas|\/volume1/i);
+  });
+  assert.equal(cfg.dsmMountRoot, "/volume1/PCNgon");
+});
+
+test("normalizeRuntimeConfig rejects a relative dsmMountRoot", async () => {
+  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-relative-path=" + Date.now());
+  assert.throws(() => mod.normalizeRuntimeConfig({
+    publicUrl: "https://review.example.com",
+    dsmHost: "https://nas.example.com:5001",
+    dsmMountRoot: "volume1/PCNgon",
+  }), /tuyệt đối/i);
 });
 
 test("normalizeRuntimeConfig accepts DSM library root and applyRuntimeEnvFromConfig exports it", async () => {

@@ -94,7 +94,7 @@ export function publicRuntimeSummary() {
     configPath: CONFIG_PATH,
     publicUrl: cfg.publicUrl || "",
     dsmHost: cfg.dsmHost || "",
-    dsmMountRoot: cfg.dsmMountRoot || "/nas",
+    dsmMountRoot: cfg.dsmMountRoot || "/volume1",
     dsmLibraryRoot: cfg.dsmLibraryRoot || "/",
     dsmDevLogin: !!cfg.dsmDevLogin,
     dsmInsecure: !!cfg.dsmInsecure,
@@ -114,7 +114,7 @@ export function publicRuntimeSummary() {
 export function normalizeRuntimeConfig(input) {
   const publicUrl = String(input.publicUrl || "").trim().replace(/\/+$/, "");
   const dsmHost = String(input.dsmHost || "").trim().replace(/\/+$/, "");
-  const dsmMountRoot = String(input.dsmMountRoot || "/nas").trim().replace(/\/+$/, "");
+  const dsmMountRoot = String(input.dsmMountRoot || "/volume1").trim().replace(/\/+$/, "");
   const dsmLibraryRoot = normalizeNasLibraryRoot(input.dsmLibraryRoot || "/");
   const oidc = input.oidc && typeof input.oidc === "object" ? input.oidc : {};
   const smtp = input.smtp && typeof input.smtp === "object" ? input.smtp : {};
@@ -126,8 +126,8 @@ export function normalizeRuntimeConfig(input) {
 
   if (!publicUrl) throw new Error("publicUrl required");
   const parsedPublicUrl = new URL(publicUrl);
-  if (/^\/volume\d+(\/|$)/i.test(dsmMountRoot)) {
-    throw new Error("DSM mount root phải là đường dẫn bên trong container, ví dụ /nas; không dùng host path kiểu /volume1/...");
+  if (!dsmMountRoot.startsWith("/")) {
+    throw new Error("DSM mount root phải là đường dẫn tuyệt đối, ví dụ /volume1 hoặc /volume1/PCNgon.");
   }
   const normalized = {
     publicUrl,
@@ -203,7 +203,7 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.PUBLIC_URL = config.publicUrl;
   process.env.ALLOWED_ORIGINS = config.publicUrl;
   process.env.DSM_HOST = config.dsmHost || "";
-  process.env.DSM_MOUNT_ROOT = config.dsmMountRoot || "/nas";
+  process.env.DSM_MOUNT_ROOT = config.dsmMountRoot || "/volume1";
   process.env.DSM_LIBRARY_ROOT = config.dsmLibraryRoot || "/";
   process.env.DSM_DEV_LOGIN = config.dsmDevLogin ? "1" : "";
   process.env.DSM_INSECURE = config.dsmInsecure ? "1" : "";
