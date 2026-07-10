@@ -1417,16 +1417,20 @@ function integrationForm(title, enabled, desc, fields, raw) {
       <div style="background:var(--co-panel);border-radius:13px;padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
         ${fields.map((f) => {
           const dottedKey = f.path.join(".");
+          // id is required for the generic focus-restore in render() to find
+          // this exact field again after the innerHTML rebuild each keystroke
+          // triggers (see captureFocusedField/restoreFocusedField).
+          const fieldId = "sf-" + dottedKey;
           if (f.type === "checkbox") {
             const checked = !!fieldVal(f);
             return `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input type="checkbox" ${checked ? "checked" : ""} onchange="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.checked)" style="width:18px;height:18px;accent-color:#6c5cf6;cursor:pointer;" />
+              <input id="${fieldId}" type="checkbox" ${checked ? "checked" : ""} onchange="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.checked)" style="width:18px;height:18px;accent-color:#6c5cf6;cursor:pointer;" />
               <span style="font-size:13px;color:var(--co-text);">${esc(f.label)}</span>
             </label>`;
           }
           return `<label style="display:flex;flex-direction:column;gap:5px;">
             <span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--co-faint);">${esc(f.label)}</span>
-            <input type="${f.type || "text"}" value="${esc(fieldVal(f))}" placeholder="${esc(f.placeholder || "")}"
+            <input id="${fieldId}" type="${f.type || "text"}" value="${esc(fieldVal(f))}" placeholder="${esc(f.placeholder || "")}"
                    oninput="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.value)"
                    style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:9px;padding:10px 12px;color:var(--co-text);font-size:13.5px;outline:none;font-family:${f.type === "password" || dottedKey.includes("Secret") ? "ui-monospace,monospace" : "inherit"};" />
           </label>`;
@@ -2486,7 +2490,7 @@ function membersModal(vals) {
               <div style="color:var(--co-muted);font-size:11.5px;font-weight:600;">${esc(member.meta)}</div>
             </div>
             <span style="display:inline-flex;align-items:center;gap:6px;background:${member.badgeBg};color:${member.badgeColor};font-weight:800;font-size:10.5px;padding:5px 9px;border-radius:999px;text-transform:uppercase;">${esc(member.badge)}</span>
-            <select data-member-user-id="${member.userId}" ${!vals.canManageAccess ? "disabled" : ""} style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:9px 11px;color:var(--co-text);font-size:12px;font-weight:700;outline:none;${!vals.canManageAccess ? "opacity:.6;cursor:not-allowed;" : ""}">
+            <select id="memberRole-${member.userId}" data-member-user-id="${member.userId}" ${!vals.canManageAccess ? "disabled" : ""} style="background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;padding:9px 11px;color:var(--co-text);font-size:12px;font-weight:700;outline:none;${!vals.canManageAccess ? "opacity:.6;cursor:not-allowed;" : ""}">
               ${member.roleOptions.map((opt) => `<option value="${opt.value}" ${opt.selected ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
             </select>
             ${vals.canManageAccess ? `<button data-act="removeMember" data-arg="${member.userId}" style="border:none;border-radius:10px;padding:9px 12px;background:rgba(239,77,87,0.12);color:#ef4d57;font-weight:800;font-size:12px;cursor:pointer;">Gỡ</button>` : ""}
@@ -3706,10 +3710,39 @@ function restorePersistedScrollPositions(saved) {
   }
 }
 
+// render() replaces app.innerHTML wholesale, which destroys and recreates
+// every DOM node — including whatever text field the user is mid-typing in.
+// Without this, every render triggered while typing (and oninput handlers
+// that call render()/scheduleRender() fire on EVERY keystroke) drops focus,
+// forcing the user to click back into the field after each character. This
+// generic capture/restore runs for every render across the whole app instead
+// of requiring a bespoke `_focusX` flag per field.
+function captureFocusedField() {
+  const el = document.activeElement;
+  if (!el || !el.id) return null;
+  if (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA" && el.tagName !== "SELECT") return null;
+  const saved = { id: el.id };
+  if (typeof el.selectionStart === "number") {
+    saved.selectionStart = el.selectionStart;
+    saved.selectionEnd = el.selectionEnd;
+  }
+  return saved;
+}
+function restoreFocusedField(saved) {
+  if (!saved) return;
+  const el = document.getElementById(saved.id);
+  if (!el || document.activeElement === el) return;
+  el.focus();
+  if (typeof saved.selectionStart === "number" && typeof el.setSelectionRange === "function") {
+    try { el.setSelectionRange(saved.selectionStart, saved.selectionEnd); } catch (_) {}
+  }
+}
+
 function render() {
   // Clear any pending scheduled-render flag — a direct render() call already
   // does the work, so the rAF callback can be a noop when it fires.
   _renderQueued = false;
+  const savedFocus = captureFocusedField();
   const savedScroll = capturePersistedScrollPositions();
   const vals = computeVals();
   lastNasListMeta = vals.nasList;
@@ -3767,23 +3800,7 @@ function render() {
   }
   syncHashRoute();
   restorePersistedScrollPositions(savedScroll);
-
-  // Restore focus to comment input if it had it
-  const ta = document.getElementById("commentInput");
-  if (ta && document.activeElement !== ta && state._focusComment) {
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
-    state._focusComment = false;
-  }
-  // Restore focus to workspace search after re-render. Without this, every
-  // keystroke replaces the input element, drops focus, and the user has to
-  // re-click to type the next character.
-  const ws = document.getElementById("workspaceSearch");
-  if (ws && document.activeElement !== ws && state._focusWorkspaceSearch) {
-    ws.focus();
-    ws.setSelectionRange(ws.value.length, ws.value.length);
-    state._focusWorkspaceSearch = false;
-  }
+  restoreFocusedField(savedFocus);
 }
 
 // ---- event delegation ----
@@ -4045,14 +4062,12 @@ function handleAct(act, arg, e, node) {
 document.addEventListener("input", (e) => {
   if (e.target && e.target.id === "commentInput") {
     state.newComment = e.target.value;
-    state._focusComment = true;
   }
   if (e.target && e.target.id === "annotationTextDraft") {
     state.annotationTextDraft = e.target.value;
   }
   if (e.target && e.target.id === "workspaceSearch") {
     state.workspaceSearch = e.target.value;
-    state._focusWorkspaceSearch = true;
     scheduleRender();
   }
   if (e.target && e.target.id === "editCommentInput") {

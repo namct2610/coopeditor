@@ -1,10 +1,11 @@
 {
-  "version": "1.0.0-rc44",
-  "summary": "SPK RC 44 sua loi khong luu duoc DSM mount root dang /volumeN trong Runtime config — tan du kiem tra tu thoi Docker.",
+  "version": "1.0.0-rc45",
+  "summary": "SPK RC 45 sua loi go 1 ky tu la mat focus o moi o nhap lieu trong toan he thong (Public URL, Runtime config, moi thanh vien...).",
   "changes": [
-    "Runtime config khong con chan gia tri dsmMountRoot kieu /volume1/... nua. Tren SPK native (khong co container), day chinh la duong dan dung — validator cu bat buoc phai la /nas la sai tu khi go Docker.",
-    "Gia tri mac dinh cua dsmMountRoot doi tu /nas sang /volume1, khop voi gia tri wizard cai dat SPK da ghi san.",
-    "Validator moi chi con kiem tra dsmMountRoot phai la duong dan tuyet doi (bat dau bang /)."
+    "Sua loi UI goc re: render() ve lai toan bo innerHTML nen moi lan go phim goi render/scheduleRender se pha huy va tao lai input dang go, buoc phai click lai vao o moi go tiep duoc ky tu ke tiep.",
+    "Them co che chung: render() tu dong ghi nho o dang focus + vi tri con tro truoc khi ve lai, va phuc hoi lai sau khi ve xong — ap dung cho MOI input/textarea/select co id trong toan he thong, khong can vi tri tung o rieng.",
+    "Cac o Runtime config (Public URL, DSM host, DSM mount root...) va o them thanh vien DSM truoc day khong co id nen khong the phuc hoi focus — da them id on dinh cho tung o.",
+    "Go bo 2 co che vi phuc hoi focus rieng le (_focusComment, _focusWorkspaceSearch) vi co che chung moi da bao quat, giam trung lap logic."
   ],
   "publishedAt": "2026-07-10T00:00:00.000Z"
 }
