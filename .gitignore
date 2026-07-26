@@ -13,6 +13,6 @@ storage
 docker-compose.override.yml
 docker-compose.*.local.yml
 .DS_Store
-synology/build/*.spk
+synology/build/
 -decoders
 -encoders

@@ -1,11 +1,15 @@
 {
-  "version": "1.0.0-rc45",
-  "summary": "SPK RC 45 sua loi go 1 ky tu la mat focus o moi o nhap lieu trong toan he thong (Public URL, Runtime config, moi thanh vien...).",
+  "version": "1.0.0-rc46",
+  "summary": "SPK RC 46 giao dien Nocturne moi + bo cong cu chu thich day du (chon/di chuyen, but da quang, ellipse, tay, do day net, undo/redo).",
   "changes": [
-    "Sua loi UI goc re: render() ve lai toan bo innerHTML nen moi lan go phim goi render/scheduleRender se pha huy va tao lai input dang go, buoc phai click lai vao o moi go tiep duoc ky tu ke tiep.",
-    "Them co che chung: render() tu dong ghi nho o dang focus + vi tri con tro truoc khi ve lai, va phuc hoi lai sau khi ve xong — ap dung cho MOI input/textarea/select co id trong toan he thong, khong can vi tri tung o rieng.",
-    "Cac o Runtime config (Public URL, DSM host, DSM mount root...) va o them thanh vien DSM truoc day khong co id nen khong the phuc hoi focus — da them id on dinh cho tung o.",
-    "Go bo 2 co che vi phuc hoi focus rieng le (_focusComment, _focusWorkspaceSearch) vi co che chung moi da bao quat, giam trung lap logic."
+    "Doi toan bo bang mau sang Nocturne: nen tim than (--co-bg #161826, --co-panel #1e2030), them token rieng --co-stage cho khung video, accent chuyen tu #6c5cf6 sang #9184d9 tren toan he thong.",
+    "Bo cong tac 'Bat che do chu thich': lop ve luon san sang, cong cu mac dinh la Chon; click vao vung trong khung hinh van play/pause nhu cu.",
+    "Them 4 cong cu moi: Chon/di chuyen (V), But da quang (H), Khoanh tron (O), Tay (E) — cong voi But ve (P), Mui ten (A), Khung (R), Text (T).",
+    "Them do day net (3 muc) va cho phep doi mau/do day cua net da ve bang cach chon net do truoc.",
+    "Them undo/redo (Cmd+Z / Shift+Cmd+Z) va Delete de xoa net dang chon; thanh cong cu tach thanh 2 hang tren-duoi khung hinh.",
+    "Sua loi lop SVG chu thich bi vuong 1:1 thay vi phu kin khung hinh — truoc day net ve bi lech so voi vi tri chuot.",
+    "Backend validateAnnotation nhan them tool ellipse/highlight va luu do day net (clamp 1..24); tach ra apps/api/src/annotation.js kem test rieng.",
+    "Man hinh review co them the version va avatar nguoi dang xem cung (truoc day chi hien o topBar, khong hien trong review)."
   ],
-  "publishedAt": "2026-07-10T00:00:00.000Z"
+  "publishedAt": "2026-07-26T00:00:00.000Z"
 }

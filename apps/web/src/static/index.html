@@ -17,18 +17,24 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   :root, [data-theme="dark"] {
-    /* Synoframe palette — deeper blacks, neutral grays, violet accent.
-       Mapped from claude.ai/design/p/fbbd84a0… (Synoframe.dc.html). */
-    --co-bg:#0a0a0d; --co-chrome:#0a0a0d; --co-panel:#16161a; --co-panel-2:#1d1d22; --co-menu:#161619;
-    --co-text:#f4f4f6; --co-text-2:#c9c9d2; --co-muted:#9b9ba6; --co-faint:#7a7a85; --co-comment:#e4e4ea;
-    --co-border:rgba(255,255,255,0.07); --co-border-2:rgba(255,255,255,0.14); --co-hover:rgba(255,255,255,0.06);
-    --co-shadow:0 0 #0000; --co-accent-ink:#b9aeff;
+    /* Nocturne palette — indigo-tinted grounds, blurple accent.
+       Mapped from claude.ai/design/p/6ace84d7… (Coopeditor.dc.html). */
+    --co-bg:#161826; --co-stage:#0d0e18; --co-chrome:#191b29; --co-panel:#1e2030; --co-panel-2:#232532; --co-menu:#1e2030;
+    --co-text:#e9e9ed; --co-text-2:#b2b6ca; --co-muted:#9397ab; --co-faint:#75798c; --co-comment:#e9e9ed;
+    --co-border:rgba(233,233,237,0.09); --co-border-2:rgba(233,233,237,0.16); --co-hover:rgba(233,233,237,0.06);
+    --co-shadow:0 0 #0000;
+    --co-accent:#9184d9; --co-accent-ink:#d2cefd;
+    --co-accent-soft:rgba(145,132,217,0.14); --co-accent-line:rgba(145,132,217,0.42);
+    --co-ok:#2bbe6e; --co-warn:#d9a45b; --co-bad:#ef4d57;
   }
   [data-theme="light"] {
-    --co-bg:#f6f6f9; --co-chrome:#ffffff; --co-panel:#ffffff; --co-panel-2:#eeeef2; --co-menu:#ffffff;
-    --co-text:#0a0a0d; --co-text-2:#2a2a32; --co-muted:#5a5a62; --co-faint:#7a7a85; --co-comment:#1b1b22;
-    --co-border:rgba(10,10,13,0.08); --co-border-2:rgba(10,10,13,0.14); --co-hover:rgba(10,10,13,0.04);
-    --co-shadow:0 1px 2px rgba(10,10,13,0.06), 0 8px 22px rgba(10,10,13,0.08); --co-accent-ink:#6c5cf6;
+    --co-bg:#f4f4f8; --co-stage:#0d0e18; --co-chrome:#ffffff; --co-panel:#ffffff; --co-panel-2:#ececf3; --co-menu:#ffffff;
+    --co-text:#161826; --co-text-2:#3f424d; --co-muted:#5c6072; --co-faint:#75798c; --co-comment:#1b1b22;
+    --co-border:rgba(22,24,38,0.09); --co-border-2:rgba(22,24,38,0.16); --co-hover:rgba(22,24,38,0.05);
+    --co-shadow:0 1px 2px rgba(22,24,38,0.06), 0 8px 22px rgba(22,24,38,0.08);
+    --co-accent:#9184d9; --co-accent-ink:#5d52a0;
+    --co-accent-soft:rgba(145,132,217,0.12); --co-accent-line:rgba(145,132,217,0.38);
+    --co-ok:#1d9c56; --co-warn:#b4802f; --co-bad:#d43a44;
   }
   body { background: var(--co-bg); color: var(--co-text); font-family: "Onest", -apple-system, system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -78,14 +84,14 @@
     div[data-act="closeTranscode"] > div { max-height: 100vh !important; max-width: 100vw !important; width: 100vw !important; border-radius: 0 !important; }
   }
   .co-hover:hover { background: var(--co-hover) !important; }
-  .co-border-hover:hover { border-color: rgba(108,92,246,0.5) !important; }
-  .co-border-hover-strong:hover { border-color: rgba(108,92,246,0.45) !important; transform: translateY(-3px); }
+  .co-border-hover:hover { border-color: rgba(145,132,217,0.5) !important; }
+  .co-border-hover-strong:hover { border-color: rgba(145,132,217,0.45) !important; transform: translateY(-3px); }
   .co-card-hover:hover { filter: brightness(1.08); }
   .co-btn-blue:hover { background:#4fade4 !important; }
   .co-text-hover:hover { color: var(--co-text) !important; }
-  .co-blue-hover:hover { color: #6c5cf6 !important; }
+  .co-blue-hover:hover { color: #9184d9 !important; }
   .co-attach-hover:hover { background: rgba(255,255,255,0.12) !important; }
-  textarea:focus { border-color: rgba(108,92,246,0.6) !important; }
+  textarea:focus { border-color: rgba(145,132,217,0.6) !important; }
 </style>
 </head>
 <body>
@@ -111,12 +117,12 @@ const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],[
 const PROJECTS = [];
 const EMPTY_SOURCES = {};
 const AUTHORS = {
-  me: { name: "Bạn", initial: "B", color: "#6c5cf6", role: "" },
+  me: { name: "Bạn", initial: "B", color: "#9184d9", role: "" },
   guest: { name: "Khách", initial: "K", color: "#2bbe6e", role: "CLIENT" },
 };
 
 const SM = {
-  progress: { label: "Đang thực hiện", color: "#6c5cf6", bg: "rgba(108,92,246,0.13)" },
+  progress: { label: "Đang thực hiện", color: "#9184d9", bg: "rgba(145,132,217,0.13)" },
   done: { label: "Đã xong", color: "#2bbe6e", bg: "rgba(43,190,110,0.13)" },
   published: { label: "Đã đăng", color: "#a07bff", bg: "rgba(160,123,255,0.13)" },
 };
@@ -129,7 +135,7 @@ const SRC_STATUS = {
 };
 
 const SCENES = [
-  { at: 0, label: "INT · KITCHEN — DAY", sub: "01 · Wide establishing", a: "#0c2436", b: "#1c5876", hi: "rgba(108,92,246,.5)" },
+  { at: 0, label: "INT · KITCHEN — DAY", sub: "01 · Wide establishing", a: "#0c2436", b: "#1c5876", hi: "rgba(145,132,217,.5)" },
   { at: 16000, label: "CU · GLASS FILLING", sub: "02 · Insert", a: "#2a1d0c", b: "#7a521d", hi: "rgba(217,164,91,.45)" },
   { at: 38000, label: "INT · KITCHEN — DAY", sub: "03 · Two shot", a: "#0c1c33", b: "#234a78", hi: "rgba(80,150,220,.42)" },
   { at: 62000, label: "INSERT · FILTER UNIT", sub: "04 · Macro", a: "#15171c", b: "#3a4453", hi: "rgba(170,190,210,.35)" },
@@ -203,13 +209,16 @@ const state = {
   showAudit: false,
   showArchived: false,
   auditEntries: [],
-  annotationMode: false,
-  annotationTool: "pen",
+  annotationTool: "select",
   annotationColor: "#ef4d57",
+  annotationWidth: 3,
   annotationStrokes: [],
   annotationTexts: [],
   annotationTextDraft: "",
   annotationDrawing: null,
+  annotationSelId: null,
+  annotationUndo: [],
+  annotationRedo: [],
   timelineBarWidth: 0,
   showTranscode: false,
   showImport: false,
@@ -353,7 +362,7 @@ function syncPlayButtons(isPlaying) {
   const overlay = document.getElementById("reviewVideoOverlay");
   if (overlay) {
     overlay.style.display = isPlaying ? "none" : "grid";
-    overlay.innerHTML = isPlaying ? "" : `<div style="width:76px;height:76px;border-radius:50%;background:rgba(7,9,14,0.55);backdrop-filter:blur(6px);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.3);box-shadow:0 8px 30px rgba(0,0,0,0.5);">${ICON.bigPlay}</div>`;
+    overlay.innerHTML = isPlaying ? "" : `<div style="width:76px;height:76px;border-radius:50%;background:rgba(13,14,24,0.5);backdrop-filter:blur(6px);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.28);box-shadow:0 8px 30px rgba(0,0,0,0.5);">${ICON.bigPlay}</div>`;
   }
 }
 
@@ -552,7 +561,7 @@ function openSource(id) {
   pause();
   const pid = state.selectedProjectId;
   const src = ((state.sourcesByProject[pid] || []).find((item) => item.id === id)) || null;
-  setStateNow({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, _playIntent: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
+  setStateNow({ view: "review", selectedId: id, currentMs: 0, duration: src && src.dur ? src.dur : state.duration, playing: false, _playIntent: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null, annotationSelId: null, annotationUndo: [], annotationRedo: [] });
 }
 function setStatusFilter(key) { setStateNow({ statusFilter: key, view: "projects", showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null }); }
 function toggleTheme() { const t = state.theme === "dark" ? "light" : "dark"; try { localStorage.setItem("co-theme", t); } catch (_) {} setState({ theme: t }); }
@@ -996,7 +1005,7 @@ function postComment() {
     // Optimistic local insert as a nested reply under the parent. When the
     // server round-trip comes back, refreshComments re-derives the tree from
     // REMOTE_COMMENTS so the placeholder is replaced cleanly.
-    const reply = { who: "me", color: (remote.me && remote.me.color) || "#6c5cf6", name: (remote.me && remote.me.name) || "Bạn", content: text };
+    const reply = { who: "me", color: (remote.me && remote.me.color) || "#9184d9", name: (remote.me && remote.me.name) || "Bạn", content: text };
     state.comments = state.comments.map((c) => c.id === parentId
       ? { ...c, replies: [...(c.replies || []), reply] }
       : c);
@@ -1165,16 +1174,16 @@ const ICON = {
   full: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
   send: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>',
   check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-  checkBig: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+  checkBig: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9184d9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
   clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>',
   cogs: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"></path></svg>',
   x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
-  folder: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 19px"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>',
+  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9184d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+  folder: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#9184d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 19px"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>',
   chevRightSmall: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6b82" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>',
   fileVideo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8896ab" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 18px"><rect x="2" y="2" width="20" height="20" rx="2.5"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>',
   nas: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2bbe6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"></rect><rect x="2" y="14" width="20" height="6" rx="1.5"></rect><line x1="6" y1="7" x2="6.01" y2="7"></line><line x1="6" y1="17" x2="6.01" y2="17"></line></svg>',
-  reorder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>',
+  reorder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9184d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>',
 };
 
 // Left rail (64px) per Synoframe design: dot-grid logo + Home / Search /
@@ -1190,7 +1199,7 @@ function leftRail(vals) {
     <div data-act="goProjects" title="Coopeditor" style="width:32px;height:32px;margin-bottom:8px;cursor:pointer;border-radius:10px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,0.28);">
       <img src="brand/favicon-32.png" alt="Coopeditor" style="width:100%;height:100%;display:block;">
     </div>
-    <div data-act="goProjects" title="Home" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:${isProjects ? "var(--co-text)" : "var(--co-muted)"};background:${isProjects ? "rgba(108,92,246,0.14)" : "transparent"};">
+    <div data-act="goProjects" title="Home" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:${isProjects ? "var(--co-text)" : "var(--co-muted)"};background:${isProjects ? "rgba(145,132,217,0.14)" : "transparent"};">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
     </div>
     <div data-act="focusWorkspaceSearch" title="Tìm kiếm project" class="co-hover" style="width:40px;height:40px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--co-muted);">
@@ -1248,7 +1257,7 @@ function settingsPage(vals) {
   <div style="flex:1;display:flex;flex-direction:column;min-height:0;background:var(--co-bg);">
     <div style="height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px;border-bottom:1px solid var(--co-border);position:relative;">
       <div style="font-size:14px;color:var(--co-text);font-weight:600;">${esc(accountName)} · ${esc(({profile:"Profile", notifications:"Notifications", system:"Runtime config", proxy:"Proxy storage", update:"Update Center", oidc:"OIDC SSO", smtp:"Email (SMTP)", webhooks:"Slack / Discord", hls:"HLS CDN"})[sec] || "Settings")}</div>
-      <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(108,92,246,0.16);border:1px solid rgba(108,92,246,0.35);border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#b9aeff;">
+      <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(145,132,217,0.16);border:1px solid rgba(145,132,217,0.35);border-radius:8px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#d2cefd;">
         <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px"><path d="M12 2 9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/></svg>
         Team · Self-hosted
       </div>
@@ -1259,7 +1268,7 @@ function settingsPage(vals) {
           <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--co-faint);padding:14px 10px 8px;">${esc(grp.group)}</div>
           ${grp.items.map((it) => {
             const active = sec === it.id;
-            return `<div data-act="setSettingsSection" data-arg="${it.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-text-2)"};background:${active ? "rgba(108,92,246,0.12)" : "transparent"};font-size:13.5px;font-weight:500;">
+            return `<div data-act="setSettingsSection" data-arg="${it.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-text-2)"};background:${active ? "rgba(145,132,217,0.12)" : "transparent"};font-size:13.5px;font-weight:500;">
               <span style="color:${active ? "var(--co-accent-ink)" : "var(--co-faint)"};display:grid;place-items:center;">${it.icon}</span>
               <span style="flex:1;">${esc(it.label)}</span>
               ${typeof it.flag === "boolean" ? `<span style="font-size:10px;font-weight:700;color:${it.flag ? "#2bbe6e" : "var(--co-faint)"};">${it.flag ? "ON" : "off"}</span>` : ""}
@@ -1293,7 +1302,7 @@ function settingsContent(sec, rc, me, vals) {
         <div style="font-size:19px;font-weight:700;">Personal Info</div>
         <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 20px;">Hồ sơ DSM của bạn — đồng bộ tự động khi đăng nhập.</div>
         <div style="background:var(--co-panel);border-radius:13px;padding:22px;display:flex;align-items:center;gap:22px;margin-bottom:24px;">
-          <div style="width:88px;height:88px;border-radius:50%;background:${esc(me.color || "#6c5cf6")};display:grid;place-items:center;font-size:26px;font-weight:700;color:#0a0a0d;">${esc(me.initial || "?")}</div>
+          <div style="width:88px;height:88px;border-radius:50%;background:${esc(me.color || "#9184d9")};display:grid;place-items:center;font-size:26px;font-weight:700;color:#0a0a0d;">${esc(me.initial || "?")}</div>
           <div><div style="font-size:18px;font-weight:700;">${esc(me.name || "Chưa xác định")}</div><div style="font-size:13.5px;color:var(--co-muted);margin-top:4px;">${esc(me.email || "Không có email DSM")}</div></div>
         </div>
         <div style="font-size:16px;font-weight:700;margin-top:14px;">Authentication</div>
@@ -1354,7 +1363,7 @@ function settingsContent(sec, rc, me, vals) {
       <div style="max-width:960px;">
         <div style="font-size:19px;font-weight:700;">Update Center</div>
         <div style="font-size:13.5px;color:var(--co-faint);margin:4px 0 18px;">Kiểm tra release mới, trigger Watchtower pull. Hiện đang chạy SHA <code style="background:var(--co-panel);padding:2px 6px;border-radius:5px;font-size:11px;">${esc((window.__BUILD_SHA || "?").slice(0, 12))}</code>.</div>
-        <button data-act="toggleUpdateModal" style="background:#6c5cf6;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">🔄 Mở Update Center</button>
+        <button data-act="toggleUpdateModal" style="background:#9184d9;border:none;color:#fff;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(145,132,217,0.3);">🔄 Mở Update Center</button>
       </div>`;
   }
   const raw = state.runtimeConfigFull || {};
@@ -1424,7 +1433,7 @@ function integrationForm(title, enabled, desc, fields, raw) {
           if (f.type === "checkbox") {
             const checked = !!fieldVal(f);
             return `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-              <input id="${fieldId}" type="checkbox" ${checked ? "checked" : ""} onchange="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.checked)" style="width:18px;height:18px;accent-color:#6c5cf6;cursor:pointer;" />
+              <input id="${fieldId}" type="checkbox" ${checked ? "checked" : ""} onchange="window.__settingsFieldChange&&window.__settingsFieldChange('${dottedKey}',this.checked)" style="width:18px;height:18px;accent-color:#9184d9;cursor:pointer;" />
               <span style="font-size:13px;color:var(--co-text);">${esc(f.label)}</span>
             </label>`;
           }
@@ -1437,7 +1446,7 @@ function integrationForm(title, enabled, desc, fields, raw) {
         }).join("")}
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
           <button data-act="settingsCancel" ${Object.keys(dirty).length === 0 ? "disabled" : ""} class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border);color:var(--co-text-2);font-weight:600;font-size:13px;padding:9px 14px;border-radius:9px;cursor:${Object.keys(dirty).length ? "pointer" : "not-allowed"};opacity:${Object.keys(dirty).length ? "1" : "0.5"};">Hủy thay đổi</button>
-          <button data-act="settingsSave" ${busy || Object.keys(dirty).length === 0 ? "disabled" : ""} style="background:${busy || Object.keys(dirty).length === 0 ? "var(--co-panel-2)" : "#6c5cf6"};border:none;color:${busy || Object.keys(dirty).length === 0 ? "var(--co-faint)" : "#fff"};font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:${busy || Object.keys(dirty).length === 0 ? "not-allowed" : "pointer"};">${busy ? "Đang lưu…" : "Lưu thay đổi"}</button>
+          <button data-act="settingsSave" ${busy || Object.keys(dirty).length === 0 ? "disabled" : ""} style="background:${busy || Object.keys(dirty).length === 0 ? "var(--co-panel-2)" : "#9184d9"};border:none;color:${busy || Object.keys(dirty).length === 0 ? "var(--co-faint)" : "#fff"};font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:${busy || Object.keys(dirty).length === 0 ? "not-allowed" : "pointer"};">${busy ? "Đang lưu…" : "Lưu thay đổi"}</button>
         </div>
       </div>
       <div style="font-size:11.5px;color:var(--co-faint);margin-top:10px;">Field có giá trị <code style="background:var(--co-hover);padding:1px 5px;border-radius:4px;">***</code> nghĩa là secret đang được giữ — đừng sửa nếu không muốn đổi.</div>
@@ -1457,16 +1466,23 @@ function reviewHeader(vals) {
       <span data-act="goProject" class="co-text-hover" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;white-space:nowrap;flex:0 0 auto;">${esc(selProject.name || vals.projectName || "Project")}</span>
       <span style="color:var(--co-faint);flex:0 0 auto;">/</span>
       <span style="font-size:13.5px;color:var(--co-text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.selTitle || "Asset")}</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:var(--co-faint);flex:0 0 13px;"><path d="m6 9 6 6 6-6"/></svg>
+      <button data-act="toggleVersionMenu" class="co-hover" title="Đổi version" style="margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--co-accent-line);color:var(--co-accent-ink);font-weight:600;font-size:12px;line-height:1;padding:0 9px;height:28px;border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;">${esc(vals.versionLabel)}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;pointer-events:none;"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+    <div style="display:flex;align-items:center;flex:0 0 auto;margin-right:4px;">
+      ${(window.__presenceList || []).filter((p) => p && p.id !== (remote.me && remote.me.id)).map((p) => `
+        <div title="${esc(p.name)} · đang xem cùng bạn" style="width:28px;height:28px;border-radius:50%;background:${p.color};display:grid;place-items:center;font-weight:700;font-size:11px;color:#0d0e18;margin-left:-9px;border:2px solid var(--co-chrome);">${esc(p.initial)}</div>
+      `).join("")}
     </div>
     <div data-act="focusWorkspaceSearch" style="flex:0 1 220px;min-width:44px;height:34px;border-radius:9px;background:var(--co-panel);border:1px solid var(--co-border);display:inline-flex;align-items:center;gap:9px;padding:0 12px;color:var(--co-faint);cursor:pointer;overflow:hidden;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" style="width:15px;height:15px;flex:0 0 15px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <span style="font-size:13px;white-space:nowrap;">Search</span>
     </div>
-    <button data-act="toggleMembers" title="Share" style="height:32px;border-radius:8px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
+    <button data-act="toggleMembers" title="Share" style="height:32px;border-radius:8px;background:#9184d9;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/></svg>Share
     </button>
-    <div data-act="toggleReviewPanel" title="Toggle comments panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${state.reviewPanelOpen === false ? "var(--co-faint)" : "var(--co-text)"};background:${state.reviewPanelOpen === false ? "transparent" : "rgba(108,92,246,0.14)"};flex:0 0 30px;">
+    <div data-act="toggleReviewPanel" title="Toggle comments panel" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${state.reviewPanelOpen === false ? "var(--co-faint)" : "var(--co-text)"};background:${state.reviewPanelOpen === false ? "transparent" : "rgba(145,132,217,0.14)"};flex:0 0 30px;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>
     </div>
   </div>`;
@@ -1484,7 +1500,7 @@ function topBar(vals) {
       ${state.view === "review" ? `
         <span style="color:var(--co-faint);">/</span>
         <span style="color:var(--co-text);">${esc(vals.selTitle)}</span>
-        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#b9aeff;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
+        <button data-act="toggleVersionMenu" class="co-border-hover" style="margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:var(--co-panel-2);border:1px solid var(--co-border-2);color:#d2cefd;font-weight:700;font-size:12px;padding:5px 9px;border-radius:8px;cursor:pointer;">${esc(vals.versionLabel)}${ICON.chevDown}</button>
       ` : ""}
     </div>
     ` : `<div style="font-size:14.5px;font-weight:700;color:var(--co-text);letter-spacing:-0.01em;">Workspace của ${esc((remote.me && remote.me.name) || "bạn")}</div>`}
@@ -1500,7 +1516,7 @@ function topBar(vals) {
         <span style="display:flex;color:${vals.speedColor};">${ICON.bars}</span>
         <span style="font-variant-numeric:tabular-nums;">${vals.speedFmt.value}</span>
         <span style="color:var(--co-muted);font-weight:600;font-size:11px;margin-left:-3px;">${vals.speedFmt.unit}</span>
-        ${state.speedTesting ? `<span style="display:flex;color:#6c5cf6;animation:coSpin 0.7s linear infinite;">${ICON.spinner}</span>` : ""}
+        ${state.speedTesting ? `<span style="display:flex;color:#9184d9;animation:coSpin 0.7s linear infinite;">${ICON.spinner}</span>` : ""}
       </button>
       ${state.showSpeedPanel ? speedPanel(vals) : ""}
     </div>
@@ -1526,17 +1542,17 @@ function speedPanel(vals) {
         <span style="font-size:14px;font-weight:700;color:var(--co-muted);">${vals.speedFmt.unit} ↓</span>
         <span style="margin-left:auto;font-size:11px;font-weight:700;color:${vals.speedColor};background:var(--co-hover);padding:4px 10px;border-radius:999px;">${vals.speedTier}</span>
       </div>
-      <div style="position:relative;height:8px;border-radius:999px;margin:14px 0 6px;overflow:hidden;background:linear-gradient(90deg,#d9a45b 0%,#d9a45b 22%,#6c5cf6 22%,#6c5cf6 40%,#2bbe6e 40%,#2bbe6e 100%);opacity:.35;"></div>
+      <div style="position:relative;height:8px;border-radius:999px;margin:14px 0 6px;overflow:hidden;background:linear-gradient(90deg,#d9a45b 0%,#d9a45b 22%,#9184d9 22%,#9184d9 40%,#2bbe6e 40%,#2bbe6e 100%);opacity:.35;"></div>
       <div style="position:relative;height:0;">
         <div style="position:absolute;top:-19px;left:${vals.speedPct}%;transform:translateX(-50%);width:3px;height:14px;background:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,255,255,0.6);"></div>
       </div>
       <div style="display:flex;justify-content:space-between;color:var(--co-faint);font-size:10px;font-weight:700;margin-top:4px;"><span>0</span><span>40</span><span>${vals.speedScaleMax}</span></div>
-      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:11px;">
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(145,132,217,0.08);border:1px solid rgba(145,132,217,0.18);border-radius:11px;">
         <div style="flex:1;">
           <div style="font-size:11px;color:var(--co-muted);font-weight:600;">Khuyến nghị proxy phát</div>
           <div style="font-size:15px;font-weight:800;color:var(--co-accent-ink);margin-top:1px;">${vals.speedRec}</div>
         </div>
-        <button data-act="applyRec" class="co-btn-blue" style="background:#6c5cf6;border:none;color:#07111a;font-weight:700;font-size:12px;padding:8px 13px;border-radius:999px;cursor:pointer;">Áp dụng</button>
+        <button data-act="applyRec" class="co-btn-blue" style="background:#9184d9;border:none;color:#07111a;font-weight:700;font-size:12px;padding:8px 13px;border-radius:999px;cursor:pointer;">Áp dụng</button>
       </div>
       <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:11px;">
         <div>
@@ -1583,12 +1599,12 @@ function sidebar(vals) {
         </div>
       </div>` : ""}
       ${vals.proxyCache ? `
-      <div data-act="openProxyStorage" class="co-border-hover" style="margin-top:auto;background:${proxyActive ? "linear-gradient(160deg,rgba(108,92,246,0.2),rgba(24,120,185,0.08))" : "linear-gradient(160deg,rgba(108,92,246,0.12),rgba(24,120,185,0.05))"};border:1px solid ${proxyActive ? "rgba(108,92,246,0.42)" : "rgba(108,92,246,0.2)"};border-radius:12px;padding:13px;cursor:pointer;">
+      <div data-act="openProxyStorage" class="co-border-hover" style="margin-top:auto;background:${proxyActive ? "linear-gradient(160deg,rgba(145,132,217,0.2),rgba(24,120,185,0.08))" : "linear-gradient(160deg,rgba(145,132,217,0.12),rgba(24,120,185,0.05))"};border:1px solid ${proxyActive ? "rgba(145,132,217,0.42)" : "rgba(145,132,217,0.2)"};border-radius:12px;padding:13px;cursor:pointer;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="font-weight:700;font-size:12.5px;color:var(--co-text);">Bộ nhớ proxy</div>
           <div style="margin-left:auto;color:${proxyActive ? "var(--co-accent-ink)" : "var(--co-faint)"};">${ICON.chevRight}</div>
         </div>
-        <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
+        <div style="height:7px;border-radius:999px;background:var(--co-border-2);margin:9px 0 6px;overflow:hidden;"><div style="width:${vals.proxyCache.pct}%;height:100%;background:linear-gradient(90deg,#9184d9,#4fade4);"></div></div>
         <div style="margin-top:2px;color:${proxyTone};font-size:21px;font-weight:800;letter-spacing:-0.02em;">${esc(vals.proxyCache.totalLabel || "0 B")}</div>
         <div style="margin-top:3px;color:${proxyMutedTone};font-size:11px;font-weight:700;">${esc(vals.proxyCache.countLabel || vals.proxyCache.label)}</div>
         <div style="margin-top:2px;color:${proxyMutedTone};font-size:10.5px;font-weight:700;">${esc(vals.proxyCache.usageLabel || "")}</div>
@@ -1854,7 +1870,7 @@ function projectsHub(vals) {
         <div data-act="toggleMembers" title="Thành viên" class="co-hover" style="width:38px;height:38px;border-radius:10px;background:var(--co-panel);display:grid;place-items:center;cursor:pointer;color:var(--co-text-2);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:19px;height:19px"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M16 14.2a4.8 4.8 0 0 1 4.5 4.8"/></svg>
         </div>
-        <button data-act="createProject" style="height:38px;border-radius:10px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:13.5px;color:#fff;box-shadow:0 4px 14px rgba(108,92,246,0.35);">
+        <button data-act="createProject" style="height:38px;border-radius:10px;background:#9184d9;border:none;display:inline-flex;align-items:center;gap:8px;padding:0 16px;cursor:pointer;font-weight:600;font-size:13.5px;color:#fff;box-shadow:0 4px 14px rgba(145,132,217,0.35);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:15px;height:15px"><path d="M12 5v14M5 12h14"/></svg>
           New Project
         </button>
@@ -1882,10 +1898,10 @@ function projectsHub(vals) {
       </div>
     ${noProjects ? `
       <div style="margin-top:60px;display:grid;place-items:center;text-align:center;color:var(--co-muted);">
-        <div style="width:72px;height:72px;border-radius:18px;background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:18px;">${ICON.film}</div>
+        <div style="width:72px;height:72px;border-radius:18px;background:rgba(145,132,217,0.12);border:1px solid rgba(145,132,217,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:18px;">${ICON.film}</div>
         <div style="font-size:18px;font-weight:800;color:var(--co-text);margin-bottom:6px;">Chưa có project nào</div>
         <div style="font-size:13px;font-weight:600;max-width:380px;line-height:1.55;">Tạo project đầu tiên để bắt đầu import nguồn từ NAS, tạo proxy và mời client review.</div>
-        <button data-act="createProject" class="co-btn-blue" style="margin-top:18px;display:inline-flex;align-items:center;gap:7px;background:#6c5cf6;color:#07111a;font-weight:800;font-size:14px;padding:11px 22px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.35);"><span style="font-size:18px;line-height:1;">+</span>Tạo project mới</button>
+        <button data-act="createProject" class="co-btn-blue" style="margin-top:18px;display:inline-flex;align-items:center;gap:7px;background:#9184d9;color:#07111a;font-weight:800;font-size:14px;padding:11px 22px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(145,132,217,0.35);"><span style="font-size:18px;line-height:1;">+</span>Tạo project mới</button>
       </div>
     ` : ""}
     ${vals.projectGroups.map((g) => `
@@ -2047,7 +2063,7 @@ function projectDetail(vals) {
         <span style="font-size:13.5px;color:var(--co-text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:40px;">${esc(vals.projectName)}</span>
         ${vals.isArchived ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(217,164,91,0.16);border:1px solid rgba(217,164,91,0.35);border-radius:8px;padding:4px 9px;font-size:11.5px;font-weight:600;color:#d9a45b;flex:0 0 auto;">Đã archive</span>` : ""}
       </div>
-      <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(108,92,246,0.16);border:1px solid rgba(108,92,246,0.35);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:#b9aeff;white-space:nowrap;flex:0 0 auto;">
+      <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(145,132,217,0.16);border:1px solid rgba(145,132,217,0.35);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:#d2cefd;white-space:nowrap;flex:0 0 auto;">
         <svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px"><path d="M12 2 9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/></svg>
         Team · Self-hosted
       </div>
@@ -2055,7 +2071,7 @@ function projectDetail(vals) {
       <div data-act="focusWorkspaceSearch" style="flex:0 1 280px;min-width:44px;height:34px;border-radius:9px;background:var(--co-panel);border:1px solid var(--co-border);display:inline-flex;align-items:center;gap:9px;padding:0 12px;color:var(--co-faint);cursor:pointer;overflow:hidden;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" style="width:15px;height:15px;flex:0 0 15px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span style="font-size:13px;white-space:nowrap;">Search</span>
       </div>
-      <button data-act="toggleMembers" title="Share / phân quyền" style="height:32px;border-radius:8px;background:#6c5cf6;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
+      <button data-act="toggleMembers" title="Share / phân quyền" style="height:32px;border-radius:8px;background:#9184d9;border:none;display:inline-flex;align-items:center;gap:7px;padding:0 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:#fff;flex:0 0 auto;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/></svg>Share
       </button>
       <div style="display:flex;gap:3px;margin-left:2px;flex:0 0 auto;">
@@ -2064,7 +2080,7 @@ function projectDetail(vals) {
           { id: "details", title: "Toggle details panel", svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="15" y="4" width="6" height="16" rx="2" fill="currentColor" stroke="none"/></svg>' },
         ].map((b) => {
           const active = state.panels && state.panels[b.id];
-          return `<div data-act="togglePanel" data-arg="${b.id}" title="${b.title}" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-faint)"};background:${active ? "rgba(108,92,246,0.14)" : "transparent"};">${b.svg}</div>`;
+          return `<div data-act="togglePanel" data-arg="${b.id}" title="${b.title}" class="co-hover" style="width:30px;height:30px;border-radius:7px;display:grid;place-items:center;cursor:pointer;color:${active ? "var(--co-text)" : "var(--co-faint)"};background:${active ? "rgba(145,132,217,0.14)" : "transparent"};">${b.svg}</div>`;
         }).join("")}
       </div>
     </div>
@@ -2106,7 +2122,7 @@ function projectDetailsAside(vals) {
     <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:18px;">
       ${team.length ? team.map((m) => `
         <div style="display:flex;align-items:center;gap:9px;">
-          <div style="width:26px;height:26px;border-radius:50%;background:${m.color || "#6c5cf6"};display:grid;place-items:center;font-weight:700;font-size:10.5px;color:#0a0a0d;">${esc((m.initial || (m.name || "?").slice(0,2)).toUpperCase())}</div>
+          <div style="width:26px;height:26px;border-radius:50%;background:${m.color || "#9184d9"};display:grid;place-items:center;font-weight:700;font-size:10.5px;color:#0a0a0d;">${esc((m.initial || (m.name || "?").slice(0,2)).toUpperCase())}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:12.5px;font-weight:600;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m.name || m.dsmUsername || "—")}</div>
             <div style="font-size:11px;color:var(--co-faint);">${esc(m.role || "viewer")}</div>
@@ -2128,10 +2144,10 @@ function projectDetailsAside(vals) {
 function sourceEmptyState(vals) {
   return `
     <div style="margin-top:48px;display:grid;place-items:center;text-align:center;color:var(--co-muted);">
-      <div style="width:64px;height:64px;border-radius:16px;background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:16px;">${ICON.film}</div>
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(145,132,217,0.12);border:1px solid rgba(145,132,217,0.25);display:grid;place-items:center;color:var(--co-accent-ink);margin-bottom:16px;">${ICON.film}</div>
       <div style="font-size:16px;font-weight:800;color:var(--co-text);margin-bottom:5px;">Chưa có nguồn nào trong project</div>
       <div style="font-size:12.5px;font-weight:500;max-width:360px;line-height:1.5;">Import file từ NAS để bắt đầu tạo proxy. Worker sẽ tự transcode và sẵn sàng review.</div>
-      ${vals.canManageProject && !vals.isArchived ? `<button data-act="openImport" style="margin-top:16px;display:inline-flex;align-items:center;gap:7px;background:#6c5cf6;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.3);">${ICON.import}Import nguồn</button>` : ""}
+      ${vals.canManageProject && !vals.isArchived ? `<button data-act="openImport" style="margin-top:16px;display:inline-flex;align-items:center;gap:7px;background:#9184d9;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 14px rgba(145,132,217,0.3);">${ICON.import}Import nguồn</button>` : ""}
     </div>`;
 }
 
@@ -2166,7 +2182,7 @@ function sourceGridView(vals) {
   // a duration chip + violet "Proxy" tag. Footer: name + sub line, dots menu,
   // NAS path line with rack icon.
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,250px));gap:18px;">${vals.sources.map((s) => {
-    const borderColor = s.transcoding ? "rgba(108,92,246,0.45)" : (s.statusColor && s.statusColor !== "var(--co-muted)" ? `${s.statusColor}55` : "var(--co-border)");
+    const borderColor = s.transcoding ? "rgba(145,132,217,0.45)" : (s.statusColor && s.statusColor !== "var(--co-muted)" ? `${s.statusColor}55` : "var(--co-border)");
     const ready = !s.transcoding;
     return `
     <div draggable="true" data-drag-id="${s.id}" data-source-menu-id="${s.id}" style="opacity:${s.dragOpacity};border-radius:13px;overflow:hidden;background:var(--co-chrome);border:1.5px solid ${borderColor};transition:border-color .15s;cursor:grab;" class="co-card-hover">
@@ -2182,14 +2198,14 @@ function sourceGridView(vals) {
           <div style="position:relative;width:84px;height:84px;display:grid;place-items:center;">
             <svg viewBox="0 0 84 84" style="position:absolute;inset:0;width:84px;height:84px;transform:rotate(-90deg);">
               <circle cx="42" cy="42" r="38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"></circle>
-              <circle cx="42" cy="42" r="38" fill="none" stroke="#6c5cf6" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(((s.pct || 0) / 100) * 238.76).toFixed(2)} 238.76" style="transition:stroke-dasharray 400ms ease-out;"></circle>
+              <circle cx="42" cy="42" r="38" fill="none" stroke="#9184d9" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(((s.pct || 0) / 100) * 238.76).toFixed(2)} 238.76" style="transition:stroke-dasharray 400ms ease-out;"></circle>
             </svg>
             <span style="position:relative;font-size:14px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">${s.pct || 0}%</span>
           </div>
         ` : `
           <div style="width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,0.45);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.22);"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></div>
           <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-weight:600;font-size:11px;padding:2px 7px;border-radius:5px;font-variant-numeric:tabular-nums;">${s.durLabel}</div>
-          <div style="position:absolute;bottom:10px;left:10px;background:rgba(108,92,246,0.85);color:#fff;font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:5px;">Proxy</div>
+          <div style="position:absolute;bottom:10px;left:10px;background:rgba(145,132,217,0.85);color:#fff;font-weight:700;font-size:10.5px;padding:2px 7px;border-radius:5px;">Proxy</div>
         `}
       </div>
       <div style="padding:11px 12px 13px;">
@@ -2229,10 +2245,10 @@ function safeAreaOverlay(aspect) {
   const label = aspect === "9:16" ? "SAFE 9:16 (short / reel)" : "SAFE 1:1 (square)";
   return `
     <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;">
-      <div style="height:100%;aspect-ratio:${ratio};position:relative;outline:1.5px solid rgba(108,92,246,0.7);background:rgba(0,0,0,0.18);">
+      <div style="height:100%;aspect-ratio:${ratio};position:relative;outline:1.5px solid rgba(145,132,217,0.7);background:rgba(0,0,0,0.18);">
         <div style="position:absolute;inset:6%;border:1px solid rgba(255,255,255,0.4);"></div>
         <div style="position:absolute;inset:3%;border:1px solid rgba(255,255,255,0.2);"></div>
-        <div style="position:absolute;left:6px;top:6px;background:rgba(108,92,246,0.85);color:#07111a;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;">${label}</div>
+        <div style="position:absolute;left:6px;top:6px;background:rgba(145,132,217,0.85);color:#07111a;font-weight:800;font-size:10px;letter-spacing:0.08em;padding:3px 7px;border-radius:5px;">${label}</div>
       </div>
     </div>`;
 }
@@ -2240,38 +2256,133 @@ function safeAreaOverlay(aspect) {
 // ---- Annotation: SVG overlay + toolbar -----------------------------------
 // Coordinates stored 0..1 (normalized) so annotations survive any scaling.
 // On comment submit, both strokes and anchored text notes are shipped in body.annotation.
-function annotationToolbar() {
+const ANN_TOOLS = [
+  { id: "select", key: "V", label: "Chọn / di chuyển", path: '<path d="M5 3l14 8.5-6 1.4L10.5 19z"/>' },
+  { id: "pen", key: "P", label: "Bút vẽ tự do", path: '<path d="M12 19l7-7-4-4-7 7-1 5 5-1z"/><path d="m14.5 6.5 3 3"/>' },
+  { id: "highlight", key: "H", label: "Bút dạ quang", path: '<path d="M4 20h6"/><path d="M9 16 18 7l-3-3-9 9-1 5z"/>' },
+  { id: "arrow", key: "A", label: "Mũi tên", path: '<path d="M5 19 19 5"/><path d="M9 5h10v10"/>' },
+  { id: "rect", key: "R", label: "Khung chữ nhật", path: '<rect x="4" y="6" width="16" height="12" rx="1.5"/>' },
+  { id: "ellipse", key: "O", label: "Khoanh tròn", path: '<ellipse cx="12" cy="12" rx="8.5" ry="6.5"/>' },
+  { id: "text", key: "T", label: "Chèn text", path: '<path d="M5 6h14M12 6v13"/>' },
+  { id: "eraser", key: "E", label: "Tẩy", path: '<path d="m5 15 6-6 8 8-3 3H8z"/><path d="M9 20h11"/>' },
+];
+const ANN_COLORS = ["#ef4d57", "#d9a45b", "#2bbe6e", "#9184d9", "#5aa9e6", "#f3f5fe"];
+const ANN_WIDTHS = [2, 4, 7];
+
+// Tool row — sits above the video frame (mock layout).
+function annotationToolRow() {
   if (state.view !== "review") return "";
-  const active = !!state.annotationMode;
-  const tool = state.annotationTool || "pen";
-  const color = state.annotationColor || "#ef4d57";
-  const colors = ["#ef4d57", "#d9a45b", "#2bbe6e", "#6c5cf6", "#a07bff", "#ffffff"];
-  const tools = [
-    { id: "pen", label: "Vẽ", icon: ICON.penTool },
-    { id: "arrow", label: "Mũi tên", icon: ICON.arrowTool },
-    { id: "rect", label: "Khung", icon: ICON.rectTool },
-    { id: "text", label: "Text", icon: ICON.textTool },
-  ];
-  const strokeCount = (state.annotationStrokes || []).length;
-  const textCount = (state.annotationTexts || []).length;
-  const totalCount = strokeCount + textCount;
+  const tool = state.annotationTool || "select";
+  const canUndo = (state.annotationUndo || []).length > 0;
+  const canRedo = (state.annotationRedo || []).length > 0;
+  const btn = (t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" title="${t.label} (${t.key})" style="width:36px;height:34px;border-radius:9px;display:grid;place-items:center;cursor:pointer;border:none;background:${tool === t.id ? "var(--co-accent)" : "transparent"};color:${tool === t.id ? "#191b29" : "var(--co-text-2)"};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;pointer-events:none;">${t.path}</svg></button>`;
+  const hist = (act, enabled, title, path) => `<button data-act="${act}" title="${title}" style="width:36px;height:34px;border-radius:9px;display:grid;place-items:center;cursor:${enabled ? "pointer" : "default"};border:none;background:transparent;color:${enabled ? "var(--co-text-2)" : "var(--co-faint)"};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;pointer-events:none;">${path}</svg></button>`;
   return `
-    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;background:var(--co-panel-2);border:1px solid var(--co-border-2);border-radius:10px;flex-wrap:wrap;">
-      <button data-act="toggleAnnotationMode" class="co-border-hover" title="Bật/tắt chế độ vẽ chú thích trên khung hình" style="display:inline-flex;align-items:center;gap:6px;background:${active ? "#ef4d57" : "transparent"};color:${active ? "#fff" : "var(--co-text-2)"};border:1px solid ${active ? "#ef4d57" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer;">
-        ${ICON.penTool}${active ? "Đang chú thích" : "Chú thích"}
-      </button>
-      ${active ? `
-        ${tools.map((t) => `<button data-act="setAnnotationTool" data-arg="${t.id}" style="display:inline-flex;align-items:center;gap:6px;background:${tool === t.id ? "#6c5cf6" : "transparent"};color:${tool === t.id ? "#07111a" : "var(--co-text-2)"};border:1px solid ${tool === t.id ? "#6c5cf6" : "var(--co-border-2)"};font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${t.icon}${t.label}</button>`).join("")}
-        ${tool === "text" ? `
-          <input id="annotationTextDraft" value="${esc(state.annotationTextDraft || "")}" placeholder="Nhập text rồi click lên khung hình" style="min-width:220px;flex:1;background:var(--co-panel);border:1px solid rgba(108,92,246,0.28);border-radius:8px;padding:7px 10px;color:var(--co-text);font-size:12.5px;outline:none;" />
-        ` : ""}
-        <span style="display:inline-flex;gap:4px;align-items:center;padding:0 4px;">
-          ${colors.map((c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === color ? "#fff" : "transparent"};cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,0.3);"></button>`).join("")}
-        </span>
-        <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;margin-left:auto;">${totalCount} ghi chú @ ${fmtTc(state.currentMs)} — sẽ gửi cùng comment tiếp theo</span>
-        <button data-act="clearAnnotation" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:#ef4d57;border:1px solid rgba(239,77,87,0.3);font-weight:700;font-size:12px;padding:6px 9px;border-radius:7px;cursor:pointer;">${ICON.trash}Xóa</button>
-      ` : ""}
+    <div style="width:100%;display:flex;align-items:center;gap:5px;padding:6px 8px;background:var(--co-chrome);border:1px solid var(--co-border-2);border-radius:11px;flex-wrap:wrap;">
+      ${ANN_TOOLS.map(btn).join("")}
+      <div style="width:1px;height:20px;background:var(--co-border);margin:0 4px;"></div>
+      ${hist("annotationUndo", canUndo, "Hoàn tác (⌘Z)", '<path d="M3 8h11a5 5 0 0 1 0 10H8"/><path d="M6.5 4.5 3 8l3.5 3.5"/>')}
+      ${hist("annotationRedo", canRedo, "Làm lại (⇧⌘Z)", '<path d="M21 8H10a5 5 0 0 0 0 10h6"/><path d="M17.5 4.5 21 8l-3.5 3.5"/>')}
     </div>`;
+}
+
+// Colour / width / clear row — sits below the video frame (mock layout).
+function annotationStyleRow() {
+  if (state.view !== "review") return "";
+  const tool = state.annotationTool || "select";
+  const color = state.annotationColor || "#ef4d57";
+  const width = state.annotationWidth || 3;
+  const total = (state.annotationStrokes || []).length + (state.annotationTexts || []).length;
+  const swatch = (c) => `<button data-act="setAnnotationColor" data-arg="${encodeURIComponent(c)}" title="${c}" style="width:20px;height:20px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${c === color ? "#f3f5fe" : "transparent"};box-shadow:0 0 0 1px rgba(0,0,0,0.35);padding:0;"></button>`;
+  const widthBtn = (w) => `<button data-act="setAnnotationWidth" data-arg="${w}" title="Nét ${w}" style="width:24px;height:24px;border-radius:7px;display:grid;place-items:center;cursor:pointer;border:none;background:${width === w ? "var(--co-hover)" : "transparent"};"><span style="width:14px;height:${w + 1}px;border-radius:99px;background:${width === w ? "var(--co-text)" : "var(--co-muted)"};pointer-events:none;"></span></button>`;
+  return `
+    <div style="width:100%;display:flex;align-items:center;gap:8px 10px;padding:7px 10px;background:var(--co-chrome);border:1px solid var(--co-border);border-radius:11px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:5px;flex:0 0 auto;">${ANN_COLORS.map(swatch).join("")}</div>
+      <div style="width:1px;height:20px;background:var(--co-border);"></div>
+      <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto;">${ANN_WIDTHS.map(widthBtn).join("")}</div>
+      ${tool === "text" ? `<input id="annotationTextDraft" value="${esc(state.annotationTextDraft || "")}" placeholder="Nhập text rồi click lên khung hình" style="min-width:200px;flex:1 1 200px;background:var(--co-panel);border:1px solid var(--co-accent-line);border-radius:8px;padding:6px 10px;color:var(--co-text);font-size:12.5px;outline:none;" />` : `<div style="flex:1"></div>`}
+      <span style="color:var(--co-muted);font-size:11.5px;font-weight:600;white-space:nowrap;">${total} ghi chú @ ${fmtTc(state.currentMs)}</span>
+      <button data-act="clearAnnotation" style="display:inline-flex;align-items:center;gap:6px;background:transparent;color:${total ? "var(--co-bad)" : "var(--co-faint)"};border:1px solid var(--co-border-2);font-weight:600;font-size:11.5px;padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;">${ICON.trash}Xoá hết</button>
+    </div>`;
+}
+
+// ---- annotation object helpers (strokes + texts share one id space) ----
+let _annSeq = 0;
+function annNewId() { return "a" + Date.now().toString(36) + (_annSeq++).toString(36); }
+
+function annSnapshot() {
+  return { strokes: (state.annotationStrokes || []).slice(), texts: (state.annotationTexts || []).slice() };
+}
+function annPushUndo() {
+  state.annotationUndo = [...(state.annotationUndo || []), annSnapshot()].slice(-40);
+  state.annotationRedo = [];
+}
+function annApply(snap) {
+  state.annotationStrokes = snap.strokes.slice();
+  state.annotationTexts = snap.texts.slice();
+}
+function annUndo() {
+  const stack = state.annotationUndo || [];
+  if (!stack.length) return;
+  const prev = stack[stack.length - 1];
+  state.annotationUndo = stack.slice(0, -1);
+  state.annotationRedo = [...(state.annotationRedo || []), annSnapshot()].slice(-40);
+  annApply(prev);
+  state.annotationSelId = null;
+  render();
+}
+function annRedo() {
+  const stack = state.annotationRedo || [];
+  if (!stack.length) return;
+  const next = stack[stack.length - 1];
+  state.annotationRedo = stack.slice(0, -1);
+  state.annotationUndo = [...(state.annotationUndo || []), annSnapshot()].slice(-40);
+  annApply(next);
+  state.annotationSelId = null;
+  render();
+}
+function annBbox(o) {
+  if (!o) return null;
+  if (typeof o.text === "string") {
+    const w = 0.012 * Math.max(4, o.text.length) + 0.02;
+    return [o.x, o.y - 0.035, o.x + w, o.y + 0.035];
+  }
+  if (!o.points || !o.points.length) return null;
+  const xs = o.points.map((p) => p[0]), ys = o.points.map((p) => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+// Draft objects only — saved annotations belong to posted comments and are read-only here.
+function annDraftObjects() {
+  return [...(state.annotationStrokes || []), ...(state.annotationTexts || [])];
+}
+function annHit(x, y) {
+  const objs = annDraftObjects();
+  for (let i = objs.length - 1; i >= 0; i--) {
+    const b = annBbox(objs[i]);
+    if (!b) continue;
+    const pad = 0.012;
+    if (x >= b[0] - pad && x <= b[2] + pad && y >= b[1] - pad && y <= b[3] + pad) return objs[i];
+  }
+  return null;
+}
+function annMapObject(id, fn) {
+  state.annotationStrokes = (state.annotationStrokes || []).map((o) => (o.id === id ? fn(o) : o));
+  state.annotationTexts = (state.annotationTexts || []).map((o) => (o.id === id ? fn(o) : o));
+}
+// Picking a colour/width also restyles the current selection (mock behaviour),
+// so you can fix a stroke you already drew instead of redrawing it.
+function setAnnotationStyle(patch) {
+  const id = state.annotationSelId;
+  if (id) {
+    annPushUndo();
+    annMapObject(id, (o) => ({ ...o, ...patch }));
+  }
+  return setState(patch.color !== undefined ? { annotationColor: patch.color } : { annotationWidth: patch.width });
+}
+
+function annRemoveObject(id) {
+  state.annotationStrokes = (state.annotationStrokes || []).filter((o) => o.id !== id);
+  state.annotationTexts = (state.annotationTexts || []).filter((o) => o.id !== id);
 }
 
 function visibleAnchoredAnnotations() {
@@ -2303,20 +2414,47 @@ function annotationOverlay() {
   const anchored = visibleAnchoredAnnotations();
   const savedStrokes = anchored.flatMap((a) => a.strokes || []);
   const savedTexts = anchored.flatMap((a) => a.texts || []);
-  const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
-  const texts = [...savedTexts, ...(state.annotationTexts || [])];
-  const drawing = state.annotationDrawing;
-  const all = [...strokes, ...texts];
-  const active = !!state.annotationMode;
+  const tool = state.annotationTool || "select";
+  const cursor = tool === "select" ? "default" : tool === "text" ? "text" : "crosshair";
+  // Always interactive (mock behaviour): the select tool's empty-space click
+  // falls through to togglePlay(), so the old on/off "chế độ chú thích" toggle
+  // and the separate click-to-play overlay are no longer needed.
   return `
-    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;cursor:${active ? "crosshair" : "default"};touch-action:none;z-index:40;pointer-events:${active ? "auto" : "none"};"
+    <!-- width/height 100% are load-bearing: an <svg> is a replaced element, so
+         inset:0 alone leaves it at its intrinsic (viewBox) 1:1 ratio instead of
+         stretching to the frame — annotations then land off-target. -->
+    <svg id="annotationSvg" viewBox="0 0 1 1" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;cursor:${cursor};touch-action:none;z-index:40;pointer-events:auto;"
          onpointerdown="window.__annPtr&&window.__annPtr('down',event)"
          onpointermove="window.__annPtr&&window.__annPtr('move',event)"
          onpointerup="window.__annPtr&&window.__annPtr('up',event)"
          onpointercancel="window.__annPtr&&window.__annPtr('up',event)"
          onpointerleave="window.__annPtr&&window.__annPtr('up',event)">
-      ${all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")}<g id="annLiveG">${drawing ? renderStrokeSvg(drawing) : ""}</g>
+      ${annSvgBody(savedStrokes, savedTexts)}
     </svg>`;
+}
+
+function annSvgBody(savedStrokes, savedTexts) {
+  const saved = [...savedStrokes, ...savedTexts];
+  const drafts = annDraftObjects();
+  const drawing = state.annotationDrawing;
+  return saved.map(renderAnnotationObject).join("")
+    + drafts.map(renderAnnotationObject).join("")
+    + renderAnnotationSelection()
+    + `<g id="annLiveG">${drawing ? renderStrokeSvg(drawing) : ""}</g>`;
+}
+
+function renderAnnotationObject(o) {
+  return o && typeof o.text === "string" ? renderAnnotationText(o) : renderStrokeSvg(o);
+}
+
+function renderAnnotationSelection() {
+  const id = state.annotationSelId;
+  if (!id) return "";
+  const obj = annDraftObjects().find((o) => o.id === id);
+  const b = annBbox(obj);
+  if (!b) return "";
+  const pad = 0.012;
+  return `<rect x="${b[0] - pad}" y="${b[1] - pad}" width="${b[2] - b[0] + pad * 2}" height="${b[3] - b[1] + pad * 2}" fill="none" stroke="#9184d9" stroke-width="1.5" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" />`;
 }
 
 function renderStrokeSvg(s) {
@@ -2325,23 +2463,28 @@ function renderStrokeSvg(s) {
   // vector-effect="non-scaling-stroke" treats stroke-width as CSS pixels
   // (NOT normalized units), so 0.004 becomes 0.004px — invisible. Use a
   // human-visible width in pixels.
-  const sw = 3;
+  const sw = Math.max(1, Math.min(24, Number(s.width) || 3));
+  const a = s.points[0], b = s.points[s.points.length - 1];
   if (s.tool === "rect" && s.points.length >= 2) {
-    const a = s.points[0], b = s.points[s.points.length - 1];
     const x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]);
     const w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]);
     return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${c}" stroke-width="${sw}" vector-effect="non-scaling-stroke" />`;
   }
+  if (s.tool === "ellipse" && s.points.length >= 2) {
+    return `<ellipse cx="${(a[0] + b[0]) / 2}" cy="${(a[1] + b[1]) / 2}" rx="${Math.abs(b[0] - a[0]) / 2}" ry="${Math.abs(b[1] - a[1]) / 2}" fill="none" stroke="${c}" stroke-width="${sw}" vector-effect="non-scaling-stroke" />`;
+  }
   if (s.tool === "arrow" && s.points.length >= 2) {
-    const a = s.points[0], b = s.points[s.points.length - 1];
     // Deterministic per-color id: same-color arrows share one marker, and the
     // live-drag repaint doesn't mint a new <defs> entry every frame.
     const id = "arrh-" + String(c).replace(/[^a-zA-Z0-9]/g, "");
     return `<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${c}"/></marker></defs>
       <line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${sw}" marker-end="url(#${id})" vector-effect="non-scaling-stroke" />`;
   }
-  // pen — free draw polyline
   const pts = s.points.map((p) => p[0] + "," + p[1]).join(" ");
+  if (s.tool === "highlight") {
+    return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-opacity="0.34" stroke-width="${sw * 6}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />`;
+  }
+  // pen — free draw polyline
   return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />`;
 }
 
@@ -2362,7 +2505,6 @@ function renderAnnotationText(t) {
 // DOM (~3k lines of innerHTML) every ~10ms while drawing — the cause of the
 // "vẽ chú thích rất lag" complaint. We avoid full render during drag by
 // patching only the SVG's innerHTML; the full render() runs once on
-// pointerdown (to swap the play-overlay → annotation SVG) and once on
 // pointerup (to commit the stroke into state.annotationStrokes and update
 // the toolbar counter).
 function repaintAnnotationSvg(liveOnly) {
@@ -2377,25 +2519,30 @@ function repaintAnnotationSvg(liveOnly) {
     return;
   }
   const anchored = visibleAnchoredAnnotations();
-  const savedStrokes = anchored.flatMap((a) => a.strokes || []);
-  const savedTexts = anchored.flatMap((a) => a.texts || []);
-  const strokes = [...savedStrokes, ...(state.annotationStrokes || [])];
-  const texts = [...savedTexts, ...(state.annotationTexts || [])];
-  const all = [...strokes, ...texts];
-  svg.innerHTML = all.map((s) => s && s.text ? renderAnnotationText(s) : renderStrokeSvg(s)).join("")
-    + `<g id="annLiveG">${drawing ? renderStrokeSvg(drawing) : ""}</g>`;
+  svg.innerHTML = annSvgBody(anchored.flatMap((a) => a.strokes || []), anchored.flatMap((a) => a.texts || []));
 }
 
 let _annRafQueued = false;
+let _annRafLiveOnly = true;
 function requestAnnRepaint(liveOnly) {
+  // A full repaint request wins over a queued live-only one — otherwise a
+  // move-object drag (full) coalesced behind a draw (live-only) would never
+  // redraw the moved object.
+  if (!liveOnly) _annRafLiveOnly = false;
   if (_annRafQueued) return;
   _annRafQueued = true;
-  requestAnimationFrame(() => { _annRafQueued = false; repaintAnnotationSvg(liveOnly); });
+  _annRafLiveOnly = liveOnly !== false;
+  requestAnimationFrame(() => {
+    _annRafQueued = false;
+    const only = _annRafLiveOnly;
+    _annRafLiveOnly = true;
+    repaintAnnotationSvg(only);
+  });
 }
 
 let _annRect = null; // cached on pointerdown — getBoundingClientRect per move forces layout
+let _annDrag = null; // { id, start:[x,y], orig } for select-move, or { erasing:true }
 window.__annPtr = function (phase, ev) {
-  if (!state.annotationMode) return;
   const svg = ev.currentTarget;
   if (phase === "down" || !_annRect) _annRect = svg.getBoundingClientRect();
   const rect = _annRect;
@@ -2404,42 +2551,113 @@ window.__annPtr = function (phase, ev) {
     Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
   ];
   const [x, y] = norm(ev);
-  if (state.annotationTool === "text" && phase === "down") {
-    const text = String(state.annotationTextDraft || "").trim();
-    if (!text) return;
-    state.annotationTexts = [...(state.annotationTexts || []), { x, y, color: state.annotationColor, text: text.slice(0, 120) }];
-    state.annotationTextDraft = "";
-    render();
+  const tool = state.annotationTool || "select";
+
+  if (phase === "down") {
+    try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
+    if (tool === "select") {
+      const hit = annHit(x, y);
+      if (hit) {
+        annPushUndo();
+        _annDrag = { id: hit.id, start: [x, y], orig: hit };
+        state.annotationSelId = hit.id;
+        render();
+      } else if (state.annotationSelId) {
+        state.annotationSelId = null;
+        render();
+      } else {
+        // Empty stage click with nothing selected — behave like the old
+        // click-to-play overlay this SVG replaced.
+        togglePlay();
+      }
+      return;
+    }
+    if (tool === "eraser") {
+      annPushUndo();
+      _annDrag = { erasing: true };
+      annEraseAt(x, y);
+      return;
+    }
+    if (tool === "text") {
+      const text = String(state.annotationTextDraft || "").trim();
+      if (!text) return;
+      annPushUndo();
+      state.annotationTexts = [...(state.annotationTexts || []), { id: annNewId(), x, y, color: state.annotationColor, text: text.slice(0, 120) }];
+      state.annotationTextDraft = "";
+      render();
+      return;
+    }
+    state.annotationDrawing = { id: annNewId(), tool, color: state.annotationColor, width: state.annotationWidth || 3, points: [[x, y]] };
+    requestAnnRepaint(true);
     return;
   }
-  if (phase === "down") {
-    state.annotationDrawing = { tool: state.annotationTool, color: state.annotationColor, points: [[x, y]] };
-    try { svg.setPointerCapture(ev.pointerId); } catch (_) {}
-    requestAnnRepaint(true);
-  } else if (phase === "move" && state.annotationDrawing) {
-    const pts = state.annotationDrawing.points;
+
+  if (phase === "move") {
+    if (_annDrag && _annDrag.erasing) { annEraseAt(x, y); return; }
+    if (_annDrag && _annDrag.id) {
+      const dx = x - _annDrag.start[0], dy = y - _annDrag.start[1];
+      const orig = _annDrag.orig;
+      annMapObject(_annDrag.id, (o) => (typeof o.text === "string"
+        ? { ...o, x: orig.x + dx, y: orig.y + dy }
+        : { ...o, points: orig.points.map((p) => [p[0] + dx, p[1] + dy]) }));
+      requestAnnRepaint(false);
+      return;
+    }
+    if (!state.annotationDrawing) return;
+    const d = state.annotationDrawing;
+    // Shape tools are defined by 2 points — replace the endpoint instead of
+    // accumulating a trail, so rect/ellipse/arrow track the cursor.
+    if (d.tool !== "pen" && d.tool !== "highlight") {
+      d.points[1] = [x, y];
+      requestAnnRepaint(true);
+      return;
+    }
     // Coalesced events carry the full-rate pointer trail between frames —
     // without them fast strokes get corner-cut on 60Hz event delivery.
     const evs = (typeof ev.getCoalescedEvents === "function" && ev.getCoalescedEvents().length) ? ev.getCoalescedEvents() : [ev];
     for (const e of evs) {
       const [px, py] = norm(e);
-      const last = pts[pts.length - 1];
+      const last = d.points[d.points.length - 1];
       if (Math.hypot(px - last[0], py - last[1]) < 0.002) continue;
-      pts.push([px, py]);
+      d.points.push([px, py]);
     }
     requestAnnRepaint(true);
-  } else if (phase === "up" && state.annotationDrawing) {
-    const d = state.annotationDrawing;
-    // Thin long strokes on commit (keeps payload bounded) instead of dropping
-    // the stroke's beginning mid-draw like the old 256-point live cap did.
-    while (d.points.length > 400) d.points = d.points.filter((_, i) => i % 2 === 0 || i === d.points.length - 1);
-    state.annotationStrokes = [...(state.annotationStrokes || []), d];
-    state.annotationDrawing = null;
-    if (state.annotationStrokes.length > 50) state.annotationStrokes = state.annotationStrokes.slice(-50);
-    // Full render only on commit so the toolbar's "N nét" counter updates.
-    render();
+    return;
   }
+
+  // phase === "up"
+  if (_annDrag) {
+    const wasMove = !!_annDrag.id;
+    _annDrag = null;
+    if (wasMove) render();
+    else render(); // eraser: refresh the counter
+    return;
+  }
+  const d = state.annotationDrawing;
+  if (!d) return;
+  state.annotationDrawing = null;
+  // Discard accidental taps: a shape needs a real drag, a pen needs 2+ points.
+  const tiny = d.points.length < 2
+    || (d.tool !== "pen" && d.tool !== "highlight" && Math.hypot(d.points[1][0] - d.points[0][0], d.points[1][1] - d.points[0][1]) < 0.01);
+  if (tiny) { requestAnnRepaint(false); return; }
+  // Thin long strokes on commit (keeps payload bounded) instead of dropping
+  // the stroke's beginning mid-draw like the old 256-point live cap did.
+  while (d.points.length > 400) d.points = d.points.filter((_, i) => i % 2 === 0 || i === d.points.length - 1);
+  annPushUndo();
+  state.annotationStrokes = [...(state.annotationStrokes || []), d];
+  if (state.annotationStrokes.length > 50) state.annotationStrokes = state.annotationStrokes.slice(-50);
+  // Full render only on commit so the toolbar's counter updates.
+  render();
 };
+
+function annEraseAt(x, y) {
+  const hit = annHit(x, y);
+  if (!hit) return;
+  annRemoveObject(hit.id);
+  if (state.annotationSelId === hit.id) state.annotationSelId = null;
+  requestAnnRepaint(false);
+}
+
 
 function membersModal(vals) {
   return `
@@ -2453,7 +2671,7 @@ function membersModal(vals) {
         </div>
         <button data-act="closeMembers" style="margin-left:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--co-border);background:var(--co-panel);color:var(--co-text);cursor:pointer;font-size:18px;line-height:1;">×</button>
       </div>
-      <div style="margin-top:14px;padding:12px 14px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:12px;color:var(--co-text-2);font-size:12px;font-weight:600;line-height:1.6;">
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(145,132,217,0.08);border:1px solid rgba(145,132,217,0.18);border-radius:12px;color:var(--co-text-2);font-size:12px;font-weight:600;line-height:1.6;">
         <div><strong>Owner:</strong> mời người, đổi role, thu hồi quyền, archive project.</div>
         <div><strong>Editor:</strong> import nguồn, transcode, reorder, comment, chỉnh nội dung project.</div>
         <div><strong>Reviewer / Client:</strong> chỉ xem, review và comment theo timeline.</div>
@@ -2476,7 +2694,7 @@ function membersModal(vals) {
           <select id="memberInviteDsmRole" onchange="state.inviteDsmRole=this.value;" style="background:var(--co-panel-2);border:1px solid var(--co-border);border-radius:12px;padding:11px 12px;color:var(--co-text);font-size:13px;outline:none;">
             ${vals.memberRoleOptions.map((opt) => `<option value="${opt.value}" ${(state.inviteDsmRole || "reviewer") === opt.value ? "selected" : ""}>${esc(opt.label)}</option>`).join("")}
           </select>
-          <button data-act="inviteDsmUser" ${(state.inviteDsmName || "").trim() ? "" : "disabled"} style="border:none;border-radius:12px;padding:0 16px;background:${(state.inviteDsmName || "").trim() ? "#6c5cf6" : "var(--co-panel-2)"};color:${(state.inviteDsmName || "").trim() ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:13px;cursor:${(state.inviteDsmName || "").trim() ? "pointer" : "not-allowed"};">Mời DSM user</button>
+          <button data-act="inviteDsmUser" ${(state.inviteDsmName || "").trim() ? "" : "disabled"} style="border:none;border-radius:12px;padding:0 16px;background:${(state.inviteDsmName || "").trim() ? "#9184d9" : "var(--co-panel-2)"};color:${(state.inviteDsmName || "").trim() ? "#07111a" : "var(--co-faint)"};font-weight:800;font-size:13px;cursor:${(state.inviteDsmName || "").trim() ? "pointer" : "not-allowed"};">Mời DSM user</button>
         </div>
         <div style="margin-top:8px;color:var(--co-faint);font-size:11.5px;font-weight:600;line-height:1.5;">Nhập DSM username — placeholder user sẽ được tạo ngay. Khi user đó login DSM lần đầu, hồ sơ sẽ tự match.</div>
       </div>
@@ -2579,7 +2797,7 @@ function sourceContextMenu() {
       <div style="margin-top:4px;color:var(--co-text);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(menu.title)}</div>
     </div>
     <div data-act="openSource" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.play}Mở review</div>
-    <div data-act="openSourceTranscode" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#6c5cf6;font-size:13px;font-weight:700;">${ICON.proxy}Transcode proxy</div>
+    <div data-act="openSourceTranscode" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#9184d9;font-size:13px;font-weight:700;">${ICON.proxy}Transcode proxy</div>
     <div data-act="editSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:var(--co-text);font-size:13px;font-weight:700;">${ICON.edit}Đổi tên / sửa</div>
     <div data-act="deleteSourceFromMenu" data-arg="${menu.sourceId}" class="co-hover" style="display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;cursor:pointer;color:#ef4d57;font-size:13px;font-weight:700;">${ICON.trash}Xóa video</div>
   </div>`;
@@ -2593,7 +2811,7 @@ function proxyStorageBody(vals) {
   const deletingId = state.proxyDeletingId;
   const cache = vals && vals.proxyCache ? vals.proxyCache : { pct: 0, totalLabel: "0 B", countLabel: "Chưa có proxy" };
   return `
-    <div style="background:linear-gradient(160deg,rgba(108,92,246,0.14),rgba(24,120,185,0.06));border:1px solid rgba(108,92,246,0.28);border-radius:14px;padding:18px;margin-bottom:18px;">
+    <div style="background:linear-gradient(160deg,rgba(145,132,217,0.14),rgba(24,120,185,0.06));border:1px solid rgba(145,132,217,0.28);border-radius:14px;padding:18px;margin-bottom:18px;">
       <div style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
         <div style="min-width:0;">
           <div style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--co-accent-ink);">Bộ nhớ proxy</div>
@@ -2602,7 +2820,7 @@ function proxyStorageBody(vals) {
           <div style="font-size:11px;color:var(--co-faint);font-weight:700;margin-top:2px;">${esc(cache.usageLabel || "0% ngưỡng cache SSD")}</div>
         </div>
         <div style="flex:1;min-width:200px;">
-          <div style="height:8px;border-radius:999px;background:var(--co-border-2);overflow:hidden;"><div style="width:${cache.pct || 0}%;height:100%;background:linear-gradient(90deg,#6c5cf6,#4fade4);"></div></div>
+          <div style="height:8px;border-radius:999px;background:var(--co-border-2);overflow:hidden;"><div style="width:${cache.pct || 0}%;height:100%;background:linear-gradient(90deg,#9184d9,#4fade4);"></div></div>
           <div style="margin-top:6px;font-size:11px;color:var(--co-faint);font-weight:600;">${esc(cache.detailLabel || "Lưu trên MinIO · file bản gốc NAS không bị động")}</div>
         </div>
         <button data-act="refreshProxyStorage" class="co-border-hover" style="background:var(--co-panel);border:1px solid var(--co-border);color:var(--co-text);font-weight:700;font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer;flex:0 0 auto;">${loading ? "Đang tải…" : "↻ Refresh"}</button>
@@ -2718,7 +2936,7 @@ function updateModal(vals) {
           </div>
         </div>
       </div>
-      <div style="margin-top:16px;padding:14px 16px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:14px;">
+      <div style="margin-top:16px;padding:14px 16px;background:rgba(145,132,217,0.08);border:1px solid rgba(145,132,217,0.18);border-radius:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
             <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:var(--co-faint);text-transform:uppercase;">Thay đổi gần đây</div>
@@ -2736,7 +2954,7 @@ function updateModal(vals) {
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
           ${changeItems.length ? changeItems.map((item) => `
             <div style="display:flex;gap:10px;align-items:flex-start;color:var(--co-text-2);font-size:13px;font-weight:600;line-height:1.6;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#6c5cf6;flex:0 0 8px;margin-top:7px;"></span>
+              <span style="width:8px;height:8px;border-radius:50%;background:#9184d9;flex:0 0 8px;margin-top:7px;"></span>
               <span>${esc(item)}</span>
             </div>
           `).join("") : `<div style="color:var(--co-muted);font-size:13px;font-weight:600;">Chưa có release note chi tiết.</div>`}
@@ -2757,7 +2975,7 @@ function auditColor(action) {
   if (action.includes("deleted") || action.includes("archived")) return "#ef4d57";
   if (action.includes("restored") || action.includes("created") || action.includes("login")) return "#2bbe6e";
   if (action.includes("update") || action.includes("edited") || action.includes("role")) return "#d9a45b";
-  return "#6c5cf6";
+  return "#9184d9";
 }
 function auditLabel(e) {
   const who = (remote.users && remote.users[e.actorUserId] && remote.users[e.actorUserId].name) || e.actorUserId || "system";
@@ -2784,9 +3002,10 @@ function auditLabel(e) {
 function review(vals) {
   return `
   <div data-theme="dark" style="flex:1;display:flex;min-height:0;">
-    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#060608;">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--co-stage);">
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 22px 10px;position:relative;overflow:auto;">
-        <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 300px));aspect-ratio:16/9;border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);background:#000;flex:0 0 auto;">
+        <div style="width:min(100%,1180px);flex:0 0 auto;">${annotationToolRow()}</div>
+        <div style="position:relative;width:min(100%,1180px);max-height:min(70vh,calc(100vh - 340px));aspect-ratio:16/9;border-radius:10px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,0.55);background:#000;flex:0 0 auto;">
           <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
           <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.55));pointer-events:none;"></div>
           <div style="position:absolute;left:0;right:0;top:0;height:7.5%;background:#000;pointer-events:none;"></div>
@@ -2799,19 +3018,19 @@ function review(vals) {
             <span style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${esc(vals.sceneSub)}</span>
           </div>
           <div style="position:absolute;right:14px;bottom:calc(7.5% + 12px);display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);padding:5px 9px;border-radius:6px;pointer-events:none;">
-            <span style="width:7px;height:7px;border-radius:50%;background:#6c5cf6;"></span>
+            <span style="width:7px;height:7px;border-radius:50%;background:#9184d9;"></span>
             <span style="color:#fff;font-weight:700;font-size:11px;">Proxy ${esc(vals.activeQualityLabel)}</span>
           </div>
+          <!-- Play badge is purely visual now: the annotation SVG sits above it
+               and routes empty-space clicks to togglePlay() via the select tool. -->
+          <div id="reviewVideoOverlay" style="position:absolute;inset:0;display:${state.playing ? "none" : "grid"};place-items:center;pointer-events:none;z-index:41;">
+            ${!state.playing ? `
+              <div style="width:76px;height:76px;border-radius:50%;background:rgba(13,14,24,0.5);backdrop-filter:blur(6px);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.28);box-shadow:0 8px 30px rgba(0,0,0,0.5);">${ICON.bigPlay}</div>
+            ` : ""}
+          </div>
           ${annotationOverlay()}
-          ${!state.annotationMode ? `
-            <div id="reviewVideoOverlay" data-act="togglePlay" style="position:absolute;inset:0;display:${state.playing ? "none" : "grid"};place-items:center;cursor:pointer;">
-              ${!state.playing ? `
-                <div style="width:76px;height:76px;border-radius:50%;background:rgba(7,9,14,0.55);backdrop-filter:blur(6px);display:grid;place-items:center;border:1.5px solid rgba(255,255,255,0.3);box-shadow:0 8px 30px rgba(0,0,0,0.5);">${ICON.bigPlay}</div>
-              ` : ""}
-            </div>
-          ` : ""}
         </div>
-        <div style="width:min(100%,1180px);flex:0 0 auto;">${annotationToolbar()}</div>
+        <div style="width:min(100%,1180px);flex:0 0 auto;">${annotationStyleRow()}</div>
       </div>
       <div style="flex:0 0 auto;background:var(--co-chrome);border-top:1px solid var(--co-border);padding:12px 18px 16px;">
         <div id="reviewTimelineWrap" style="position:relative;padding-top:${vals.markerWrapPaddingTop}px;">
@@ -2828,8 +3047,8 @@ function review(vals) {
           <div id="reviewTimelineBar" data-act="seekFromEvent" style="position:relative;height:38px;border-radius:7px;overflow:hidden;cursor:pointer;display:flex;">
             ${vals.thumbs.map((t) => `<div style="flex:1;background:${t.bg};"></div>`).join("")}
             <div id="reviewBufferedPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.bufferedPct}%;background:var(--co-border);pointer-events:none;"></div>
-            <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(108,92,246,0.22);border-right:2px solid #6c5cf6;pointer-events:none;"></div>
-            <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(108,92,246,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(108,92,246,0.9);"></div></div>
+            <div id="reviewPlayPct" style="position:absolute;left:0;top:0;bottom:0;width:${vals.playPct}%;background:rgba(145,132,217,0.22);border-right:2px solid #9184d9;pointer-events:none;"></div>
+            <div id="reviewNeedle" style="position:absolute;top:-4px;bottom:-4px;left:${vals.playPct}%;transform:translateX(-50%);width:2px;background:#fff;pointer-events:none;box-shadow:0 0 8px rgba(145,132,217,0.9);"><div style="position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(145,132,217,0.9);"></div></div>
             <div id="reviewHoverLine" style="position:absolute;top:0;bottom:0;width:1.5px;background:rgba(255,255,255,0.6);display:none;pointer-events:none;"></div>
           </div>
           <div id="reviewHoverTc" style="position:absolute;bottom:44px;transform:translateX(-50%);display:none;pointer-events:none;background:rgba(7,9,14,0.92);border:1px solid var(--co-border-2);color:#fff;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:6;"></div>
@@ -2837,14 +3056,14 @@ function review(vals) {
         <div style="display:flex;align-items:center;gap:14px;margin-top:13px;">
           <div style="display:flex;align-items:center;gap:4px;">
             <button data-act="frameBack" title="Lùi 1 frame ( , )" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.frameBack}</button>
-            <button data-act="togglePlay" data-role="play-toggle" class="co-btn-blue" style="width:42px;height:42px;display:grid;place-items:center;background:#6c5cf6;border:none;color:#07111a;border-radius:50%;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,246,0.4);">${state.playing ? ICON.pauseBtn : ICON.playBtn}</button>
+            <button data-act="togglePlay" data-role="play-toggle" class="co-btn-blue" style="width:42px;height:42px;display:grid;place-items:center;background:#9184d9;border:none;color:#07111a;border-radius:50%;cursor:pointer;box-shadow:0 4px 14px rgba(145,132,217,0.4);">${state.playing ? ICON.pauseBtn : ICON.playBtn}</button>
             <button data-act="frameFwd" title="Tiến 1 frame ( . )" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:var(--co-text-2);border-radius:8px;cursor:pointer;">${ICON.frameFwd}</button>
           </div>
           <div style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--co-text);"><span id="reviewTcCurrentInline">${vals.tcCurrent}</span> <span style="color:var(--co-faint);font-weight:600;">/ <span id="reviewTcDuration">${vals.tcDuration}</span></span></div>
           <div style="flex:1"></div>
           <button data-act="cycleSafe" title="Khung an toàn — đổi 16:9 / 9:16 / 1:1" class="co-hover" style="width:34px;height:34px;display:grid;place-items:center;background:transparent;border:none;color:${vals.safeColor};border-radius:8px;cursor:pointer;">${ICON.safe}</button>
           <div style="position:relative;">
-            <button data-act="toggleQualityMenu" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid rgba(108,92,246,0.5);color:#b9aeff;font-weight:700;font-size:11.5px;padding:5px 10px;border-radius:7px;cursor:pointer;letter-spacing:0.04em;">
+            <button data-act="toggleQualityMenu" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid rgba(145,132,217,0.5);color:#d2cefd;font-weight:700;font-size:11.5px;padding:5px 10px;border-radius:7px;cursor:pointer;letter-spacing:0.04em;">
               ${esc(vals.activeQualityLabel)}${ICON.chevDownSmall}
             </button>
             ${state.showQualityMenu ? qualityMenu(vals) : ""}
@@ -2861,7 +3080,7 @@ function qualityMenu(vals) {
   return `
     <div style="position:absolute;right:0;bottom:calc(100% + 8px);width:290px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:12px;padding:7px;box-shadow:0 18px 50px rgba(0,0,0,0.55);z-index:50;">
       <div style="padding:8px 10px 4px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:var(--co-faint);text-transform:uppercase;">Chất lượng phát</div>
-      <div style="padding:0 10px 8px;font-size:11px;font-weight:600;color:var(--co-muted);">Đường truyền <span style="color:${vals.speedColor};font-weight:700;">${vals.speedFmt.value} ${vals.speedFmt.unit}</span> → nên dùng <span style="color:#6c5cf6;font-weight:700;">${vals.speedRec}</span></div>
+      <div style="padding:0 10px 8px;font-size:11px;font-weight:600;color:var(--co-muted);">Đường truyền <span style="color:${vals.speedColor};font-weight:700;">${vals.speedFmt.value} ${vals.speedFmt.unit}</span> → nên dùng <span style="color:#9184d9;font-weight:700;">${vals.speedRec}</span></div>
       ${vals.qualities.map((q) => `
         <div data-act="setQuality" data-arg="${q.id}" class="co-hover" style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:9px;cursor:pointer;background:${q.rowBg};">
           <span style="width:16px;display:grid;place-items:center;">${q.isActive ? ICON.checkBig : ""}</span>
@@ -2872,7 +3091,7 @@ function qualityMenu(vals) {
           <span style="font-size:10.5px;font-weight:700;color:${q.tagColor};background:${q.tagBg};padding:3px 8px;border-radius:999px;white-space:nowrap;">${esc(q.tag)}</span>
         </div>
       `).join("")}
-      <div data-act="openTranscode" class="co-blue-hover" style="margin-top:4px;border-top:1px solid var(--co-border);padding:11px 10px 7px;display:flex;align-items:center;gap:9px;cursor:pointer;color:#6c5cf6;font-weight:700;font-size:12.5px;">${ICON.cogs}Quản lý transcode & proxy ladder</div>
+      <div data-act="openTranscode" class="co-blue-hover" style="margin-top:4px;border-top:1px solid var(--co-border);padding:11px 10px 7px;display:flex;align-items:center;gap:9px;cursor:pointer;color:#9184d9;font-weight:700;font-size:12.5px;">${ICON.cogs}Quản lý transcode & proxy ladder</div>
     </div>`;
 }
 
@@ -2881,8 +3100,8 @@ function commentsPanel(vals) {
     <aside style="width:340px;flex:0 0 340px;background:var(--co-chrome);border-left:1px solid var(--co-border);display:flex;flex-direction:column;min-height:0;">
       <!-- Synoframe spec: Comments / Fields top-level tabs, then per-mode header -->
       <div style="display:flex;padding:12px 14px 0;gap:6px;">
-        <div data-act="setPlayerPanel" data-arg="comments" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "comments" ? "rgba(108,92,246,0.14)" : "transparent"};color:${state.playerPanelTab === "comments" ? "var(--co-text)" : "var(--co-muted)"};">Comments</div>
-        <div data-act="setPlayerPanel" data-arg="fields" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "fields" ? "rgba(108,92,246,0.14)" : "transparent"};color:${state.playerPanelTab === "fields" ? "var(--co-text)" : "var(--co-muted)"};">Fields</div>
+        <div data-act="setPlayerPanel" data-arg="comments" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "comments" ? "rgba(145,132,217,0.14)" : "transparent"};color:${state.playerPanelTab === "comments" ? "var(--co-text)" : "var(--co-muted)"};">Comments</div>
+        <div data-act="setPlayerPanel" data-arg="fields" style="flex:1;text-align:center;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;background:${state.playerPanelTab === "fields" ? "rgba(145,132,217,0.14)" : "transparent"};color:${state.playerPanelTab === "fields" ? "var(--co-text)" : "var(--co-muted)"};">Fields</div>
       </div>
       ${state.playerPanelTab === "fields" ? fieldsPanel(vals) : `
       <!-- Synoframe comments header: All comments dropdown + 4 icon controls -->
@@ -2927,10 +3146,10 @@ function commentsPanel(vals) {
             ${c.hasAnnotation && !c.isEditing ? `<button data-stop="1" data-act="jumpTo" data-arg="${c.ms}" title="Mở chú thích tại ${esc(c.annotationTcLabel)}" style="margin:6px 0 0 35px;display:inline-flex;align-items:center;gap:5px;color:#d9a45b;font-size:11px;font-weight:600;background:transparent;border:none;padding:0;cursor:pointer;">${ICON.penTool}Chú thích · ${c.annotationStrokeCount} nét${c.annotationTextCount ? ` · ${c.annotationTextCount} text` : ""} · ${esc(c.annotationTcLabel)}</button>` : ""}
             ${c.isEditing ? `
               <div data-stop="1" style="margin:10px 0 0 35px;">
-                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel);border:1px solid rgba(108,92,246,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
+                <textarea id="editCommentInput" rows="3" style="width:100%;resize:vertical;background:var(--co-panel);border:1px solid rgba(145,132,217,0.4);border-radius:10px;padding:10px 11px;color:var(--co-text);font-size:13px;line-height:1.5;outline:none;">${esc(c.editingText)}</textarea>
                 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;">
                   <button data-act="cancelEditComment" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:600;font-size:12.5px;padding:7px 11px;border-radius:8px;cursor:pointer;">Hủy</button>
-                  <button data-act="saveEditComment" data-arg="${c.id}" style="background:#6c5cf6;border:none;color:#fff;font-weight:700;font-size:12.5px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
+                  <button data-act="saveEditComment" data-arg="${c.id}" style="background:#9184d9;border:none;color:#fff;font-weight:700;font-size:12.5px;padding:7px 12px;border-radius:8px;cursor:pointer;">Lưu</button>
                 </div>
               </div>
             ` : ""}
@@ -2946,7 +3165,7 @@ function commentsPanel(vals) {
                 `).join("")}
               </div>
             ` : ""}
-            <div data-stop="1" data-act="startReply" data-arg="${c.id}" style="margin:9px 0 0 35px;font-size:12.5px;color:${state.replyingTo === c.id ? "#6c5cf6" : "var(--co-faint)"};cursor:pointer;display:inline-block;" class="co-text-hover">${state.replyingTo === c.id ? "✕ Hủy reply" : "Reply"}</div>
+            <div data-stop="1" data-act="startReply" data-arg="${c.id}" style="margin:9px 0 0 35px;font-size:12.5px;color:${state.replyingTo === c.id ? "#9184d9" : "var(--co-faint)"};cursor:pointer;display:inline-block;" class="co-text-hover">${state.replyingTo === c.id ? "✕ Hủy reply" : "Reply"}</div>
           </div>
         `).join("")}
         ${vals.emptyState ? `
@@ -2958,7 +3177,7 @@ function commentsPanel(vals) {
       </div>
       <!-- Synoframe composer: tc tag + inline input, toolbar row with icons + send -->
       <div style="flex:0 0 auto;border-top:1px solid var(--co-border);padding:12px 14px;background:var(--co-chrome);">
-        ${state.replyingTo ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(108,92,246,0.12);border:1px solid rgba(108,92,246,0.25);border-radius:9px;padding:6px 10px;margin-bottom:8px;font-size:11.5px;color:#b9aeff;font-weight:600;">↳ Reply${state.replyingToTcLabel ? ` @ ${esc(state.replyingToTcLabel)}` : ""} <button data-act="startReply" data-arg="${esc(state.replyingTo)}" style="margin-left:auto;background:transparent;border:none;color:#b9aeff;cursor:pointer;font-weight:700;font-size:13px;">✕</button></div>` : ""}
+        ${state.replyingTo ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(145,132,217,0.12);border:1px solid rgba(145,132,217,0.25);border-radius:9px;padding:6px 10px;margin-bottom:8px;font-size:11.5px;color:#d2cefd;font-weight:600;">↳ Reply${state.replyingToTcLabel ? ` @ ${esc(state.replyingToTcLabel)}` : ""} <button data-act="startReply" data-arg="${esc(state.replyingTo)}" style="margin-left:auto;background:transparent;border:none;color:#d2cefd;cursor:pointer;font-weight:700;font-size:13px;">✕</button></div>` : ""}
         <div style="background:var(--co-panel);border:1px solid var(--co-border);border-radius:11px;padding:10px 12px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span data-act="toggleAttach" title="${esc(vals.attachLabel)}" id="commentAttachLabel" style="font-variant-numeric:tabular-nums;background:${state.attachTc ? "rgba(217,164,91,0.16)" : "var(--co-hover)"};color:${state.attachTc ? "#d9a45b" : "var(--co-faint)"};border-radius:5px;padding:2px 6px;font-size:11px;font-weight:600;flex:0 0 auto;cursor:pointer;">${state.attachTc ? esc(vals.tcCurrent) : "no tc"}</span>
@@ -2970,10 +3189,9 @@ function commentsPanel(vals) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Revert"><path d="M3 3v5h5"></path><path d="M3.5 8a9 9 0 1 0 2.2-3.3L3 8"></path></svg>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;cursor:pointer" title="Attach"><path d="M21 11 12 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.6-2.6l8-8"></path></svg>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="width:17px;height:17px;cursor:pointer" title="Emoji"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14a4 4 0 0 0 7 0"></path><circle cx="9" cy="10" r=".6" fill="currentColor"></circle><circle cx="15" cy="10" r=".6" fill="currentColor"></circle></svg>
-            <svg data-act="toggleAnnotationMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:17px;height:17px;cursor:pointer" title="Chú thích trên frame"><path d="M12 3v5M12 16v5M3 12h5M16 12h5"></path><circle cx="12" cy="12" r="3"></circle></svg>
             <div style="flex:1"></div>
             <span style="display:inline-flex;align-items:center;gap:5px;background:var(--co-panel-2);border-radius:7px;padding:5px 9px;font-size:11.5px;font-weight:600;color:var(--co-text-2);cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"></path></svg>Public${ICON.chevDown}</span>
-            <button data-act="postComment" style="width:32px;height:32px;border-radius:8px;background:#6c5cf6;border:none;display:grid;place-items:center;cursor:pointer;color:#fff;box-shadow:0 4px 14px rgba(108,92,246,0.35);">${ICON.send}</button>
+            <button data-act="postComment" style="width:32px;height:32px;border-radius:8px;background:#9184d9;border:none;display:grid;place-items:center;cursor:pointer;color:#fff;box-shadow:0 4px 14px rgba(145,132,217,0.35);">${ICON.send}</button>
           </div>
         </div>
       </div>
@@ -3004,7 +3222,7 @@ function fieldsPanel(vals) {
       <div style="flex:1;background:var(--co-panel);border-radius:10px;padding:12px;">
         <div style="font-size:11px;color:var(--co-faint);margin-bottom:8px;">Tác giả</div>
         <div style="display:flex;align-items:center;gap:7px;">
-          <span style="width:22px;height:22px;border-radius:6px;background:${esc((remote.me && remote.me.color) || "#6c5cf6")};display:grid;place-items:center;font-size:10px;font-weight:700;color:#0a0a0d;">${esc((remote.me && remote.me.initial) || "?")}</span>
+          <span style="width:22px;height:22px;border-radius:6px;background:${esc((remote.me && remote.me.color) || "#9184d9")};display:grid;place-items:center;font-size:10px;font-weight:700;color:#0a0a0d;">${esc((remote.me && remote.me.initial) || "?")}</span>
           <span style="font-size:12.5px;color:var(--co-text);">${esc((remote.me && remote.me.name) || "—")}</span>
         </div>
       </div>
@@ -3071,11 +3289,11 @@ function transcodeModal(vals) {
             </div>
             <div style="flex:0 0 auto;">
               <span style="display:inline-block;font-size:11px;font-weight:700;color:${l.tagColor};background:${l.tagBg};padding:6px 11px;border-radius:999px;">${esc(l.tag)}</span>
-              ${l.canRequest || l.pendingRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" ${l.pendingRequest ? "disabled" : ""} class="co-btn-blue" style="display:block;margin-top:7px;background:${l.pendingRequest ? "var(--co-panel-2)" : "#6c5cf6"};border:none;color:${l.pendingRequest ? "var(--co-muted)" : "#07111a"};font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:${l.pendingRequest ? "wait" : "pointer"};width:100%;">${l.pendingRequest ? "Đang gửi…" : "Tạo proxy"}</button>` : ""}
+              ${l.canRequest || l.pendingRequest ? `<button data-act="requestTranscode" data-arg="${l.id}" ${l.pendingRequest ? "disabled" : ""} class="co-btn-blue" style="display:block;margin-top:7px;background:${l.pendingRequest ? "var(--co-panel-2)" : "#9184d9"};border:none;color:${l.pendingRequest ? "var(--co-muted)" : "#07111a"};font-weight:700;font-size:11.5px;padding:6px 12px;border-radius:999px;cursor:${l.pendingRequest ? "wait" : "pointer"};width:100%;">${l.pendingRequest ? "Đang gửi…" : "Tạo proxy"}</button>` : ""}
             </div>
           </div>
         `).join("")}
-        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);border-radius:11px;">
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(145,132,217,0.08);border:1px solid rgba(145,132,217,0.18);border-radius:11px;">
           ${ICON.info}<div style="font-size:12px;color:var(--co-text-2);font-weight:600;line-height:1.5;">HLS segment 4s · h.264 · AAC 128–192kbps. Worker dùng FFmpeg (NVENC nếu có GPU). Proxy lưu trên SSD cache, không đọc lại từ NAS mỗi lần phát.</div>
         </div>
       </div>
@@ -3135,9 +3353,9 @@ function createProjectModal() {
               <button data-act="clearCreateProjectThumb" style="background:transparent;border:none;color:#ef4d57;font-weight:700;font-size:12px;cursor:pointer;flex:0 0 auto;">Xoá</button>
             </div>
           ` : `
-            <label id="createProjectThumbDropzone" class="co-border-hover" ondragover="event.preventDefault();this.style.borderColor='rgba(108,92,246,0.6)';" ondragleave="this.style.borderColor='var(--co-border-2)';" ondrop="event.preventDefault();this.style.borderColor='var(--co-border-2)';if(event.dataTransfer.files&&event.dataTransfer.files[0]){const i=this.querySelector('input');i.files=event.dataTransfer.files;window.__readCreateProjectThumb&&window.__readCreateProjectThumb(i);}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1.5px dashed var(--co-border-2);border-radius:14px;padding:30px 18px;cursor:pointer;transition:border-color 150ms;">
+            <label id="createProjectThumbDropzone" class="co-border-hover" ondragover="event.preventDefault();this.style.borderColor='rgba(145,132,217,0.6)';" ondragleave="this.style.borderColor='var(--co-border-2)';" ondrop="event.preventDefault();this.style.borderColor='var(--co-border-2)';if(event.dataTransfer.files&&event.dataTransfer.files[0]){const i=this.querySelector('input');i.files=event.dataTransfer.files;window.__readCreateProjectThumb&&window.__readCreateProjectThumb(i);}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1.5px dashed var(--co-border-2);border-radius:14px;padding:30px 18px;cursor:pointer;transition:border-color 150ms;">
               <input type="file" accept="image/*" style="display:none;" onchange="window.__readCreateProjectThumb&&window.__readCreateProjectThumb(this)" />
-              <div style="width:56px;height:56px;border-radius:14px;background:rgba(108,92,246,0.14);display:grid;place-items:center;color:var(--co-accent-ink);">
+              <div style="width:56px;height:56px;border-radius:14px;background:rgba(145,132,217,0.14);display:grid;place-items:center;color:var(--co-accent-ink);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/><rect x="3" y="19" width="18" height="2" rx="1"/></svg>
               </div>
               <div style="font-size:14px;font-weight:700;color:var(--co-text);">Kéo &amp; thả ảnh thumbnail vào đây</div>
@@ -3150,7 +3368,7 @@ function createProjectModal() {
       <div style="padding:14px 22px 18px;border-top:1px solid var(--co-border);display:flex;align-items:center;gap:10px;justify-content:flex-end;">
         <button data-act="closeCreateProject" class="co-border-hover" style="background:var(--co-panel-2);border:1px solid var(--co-border-2);color:var(--co-text-2);font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;cursor:pointer;">Hủy</button>
         <button data-act="submitCreateProject" ${canSubmit ? "" : "disabled"}
-                style="background:${canSubmit ? "#6c5cf6" : "var(--co-panel-2)"};color:${canSubmit ? "#07111a" : "var(--co-faint)"};border:none;font-weight:800;font-size:13px;padding:9px 18px;border-radius:9px;cursor:${canSubmit ? "pointer" : "not-allowed"};">
+                style="background:${canSubmit ? "#9184d9" : "var(--co-panel-2)"};color:${canSubmit ? "#07111a" : "var(--co-faint)"};border:none;font-weight:800;font-size:13px;padding:9px 18px;border-radius:9px;cursor:${canSubmit ? "pointer" : "not-allowed"};">
           ${s.createProjectBusy ? "Đang tạo…" : "Tạo project"}
         </button>
       </div>
@@ -3164,7 +3382,7 @@ window.__syncCreateProjectForm = function () {
   if (submitEl) {
     const canSubmit = !!String(state.createProjectName || "").trim() && !state.createProjectBusy;
     submitEl.disabled = !canSubmit;
-    submitEl.style.background = canSubmit ? "#6c5cf6" : "var(--co-panel-2)";
+    submitEl.style.background = canSubmit ? "#9184d9" : "var(--co-panel-2)";
     submitEl.style.color = canSubmit ? "#07111a" : "var(--co-faint)";
     submitEl.style.cursor = canSubmit ? "pointer" : "not-allowed";
   }
@@ -3213,7 +3431,7 @@ function importModal(vals) {
       </div>
       <div id="importListScroll" style="flex:1;overflow-y:auto;padding:12px 14px;">
         ${vals.nasError ? `<div style="margin-bottom:10px;background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">${esc(vals.nasError)}</div>` : ""}
-        ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(108,92,246,0.08);border:1px solid rgba(108,92,246,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
+        ${vals.nasLoading ? `<div style="margin-bottom:10px;background:rgba(145,132,217,0.08);border:1px solid rgba(145,132,217,0.18);color:#9dd7f1;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;">Đang đọc danh sách file từ NAS…</div>` : ""}
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${!vals.nasLoading && vals.nasList.length === 0 ? `<div style="text-align:center;color:var(--co-muted);font-size:12px;font-weight:600;padding:30px 12px;">Thư mục này chưa có file video hoặc tài khoản DSM hiện tại không có quyền xem.</div>` : ""}
           ${vals.nasList.map((it, i) => it.isFolder ? `
@@ -3289,7 +3507,7 @@ function computeVals() {
   const statusNav = navDefs.map((n) => {
     const active = s.view === "projects" && s.statusFilter === n.key;
     return { ...n, count: counts[n.key],
-      bg: active ? "rgba(108,92,246,0.13)" : "transparent",
+      bg: active ? "rgba(145,132,217,0.13)" : "transparent",
       color: active ? "var(--co-text)" : "var(--co-muted)",
       countColor: active ? "var(--co-accent-ink)" : "var(--co-faint)" };
   });
@@ -3342,11 +3560,11 @@ function computeVals() {
       role: member.role,
       name: user.name || member.userId,
       initial: user.initial || (user.name || "?").charAt(0).toUpperCase(),
-      color: user.color || "#6c5cf6",
+      color: user.color || "#9184d9",
       meta: user.email || "Thành viên project",
       badge: roleLabel[member.role] || member.role,
-      badgeBg: member.role === "owner" ? "rgba(108,92,246,0.16)" : member.role === "client" ? "rgba(43,190,110,0.16)" : "var(--co-hover)",
-      badgeColor: member.role === "owner" ? "#6c5cf6" : member.role === "client" ? "#2bbe6e" : "var(--co-text-2)",
+      badgeBg: member.role === "owner" ? "rgba(145,132,217,0.16)" : member.role === "client" ? "rgba(43,190,110,0.16)" : "var(--co-hover)",
+      badgeColor: member.role === "owner" ? "#9184d9" : member.role === "client" ? "#2bbe6e" : "var(--co-text-2)",
       roleOptions: ["owner", "editor", "reviewer", "client"].map((value) => ({ value, label: roleLabel[value], selected: value === member.role })),
     };
   });
@@ -3375,7 +3593,7 @@ function computeVals() {
       statusLabel: src.status === "processing" ? ((src.progress || 0) > 0 ? ("Proxy " + (src.progress || 0) + "% · bản gốc sẵn sàng") : "Đang tạo proxy · bản gốc sẵn sàng") : st.label,
       statusColor: st.color, statusBg: st.bg, comments: src.comments,
       dragOpacity: s.dragId === src.id ? 0.4 : 1,
-      rowBorder: s.dragId === src.id ? "rgba(108,92,246,0.6)" : "var(--co-border)",
+      rowBorder: s.dragId === src.id ? "rgba(145,132,217,0.6)" : "var(--co-border)",
       transcoding: src.status === "processing",
       pct: src.progress || 0,
       nasPath: src.nasPath || src.path || src.title || "NAS",
@@ -3386,8 +3604,8 @@ function computeVals() {
 
   const statusOptions = order.map((k) => ({
     key: k, label: SM[k].label, color: SM[k].color,
-    labelColor: k === projStatus ? "#6c5cf6" : "var(--co-text)",
-    rowBg: k === projStatus ? "rgba(108,92,246,0.1)" : "transparent",
+    labelColor: k === projStatus ? "#9184d9" : "var(--co-text)",
+    rowBg: k === projStatus ? "rgba(145,132,217,0.1)" : "transparent",
   }));
 
   // "source" = play the original NAS file directly (no transcode). This is the
@@ -3412,9 +3630,9 @@ function computeVals() {
     let tag = "Sẵn sàng", tagColor = "#2bbe6e", tagBg = "rgba(43,190,110,0.14)";
     if (q.id === "source") { tag = "Bản gốc"; tagColor = "#ef4d57"; tagBg = "rgba(239,77,87,0.16)"; }
     else if (q.status === "processing") { tag = (q.progress || 0) > 0 ? ((q.progress || 0) + "%") : "Đang tạo proxy"; tagColor = "#d9a45b"; tagBg = "rgba(217,164,91,0.14)"; }
-    else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#6c5cf6"; tagBg = "rgba(108,92,246,0.14)"; }
-    return { ...q, isActive, labelColor: isActive ? "#6c5cf6" : "var(--co-text)",
-      rowBg: isActive ? "rgba(108,92,246,0.1)" : "transparent", tag, tagColor, tagBg };
+    else if (q.status === "pending") { tag = "Tạo proxy"; tagColor = "#9184d9"; tagBg = "rgba(145,132,217,0.14)"; }
+    return { ...q, isActive, labelColor: isActive ? "#9184d9" : "var(--co-text)",
+      rowBg: isActive ? "rgba(145,132,217,0.1)" : "transparent", tag, tagColor, tagBg };
   });
   const ladderSource = { badge: sourceResLabel || "SRC", label: "Source", res: sourceResText, detail: (selectedSrc ? selectedSrc.codec + " · " + selectedSrc.size : "Video source trên NAS"), status: "nas" };
   const ladder = [ladderSource, ...s.qualities].map((l) => {
@@ -3447,8 +3665,8 @@ function computeVals() {
       detail,
       tag, tagColor, tagBg, canRequest, isProcessing, progress: l.progress || 0,
       pendingRequest,
-      iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(108,92,246,0.14)",
-      iconColor: isSrc ? "#ef4d57" : "#6c5cf6",
+      iconBg: isSrc ? "rgba(239,77,87,0.14)" : "rgba(145,132,217,0.14)",
+      iconColor: isSrc ? "#ef4d57" : "#9184d9",
       rowBg: isSrc ? "rgba(239,77,87,0.05)" : "var(--co-hover)",
       rowBorder: isSrc ? "rgba(239,77,87,0.18)" : "var(--co-border)" };
   });
@@ -3504,7 +3722,7 @@ function computeVals() {
     thumbs.push({ bg: selectedSrc && selectedSrc.posterUrl ? `center/cover no-repeat url(${selectedSrc.posterUrl})` : "linear-gradient(160deg,#1c2432,#334861)" });
   }
 
-  const tabBg = (on) => on ? "#6c5cf6" : "transparent";
+  const tabBg = (on) => on ? "#9184d9" : "transparent";
   const tabColor = (on) => on ? "#07111a" : "#8896ab";
 
   const remoteVersions = (window.__versionsByAsset && window.__versionsByAsset[s.selectedId]) || null;
@@ -3518,9 +3736,9 @@ function computeVals() {
       note,
       meta: v.meta || ((remote.users && remote.users[v.authorUserId] ? remote.users[v.authorUserId].name : "Editor") + " · vừa qua"),
       tag: v.tag || "Ready",
-      bg: v.bg || "linear-gradient(135deg,#1c5876,#6c5cf6)",
-      labelColor: id === s.version ? "#6c5cf6" : "var(--co-text)",
-      rowBg: id === s.version ? "rgba(108,92,246,0.1)" : "transparent",
+      bg: v.bg || "linear-gradient(135deg,#1c5876,#9184d9)",
+      labelColor: id === s.version ? "#9184d9" : "var(--co-text)",
+      rowBg: id === s.version ? "rgba(145,132,217,0.1)" : "transparent",
       tagColor: "#2bbe6e",
       tagBg: "rgba(43,190,110,0.14)",
     };
@@ -3554,17 +3772,17 @@ function computeVals() {
       resolutionLabel: ch.resolutionLabel || "",
       meta: [ch.sizeLabel || "—", ch.codec || "unknown", ch.resolutionLabel || null, fmtDur(ch.durationMs || 0)].filter(Boolean).join(" · "),
       checked: on,
-      checkBg: on ? "#6c5cf6" : "transparent",
-      checkBorder: on ? "#6c5cf6" : "var(--co-border-2)",
+      checkBg: on ? "#9184d9" : "transparent",
+      checkBorder: on ? "#9184d9" : "var(--co-border-2)",
       checkColor: on ? "#07090e" : "transparent",
-      rowBg: on ? "rgba(108,92,246,0.08)" : "transparent",
+      rowBg: on ? "rgba(145,132,217,0.08)" : "transparent",
       _meta: { path: ch.path, name: ch.name, size: ch.sizeLabel || "—", codec: ch.codec || "unknown", dur: ch.durationMs || 0, folder: folderLabel, resolutionLabel: ch.resolutionLabel || "" },
     };
   });
   const importCount = Object.keys(s.importSel).length;
 
   const speedVal = s.speedTesting ? s.speedDisplay : s.speedMbps;
-  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#2bbe6e", rec: "1080p" } : { label: "Ổn", color: "#6c5cf6", rec: "720p" };
+  const tier = speedVal >= 40 ? { label: "Mạnh", color: "#2bbe6e", rec: "1080p" } : { label: "Ổn", color: "#9184d9", rec: "720p" };
   const autoQualityTarget = bestAvailableQuality(tier.rec);
   const autoAbrOn = !!s.autoQualityEnabled;
   const canManageUpdates = !remote.me || PROJECTS.some((project) => project.myRole === "owner");
@@ -3611,8 +3829,8 @@ function computeVals() {
     detailStatusLabel: SM[projStatus].label, detailStatusColor: SM[projStatus].color, detailStatusBg: SM[projStatus].bg,
     detailMeta: projSources.length + " nguồn · " + nProjReady + " có proxy · " + nProjComments + " comment · cập nhật " + selProject.updated,
     statusOptions, sources,
-    listBtnBg: s.sourceView === "list" ? "#6c5cf6" : "transparent", listBtnColor: s.sourceView === "list" ? "#07111a" : "var(--co-muted)",
-    gridBtnBg: s.sourceView === "grid" ? "#6c5cf6" : "transparent", gridBtnColor: s.sourceView === "grid" ? "#07111a" : "var(--co-muted)",
+    listBtnBg: s.sourceView === "list" ? "#9184d9" : "transparent", listBtnColor: s.sourceView === "list" ? "#07111a" : "var(--co-muted)",
+    gridBtnBg: s.sourceView === "grid" ? "#9184d9" : "transparent", gridBtnColor: s.sourceView === "grid" ? "#07111a" : "var(--co-muted)",
     selTitle: selSrc ? selSrc.title : "",
     versionLabel: (versions.find((v) => v.id === s.version) || versions[0] || { label: "V1" }).label,
     versions,
@@ -3625,8 +3843,8 @@ function computeVals() {
     posterUrl: selectedSrc && selectedSrc.posterUrl ? selectedSrc.posterUrl : "",
     sceneLabel: selSrc ? selSrc.title : "Video",
     sceneSub: [selectedSrc && selectedSrc.codec, selectedSrc && selectedSrc.resolutionLabel, selectedSrc && selectedSrc.size].filter(Boolean).join(" · "),
-    safeBg: s.safeAspect !== "off" ? "rgba(108,92,246,0.16)" : "var(--co-panel-2)",
-    safeColor: s.safeAspect !== "off" ? "#6c5cf6" : "var(--co-text-2)",
+    safeBg: s.safeAspect !== "off" ? "rgba(145,132,217,0.16)" : "var(--co-panel-2)",
+    safeColor: s.safeAspect !== "off" ? "#9184d9" : "var(--co-text-2)",
     safeLabel: s.safeAspect === "off" ? "Safe" : ("Safe " + s.safeAspect),
     thumbs, markers: markerLayout.items, markerRailHeight: markerLayout.railHeight, markerWrapPaddingTop: markerLayout.paddingTop,
     activeQualityLabel: activeQ.label, activeQualityBitrate: activeQ.bitrate, qualities,
@@ -3639,15 +3857,15 @@ function computeVals() {
     tabOpenBg: tabBg(s.filter === "open"), tabOpenColor: tabColor(s.filter === "open"),
     tabDoneBg: tabBg(s.filter === "done"), tabDoneColor: tabColor(s.filter === "done"),
     attachLabel: s.attachTc ? ("Gắn @ " + fmtTc(s.currentMs)) : "Không gắn timecode",
-    attachBg: s.attachTc ? "rgba(108,92,246,0.13)" : "var(--co-hover)",
-    attachBorder: s.attachTc ? "rgba(108,92,246,0.3)" : "var(--co-border-2)",
-    attachIcon: s.attachTc ? "#6c5cf6" : "#8896ab",
+    attachBg: s.attachTc ? "rgba(145,132,217,0.13)" : "var(--co-hover)",
+    attachBorder: s.attachTc ? "rgba(145,132,217,0.3)" : "var(--co-border-2)",
+    attachIcon: s.attachTc ? "#9184d9" : "#8896ab",
     nasCrumbs: crumbs, nasList, importCount,
     nasLoading: s.nasLoading,
     nasError: s.nasError,
     nasRootLabel: describeNasRootLabel(state.runtimeSummary || remote.setup || {}),
     importBtnLabel: importCount > 0 ? ("Import " + importCount + " nguồn") : "Chọn nguồn để import",
-    importBtnBg: importCount > 0 ? "#6c5cf6" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
+    importBtnBg: importCount > 0 ? "#9184d9" : "var(--co-panel-2)", importBtnColor: importCount > 0 ? "#07111a" : "var(--co-faint)",
     importCountLabel: importCount + " nguồn đã chọn · có thể tạo proxy thủ công sau import",
     speedValue: speedVal, speedColor: tier.color, speedTier: tier.label, speedRec: tier.rec,
     // Pretty-print Mbps → "240 Mbps" or "1.2 Gbps" for header pill + speed panel.
@@ -3657,7 +3875,7 @@ function computeVals() {
     // Zones at 0-22 / 22-40 / 40-100% of scale = weak / ok / strong.
     speedScaleMax: (speedVal >= 1000 ? (Math.ceil(speedVal / 100) / 10).toFixed(1) + " Gbps" : Math.max(60, Math.ceil(speedVal * 1.1 / 10) * 10) + " Mbps"),
     speedPct: Math.min(100, (speedVal / Math.max(60, speedVal * 1.1)) * 100),
-    speedBorder: s.showSpeedPanel ? "rgba(108,92,246,0.5)" : "var(--co-border-2)",
+    speedBorder: s.showSpeedPanel ? "rgba(145,132,217,0.5)" : "var(--co-border-2)",
     autoAbrLabel: autoAbrOn ? ("Đang bật · target " + autoQualityTarget + " · lần gần nhất " + (s.lastAutoQuality || activeQ.label)) : ("Đang tắt · giữ " + activeQ.label + " do chọn tay"),
     autoAbrColor: autoAbrOn ? "#2bbe6e" : "var(--co-muted)",
     autoAbrBtnLabel: autoAbrOn ? "Tắt auto" : "Bật lại",
@@ -3665,7 +3883,7 @@ function computeVals() {
     autoAbrBtnBorder: autoAbrOn ? "rgba(43,190,110,0.28)" : "rgba(217,164,91,0.28)",
     autoAbrBtnColor: autoAbrOn ? "#71d7a6" : "#f5c76a",
     projectMembers, memberInviteOptions, memberRoleOptions,
-    inviteBtnBg: inviteReady ? "#6c5cf6" : "var(--co-panel-2)",
+    inviteBtnBg: inviteReady ? "#9184d9" : "var(--co-panel-2)",
     inviteBtnColor: inviteReady ? "#07111a" : "var(--co-faint)",
     isArchived: !!(selProject && selProject.archivedAt),
     isOwner: (selProject && selProject.myRole === "owner") || !remote.me,
@@ -3676,7 +3894,7 @@ function computeVals() {
     notificationCount: Object.values(s.notificationsByProject || {}).reduce((sum, count) => sum + count, 0),
     notificationTitle: Object.keys(s.notificationsByProject || {}).length ? "Có comment mới ở project khác" : "Chưa có comment mới",
     meInitial: (remote.me && remote.me.initial) || "M",
-    meColor: (remote.me && remote.me.color) || "#6c5cf6",
+    meColor: (remote.me && remote.me.color) || "#9184d9",
     updateStatus,
     updateBadgeLabel: updateBadge.label,
     updateBadgeColor: updateBadge.color,
@@ -3921,10 +4139,16 @@ function handleAct(act, arg, e, node) {
     case "toggleMembers": return setState({ showMembers: !state.showMembers });
     case "closeMembers": return setState({ showMembers: false });
     case "toggleAudit": return openAudit();
-    case "toggleAnnotationMode": return setState({ annotationMode: !state.annotationMode });
-    case "setAnnotationTool": return setState({ annotationTool: arg });
-    case "setAnnotationColor": return setState({ annotationColor: decodeURIComponent(arg) });
-    case "clearAnnotation": return setState({ annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
+    case "setAnnotationTool": return setState({ annotationTool: arg, annotationSelId: arg === "select" ? state.annotationSelId : null });
+    case "setAnnotationColor": return setAnnotationStyle({ color: decodeURIComponent(arg) });
+    case "setAnnotationWidth": return setAnnotationStyle({ width: Number(arg) || 3 });
+    case "annotationUndo": return annUndo();
+    case "annotationRedo": return annRedo();
+    case "clearAnnotation": {
+      if ((state.annotationStrokes || []).length || (state.annotationTexts || []).length) annPushUndo();
+      // Undo stack is deliberately kept — "Xoá hết" is itself undoable.
+      return setState({ annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null, annotationSelId: null });
+    }
     case "closeAudit": return setState({ showAudit: false });
     case "archiveProject": return archiveSelectedProject();
     case "restoreProject": return restoreSelectedProject();
@@ -4109,6 +4333,22 @@ document.addEventListener("keydown", (e) => {
   if (state.view !== "review") return;
   const t = e.target;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+    e.preventDefault();
+    return e.shiftKey ? annRedo() : annUndo();
+  }
+  if ((e.key === "Backspace" || e.key === "Delete") && state.annotationSelId) {
+    e.preventDefault();
+    annPushUndo();
+    annRemoveObject(state.annotationSelId);
+    state.annotationSelId = null;
+    return render();
+  }
+  const annTool = ANN_TOOLS.find((x) => x.key === String(e.key).toUpperCase());
+  if (annTool && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    return setState({ annotationTool: annTool.id, annotationSelId: annTool.id === "select" ? state.annotationSelId : null });
+  }
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
   else if (e.key === "ArrowRight" || e.key === ".") { e.preventDefault(); frameFwd(); }
   else if (e.key === "ArrowLeft" || e.key === ",") { e.preventDefault(); frameBack(); }
@@ -4286,7 +4526,7 @@ function showUpdateReloadBanner(remoteSha) {
   if (document.getElementById("coopUpdateBanner")) return;
   const el = document.createElement("div");
   el.id = "coopUpdateBanner";
-  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;background:#6c5cf6;color:#07111a;font-weight:800;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(108,92,246,0.45);display:flex;align-items:center;gap:10px;";
+  el.style.cssText = "position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;background:#9184d9;color:#07111a;font-weight:800;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(145,132,217,0.45);display:flex;align-items:center;gap:10px;";
   el.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#07111a;"></span>Có bản cập nhật mới — đang tải lại trong giây lát…';
   document.body.appendChild(el);
 }
@@ -4680,7 +4920,7 @@ function closeEventStream() {
 
 function setupOverlay() {
   return `
-  <div style="position:fixed;inset:0;background:radial-gradient(circle at 25% 15%,rgba(108,92,246,0.22),transparent 42%),linear-gradient(160deg,#07090e,#0b0e15);z-index:220;overflow:auto;padding:24px;">
+  <div style="position:fixed;inset:0;background:radial-gradient(circle at 25% 15%,rgba(145,132,217,0.22),transparent 42%),linear-gradient(160deg,#07090e,#0b0e15);z-index:220;overflow:auto;padding:24px;">
     <div style="max-width:760px;margin:0 auto;background:#11151e;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
         <div style="width:38px;height:38px;border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.35);"><img src="brand/favicon-256.png" alt="Coopeditor" style="width:100%;height:100%;display:block;"></div>
@@ -4720,7 +4960,7 @@ function setupOverlay() {
       ${setup.restarting ? `<div style="background:rgba(43,190,110,0.12);border:1px solid rgba(43,190,110,0.3);color:#a9f2ca;font-size:12px;font-weight:700;padding:10px 12px;border-radius:10px;margin:12px 0;">Đã lưu cấu hình. API đang khởi động lại để áp dụng thiết lập…</div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:18px;">
         <div style="color:#5d6b82;font-size:11px;font-weight:600;line-height:1.6;">Sau khi lưu, container API sẽ tự restart và worker sẽ tự nhận cấu hình mới từ volume <code>/data</code>.</div>
-        <button data-act="applySetup" ${setup.busy || setup.restarting ? "disabled" : ""} style="background:${setup.busy || setup.restarting ? "rgba(108,92,246,0.6)" : "#6c5cf6"};color:#07111a;font-weight:800;font-size:14px;padding:12px 18px;border:none;border-radius:10px;cursor:${setup.busy || setup.restarting ? "wait" : "pointer"};">${setup.busy ? "Đang lưu…" : "Lưu cấu hình"}</button>
+        <button data-act="applySetup" ${setup.busy || setup.restarting ? "disabled" : ""} style="background:${setup.busy || setup.restarting ? "rgba(145,132,217,0.6)" : "#9184d9"};color:#07111a;font-weight:800;font-size:14px;padding:12px 18px;border:none;border-radius:10px;cursor:${setup.busy || setup.restarting ? "wait" : "pointer"};">${setup.busy ? "Đang lưu…" : "Lưu cấu hình"}</button>
       </div>
     </div>
   </div>`;
@@ -5082,7 +5322,7 @@ async function remoteRequestTranscode(versionId, height) {
 }
 
 async function selectVersion(versionId) {
-  setState({ version: versionId, showVersionMenu: false, commentMenuId: null, editingCommentId: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null });
+  setState({ version: versionId, showVersionMenu: false, commentMenuId: null, editingCommentId: null, annotationStrokes: [], annotationTexts: [], annotationTextDraft: "", annotationDrawing: null, annotationSelId: null, annotationUndo: [], annotationRedo: [] });
   if (!remote.me) return;
   state._currentVersionId = versionId;
   await refreshComments(versionId);
@@ -5120,13 +5360,13 @@ function deleteCommentById(commentId) {
 
 function loginOverlay() {
   return `
-  <div style="position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,rgba(108,92,246,0.25),transparent 40%),linear-gradient(160deg,#07090e,#0b0e15);z-index:200;display:grid;place-items:center;padding:24px;">
+  <div style="position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,rgba(145,132,217,0.25),transparent 40%),linear-gradient(160deg,#07090e,#0b0e15);z-index:200;display:grid;place-items:center;padding:24px;">
     <div style="width:100%;max-width:380px;background:#11151e;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(150deg,#6c5cf6,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(108,92,246,0.4);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
-        <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em;color:#e9eef6;">Coop<span style="color:#6c5cf6;">editor</span></div>
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(150deg,#9184d9,#1878b9);display:grid;place-items:center;box-shadow:0 4px 14px rgba(145,132,217,0.4);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></div>
+        <div style="font-weight:800;font-size:18px;letter-spacing:-0.02em;color:#e9eef6;">Coop<span style="color:#9184d9;">editor</span></div>
       </div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:#6c5cf6;text-transform:uppercase;">Đăng nhập DSM</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;color:#9184d9;text-transform:uppercase;">Đăng nhập DSM</div>
       <h2 style="margin:5px 0 4px;font-size:18px;font-weight:800;color:#e9eef6;">${auth.needsOtp ? "Nhập mã 2FA" : "Tài khoản Synology DSM"}</h2>
       <div style="color:#8896ab;font-size:12px;font-weight:600;line-height:1.5;margin-bottom:18px;">${auth.needsOtp ? "DSM yêu cầu xác thực 2 bước — nhập mã OTP từ ứng dụng authenticator." : "Đăng nhập bằng tài khoản DSM để truy cập NAS theo đúng quyền của bạn."}</div>
       ${!auth.needsOtp ? `
@@ -5141,7 +5381,7 @@ function loginOverlay() {
       `}
       ${!remote.connected ? `<div style="background:rgba(255,180,60,0.1);border:1px solid rgba(255,180,60,0.35);color:#ffb43c;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;line-height:1.5;">Không kết nối được tới máy chủ${remote.error ? ` (${esc(remote.error)})` : ""}. Đang thử lại tự động… <span style="display:block;margin-top:4px;font-weight:500;color:#c89345;">Nếu vừa cài lại stack, đợi 30-60s cho postgres khởi động xong.</span><button data-act="retryBoot" style="margin-top:8px;background:transparent;border:1px solid rgba(255,180,60,0.5);color:#ffb43c;font-weight:700;font-size:11px;padding:6px 10px;border-radius:7px;cursor:pointer;">Thử lại ngay</button></div>` : ""}
       ${auth.error ? `<div style="background:rgba(239,77,87,0.12);border:1px solid rgba(239,77,87,0.3);color:#ef4d57;font-size:12px;font-weight:700;padding:9px 12px;border-radius:9px;margin-bottom:12px;">${esc(auth.error)}</div>` : ""}
-      <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(108,92,246,0.4)" : "#6c5cf6"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(108,92,246,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
+      <button data-act="doLogin" ${auth.busy || !remote.connected ? "disabled" : ""} style="width:100%;background:${(auth.busy || !remote.connected) ? "rgba(145,132,217,0.4)" : "#9184d9"};color:#07111a;font-weight:800;font-size:14px;padding:12px;border:none;border-radius:10px;cursor:${auth.busy ? "wait" : (!remote.connected ? "not-allowed" : "pointer")};box-shadow:0 4px 14px rgba(145,132,217,0.3);">${auth.busy ? "Đang xác thực…" : (!remote.connected ? "Chờ kết nối…" : (auth.needsOtp ? "Xác nhận" : "Đăng nhập"))}</button>
       ${auth.needsOtp ? `<button data-act="cancelOtp" style="margin-top:10px;width:100%;background:transparent;color:#8896ab;font-weight:700;font-size:12px;padding:8px;border:1px solid rgba(255,255,255,0.1);border-radius:9px;cursor:pointer;">Huỷ — đăng nhập lại</button>` : ""}
     </div>
   </div>`;
@@ -5556,13 +5796,15 @@ postComment = function () {
   }
   // Clear reply target after sending
   if (parentId) { state.replyingTo = null; state.replyingToTcLabel = ""; }
-  // After post: clear annotation + exit drawing mode for a clean next comment
+  // After post: clear the annotation draft (and its history) for a clean next comment
   if (annotation) {
     state.annotationStrokes = [];
     state.annotationTexts = [];
     state.annotationTextDraft = "";
     state.annotationDrawing = null;
-    state.annotationMode = false;
+    state.annotationSelId = null;
+    state.annotationUndo = [];
+    state.annotationRedo = [];
     render();
   }
 };
@@ -5634,7 +5876,7 @@ function toast(msg, kind) {
   })();
   const card = document.createElement("div");
   const isErr = kind === "error";
-  card.style.cssText = "background:" + (isErr ? "#2b1417" : "var(--co-menu)") + ";border:1px solid " + (isErr ? "rgba(239,77,87,0.4)" : "rgba(108,92,246,0.3)") + ";color:" + (isErr ? "#ef4d57" : "var(--co-text)") + ";padding:10px 14px;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.55);font-size:13px;font-weight:600;max-width:360px;pointer-events:auto;animation:coToastIn 200ms ease-out;";
+  card.style.cssText = "background:" + (isErr ? "#2b1417" : "var(--co-menu)") + ";border:1px solid " + (isErr ? "rgba(239,77,87,0.4)" : "rgba(145,132,217,0.3)") + ";color:" + (isErr ? "#ef4d57" : "var(--co-text)") + ";padding:10px 14px;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,0.55);font-size:13px;font-weight:600;max-width:360px;pointer-events:auto;animation:coToastIn 200ms ease-out;";
   card.textContent = msg;
   host.appendChild(card);
   setTimeout(() => { card.style.opacity = "0"; card.style.transform = "translateY(-6px)"; card.style.transition = "all 200ms ease-in"; }, 3300);

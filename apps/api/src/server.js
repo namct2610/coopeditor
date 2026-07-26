@@ -40,6 +40,7 @@ import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
 import { buildSpkCatalog } from "./spk-feed.js";
+import { validateAnnotation } from "./annotation.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
@@ -379,41 +380,6 @@ async function buildProxyStoragePayload() {
 
 function invalidateProxyStorageCache() {
   _proxyStorageCache = null;
-}
-
-// Annotation payload:
-// {
-//   strokes: [{ tool: "pen"|"arrow"|"rect", color: "#RRGGBB", points: [[x01, y01], ...] }],
-//   texts: [{ x: 0..1, y: 0..1, color: "#RRGGBB", text: "..." }]
-// }
-// Coordinates are normalized 0..1 so they survive scaling. Size cap = 50 strokes × 256 points.
-function validateAnnotation(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  const strokes = Array.isArray(raw.strokes) ? raw.strokes.slice(0, 50).map((s) => {
-    if (!s || typeof s !== "object") return null;
-    const tool = ["pen", "arrow", "rect"].includes(s.tool) ? s.tool : "pen";
-    const color = typeof s.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(s.color) ? s.color : "#ef4d57";
-    if (!Array.isArray(s.points)) return null;
-    const points = s.points.slice(0, 256).map((p) => {
-      if (!Array.isArray(p) || p.length < 2) return null;
-      const x = Math.max(0, Math.min(1, Number(p[0]) || 0));
-      const y = Math.max(0, Math.min(1, Number(p[1]) || 0));
-      return [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000];
-    }).filter(Boolean);
-    if (!points.length) return null;
-    return { tool, color, points };
-  }).filter(Boolean) : [];
-  const texts = Array.isArray(raw.texts) ? raw.texts.slice(0, 32).map((t) => {
-    if (!t || typeof t !== "object") return null;
-    const color = typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color) ? t.color : "#ef4d57";
-    const x = Math.round(Math.max(0, Math.min(1, Number(t.x) || 0)) * 1000) / 1000;
-    const y = Math.round(Math.max(0, Math.min(1, Number(t.y) || 0)) * 1000) / 1000;
-    const text = String(t.text || "").trim().slice(0, 120);
-    if (!text) return null;
-    return { x, y, color, text };
-  }).filter(Boolean) : [];
-  if (!strokes.length && !texts.length) return null;
-  return { strokes, texts };
 }
 
 async function publishProjectEvent(projectId, event) {
