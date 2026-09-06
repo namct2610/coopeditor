@@ -126,12 +126,31 @@ export function parseCookies(header) {
   return out;
 }
 
-// Secure cookies only work over HTTPS. In NAS-first deployments we may expose
-// the app over plain HTTP on a private/Tailscale network, so this must stay
-// opt-in via runtime config instead of being forced by NODE_ENV=production.
-const SECURE = process.env.COOKIE_SECURE === "1";
+// Secure cookies only work over HTTPS. In NAS-first deployments the same box is
+// commonly reached BOTH over https (public URL / reverse proxy) AND over plain
+// http (LAN IP / Tailscale). Forcing Secure globally from the publicUrl scheme
+// (COOKIE_SECURE=1) breaks the http path: the browser silently drops a Secure
+// cookie received over http, so login returns 200 but the very next request is
+// unauthenticated and the app bounces back to the login screen.
+//
+// So decide Secure PER REQUEST from the actual connection. Over https the cookie
+// is Secure (correct); over http it is not, and the LAN login works. The env
+// COOKIE_SECURE=1 stays as a fallback only for callers that have no request
+// (there are none today) — the request signal always wins.
+const SECURE_FALLBACK = process.env.COOKIE_SECURE === "1";
 
-export function cookieSetHeader(token, maxAgeSec = TTL_SEC) {
+// True when the client↔edge leg is https. Trust x-forwarded-proto first (DSM's
+// reverse proxy terminates TLS and forwards over http), then a direct TLS
+// socket. Absent both → treat as http so LAN access keeps working.
+export function isSecureRequest(req) {
+  if (!req) return SECURE_FALLBACK;
+  const xfProto = String((req.headers && req.headers["x-forwarded-proto"]) || "").split(",")[0].trim().toLowerCase();
+  if (xfProto) return xfProto === "https";
+  if (req.headers && String(req.headers["x-forwarded-ssl"] || "").toLowerCase() === "on") return true;
+  return !!(req.socket && req.socket.encrypted);
+}
+
+export function cookieSetHeader(token, maxAgeSec = TTL_SEC, secure = SECURE_FALLBACK) {
   const parts = [
     COOKIE_NAME + "=" + token,
     "Path=/",
@@ -139,11 +158,11 @@ export function cookieSetHeader(token, maxAgeSec = TTL_SEC) {
     "SameSite=Lax",
     "Max-Age=" + maxAgeSec,
   ];
-  if (SECURE) parts.push("Secure");
+  if (secure) parts.push("Secure");
   return parts.join("; ");
 }
 
-export function cookieClearHeader() {
+export function cookieClearHeader(secure = SECURE_FALLBACK) {
   const base = COOKIE_NAME + "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
-  return SECURE ? base + "; Secure" : base;
+  return secure ? base + "; Secure" : base;
 }

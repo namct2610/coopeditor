@@ -27,7 +27,7 @@ import { applyCors, isTrustedMutationRequest, loginMetrics, loginRateLimit, logi
 import * as presence from "./presence.js";
 import {
   COOKIE_NAME, createSession, getSession, destroySession,
-  parseCookies, cookieSetHeader, cookieClearHeader,
+  parseCookies, cookieSetHeader, cookieClearHeader, isSecureRequest,
 } from "./sessions.js";
 import { pendingTranscodeCount, startWorker, requestTranscode } from "./worker-runtime.js";
 import { createRequestLogger, logger, newRequestId } from "./logger.js";
@@ -1283,7 +1283,7 @@ async function handleLogin(req, res) {
   const token = await createSession({ userId: user.id, dsmSid: r.sid });
   loginSuccess(req);
   await audit.record({ actorUserId: user.id, action: "auth.login", resourceType: "session", payload: { dsmUid: r.uid } });
-  send(res, 200, { user }, { "set-cookie": cookieSetHeader(token, 12 * 3600) });
+  send(res, 200, { user }, { "set-cookie": cookieSetHeader(token, 12 * 3600, isSecureRequest(req)) });
 }
 
 async function handleOidcStart(req, res) {
@@ -1309,7 +1309,7 @@ async function handleOidcCallback(req, res, url) {
     const token = await createSession({ userId: user.id, dsmSid: "" });
     await audit.record({ actorUserId: user.id, action: "auth.login", resourceType: "session", payload: { via: "oidc", issuer: identity.issuer } });
     res.statusCode = 302;
-    res.setHeader("set-cookie", cookieSetHeader(token, 12 * 3600));
+    res.setHeader("set-cookie", cookieSetHeader(token, 12 * 3600, isSecureRequest(req)));
     res.setHeader("location", oidc.callbackUrl());
     res.end();
   } catch (err) {
@@ -1491,7 +1491,7 @@ async function handleLogout(req, res) {
     try { await dsm.dsmLogout(sess.dsmSid); } catch (_) {}
     await audit.record({ actorUserId: sess.userId, action: "auth.logout", resourceType: "session" });
   }
-  send(res, 200, { ok: true }, { "set-cookie": cookieClearHeader() });
+  send(res, 200, { ok: true }, { "set-cookie": cookieClearHeader(isSecureRequest(req)) });
 }
 
 async function sendMetrics(res) {

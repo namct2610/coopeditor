@@ -1,16 +1,10 @@
 {
-  "version": "1.0.0-rc47",
-  "summary": "SPK RC 47 dung lai toan bo giao dien theo ban thiet ke Nocturne moi (bo hoan toan skin cu), khung text chu thich kieu PowerPoint, button Material 3, va sua light theme.",
+  "version": "1.0.0-rc48",
+  "summary": "SPK RC 48 sua loi dang nhap tren NAS: sau khi nhap OTP (hoac dang nhap thuong) man hinh nhay 1 cai roi quay lai trang dang nhap.",
   "changes": [
-    "Dung lai toan bo view layer tu ban thiet ke Nocturne moi: ngon ngu phang dan dat boi typography, rail doc chi con wordmark 52px, moi hanh dong la chu mau accent thay vi nut co vien; xoa het chrome cu (topBar, sidebar, card grid, speed panel).",
-    "Them bang lenh Command Palette (Cmd/Ctrl+K) tim nhanh du an / nguon / ghi chu trong mot danh sach.",
-    "Man review chuyen thanh san khau tran vien: chrome tu mo khi phat, ghi chu la the kinh troi tren video; them nut Quay lai va phim Esc boc tung lop roi thoat khoi review.",
-    "Vien khung text chu thich lam lai kieu PowerPoint: keo de tao khung, 4 tay cam de doi kich thuoc, keo than de di chuyen, double-click de sua, text tu xuong dong va khong bi bien dang (dua text ra lop HTML rieng thay vi ve trong SVG bi keo gian).",
-    "Sua giat khi doi cong cu ve: chi ve lai thanh cong cu thay vi dung lai toan bo DOM (nhanh hon ~10 lan).",
-    "Nut hanh dong chinh chuyen sang Material 3 co phan cap (filled / tonal / outlined + hieu ung ripple); chu tren nut filled la trang o light theme, muc dam o dark theme.",
-    "Sua lai light theme: overlay va menu doc duoc (truoc day scrim toi de len chu toi), token do tuong phan da kiem tra, tach mau chu accent rieng cho nen sang.",
-    "Nhan phim tat hien dung theo he dieu hanh: Windows/Linux hien Ctrl+K thay vi Cmd (bieu tuong).",
-    "Sua nhieu loi tiem an: khong vao duoc trang Cai dat (thieu route hash), openSource doc nham du an khi mo tu Palette, o Palette khong nhan focus, crash khi mo deep link luc API chua tra ve, va khung text ket o che do sua khi commit."
+    "Sua loi cookie phien bi rot khi truy cap qua http trong LAN: truoc day neu publicUrl cau hinh dang https, server luon dat cookie co co Secure, nen trinh duyet vut cookie khi ban mo app bang http://nas:port — dang nhap tra ve thanh cong (app nhay 1 cai) roi request /projects ngay sau khong co cookie -> 401 -> quay ve trang dang nhap.",
+    "Cookie phien gio quyet dinh co Secure theo tung request dua vao ket noi that (x-forwarded-proto tu reverse proxy DSM, hoac socket TLS truc tiep): truy cap qua https van Secure dung chuan, truy cap qua http trong LAN thi khong Secure nen dang nhap hoat dong binh thuong.",
+    "Them test cho isSecureRequest va cookieSetHeader (https vs http, co/khong reverse proxy)."
   ],
   "publishedAt": "2026-09-06T00:00:00.000Z"
 }
