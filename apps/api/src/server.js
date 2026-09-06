@@ -839,7 +839,29 @@ async function handle(req, res, url) {
     const projectId = mat[1];
     if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
     if (!(await store.getProject(projectId))) return bad(res, "Project not found", 404);
-    return send(res, 200, await store.listAssetsByProject(projectId));
+    let assets = await store.listAssetsByProject(projectId);
+    // Backfill duration/dimensions for assets imported before ffprobe worked on
+    // this box (they were stored with durationMs=0). The probe is header-only and
+    // cached, so this runs once per asset; afterwards the values are non-zero and
+    // this loop is skipped. Best-effort — a probe failure leaves the 0 in place.
+    const stale = assets.filter((a) => a && a.nasPath && !(Number(a.durationMs) > 0));
+    if (stale.length) {
+      await Promise.allSettled(stale.map(async (a) => {
+        const meta = await dsm.getFileMeta(sess.dsmSid, a.nasPath).catch(() => null);
+        if (meta && Number(meta.durationMs) > 0) {
+          await store.patchAsset(a.id, {
+            durationMs: meta.durationMs,
+            frameRate: meta.frameRate || 0,
+            width: meta.width || 0,
+            height: meta.height || 0,
+            resolutionLabel: meta.resolutionLabel || "",
+            codec: meta.codec || a.codec,
+          }).catch(() => {});
+        }
+      }));
+      assets = await store.listAssetsByProject(projectId);
+    }
+    return send(res, 200, assets);
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/sources\/reorder$/)) && m === "PATCH") {
     const projectId = mat[1];

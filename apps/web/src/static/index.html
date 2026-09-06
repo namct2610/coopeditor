@@ -115,6 +115,15 @@
   .co-attach-hover:hover { background: rgba(255,255,255,0.12) !important; }
   textarea:focus, input:focus { outline: none; }
 
+  /* Review chrome floats over arbitrary video — often bright/blown-out footage.
+     A text-shadow keeps every overlay label legible on both dark and white
+     frames without darkening the video itself (unlike a heavier scrim). */
+  [data-review-chrome-top], [data-review-transport], [data-notes-panel], .rv-float {
+    text-shadow: 0 1px 3px rgba(0,0,0,0.65), 0 0 2px rgba(0,0,0,0.5);
+  }
+  /* Buttons carry their own solid fill, so drop the inherited shadow on them. */
+  [data-review-stage] .m-btn { text-shadow: none; }
+
   /* ===== Mobile (≤ 860px) ===== */
   @media (max-width: 860px) {
     /* Rail: the vertical wordmark can't fit — collapse to a 40px strip. */
@@ -2644,7 +2653,7 @@ function review(vals) {
   return `
   <div data-theme="dark" data-act="showChrome" data-review-stage ${state.drawOpen ? "data-draw-open" : ""} style="flex:1;min-height:0;position:relative;background:var(--co-stage);color:var(--co-text);display:flex;flex-direction:column;overflow:hidden;">
 
-    <div data-review-chrome-top style="position:absolute;left:0;right:0;top:0;height:80px;z-index:50;background:linear-gradient(180deg,rgba(13,14,24,0.9),transparent);display:flex;align-items:center;gap:14px;padding:0 26px;opacity:${op};pointer-events:${pe};transition:opacity 260ms ease;">
+    <div data-review-chrome-top style="position:absolute;left:0;right:0;top:0;height:104px;z-index:50;background:linear-gradient(180deg,rgba(13,14,24,0.92),rgba(13,14,24,0.5) 55%,transparent);display:flex;align-items:center;gap:14px;padding:0 26px;opacity:${op};pointer-events:${pe};transition:opacity 260ms ease;">
       <div data-act="goProject" class="co-act" title="Quay lại ${esc(vals.projectName)}" style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--co-dim);cursor:pointer;min-width:0;max-width:30vw;">
         <span style="flex:0 0 auto;">←</span>
         <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(vals.projectName)}</span>
@@ -2665,9 +2674,9 @@ function review(vals) {
         <video id="reviewVideo" src="${esc(vals.playbackUrl)}" poster="${esc(vals.posterUrl)}" playsinline preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
         <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.5));pointer-events:none;"></div>
         ${safeAreaOverlay(state.safeAspect)}
-        <div id="reviewTcCurrent" style="position:absolute;left:26px;top:80px;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;color:rgba(255,255,255,0.55);pointer-events:none;">${vals.tcCurrent}</div>
-        <div id="reviewFrameNumber" style="position:absolute;right:26px;top:80px;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;color:rgba(255,255,255,0.4);pointer-events:none;">F ${vals.frameNumber}</div>
-        <div style="position:absolute;left:26px;bottom:96px;font-size:11.5px;font-weight:500;letter-spacing:0.1em;color:rgba(255,255,255,0.4);opacity:${op};transition:opacity 260ms ease;pointer-events:none;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.sceneLabel)}</div>
+        <div id="reviewTcCurrent" class="rv-float" style="position:absolute;left:26px;top:80px;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.9);pointer-events:none;">${vals.tcCurrent}</div>
+        <div id="reviewFrameNumber" class="rv-float" style="position:absolute;right:26px;top:80px;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.78);pointer-events:none;">F ${vals.frameNumber}</div>
+        <div class="rv-float" style="position:absolute;left:26px;bottom:96px;font-size:11.5px;font-weight:600;letter-spacing:0.1em;color:rgba(255,255,255,0.78);opacity:${op};transition:opacity 260ms ease;pointer-events:none;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.sceneLabel)}</div>
         <div id="reviewVideoOverlay" style="position:absolute;inset:0;display:${state.playing ? "none" : "grid"};place-items:center;pointer-events:none;z-index:41;">
           ${!state.playing ? `<div style="width:64px;height:64px;border-radius:50%;background:rgba(13,14,24,0.42);backdrop-filter:blur(8px);display:grid;place-items:center;">${ICON.bigPlay}</div>` : ""}
         </div>
@@ -2675,7 +2684,7 @@ function review(vals) {
       </div>
     </div>
 
-    <div data-review-transport style="position:absolute;left:0;right:0;bottom:0;z-index:50;padding:0 26px 26px;background:linear-gradient(0deg,rgba(13,14,24,0.92),transparent);">
+    <div data-review-transport style="position:absolute;left:0;right:0;bottom:0;z-index:50;padding:24px 26px 26px;background:linear-gradient(0deg,rgba(13,14,24,0.95),rgba(13,14,24,0.6) 55%,transparent);">
       <div id="reviewTimelineWrap" style="position:relative;">
         <div style="position:relative;height:26px;">
           ${vals.markers.map((m) => `

@@ -404,6 +404,12 @@ export function patchAsset(id, patch) {
   if (!asset) return null;
   if (typeof patch.title === "string" && patch.title.trim()) asset.title = patch.title.trim();
   if (typeof patch.position === "number") asset.position = patch.position;
+  if (typeof patch.durationMs === "number") asset.durationMs = Math.round(patch.durationMs);
+  if (typeof patch.frameRate === "number") asset.frameRate = Math.round(patch.frameRate);
+  if (typeof patch.width === "number") asset.width = Math.round(patch.width);
+  if (typeof patch.height === "number") asset.height = Math.round(patch.height);
+  if (typeof patch.resolutionLabel === "string") asset.resolutionLabel = patch.resolutionLabel;
+  if (typeof patch.codec === "string" && patch.codec.trim()) asset.codec = patch.codec.trim();
   return asset;
 }
 export function deleteAsset(id) {

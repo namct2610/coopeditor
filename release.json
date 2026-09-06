@@ -1,10 +1,11 @@
 {
-  "version": "1.0.0-rc48",
-  "summary": "SPK RC 48 sua loi dang nhap tren NAS: sau khi nhap OTP (hoac dang nhap thuong) man hinh nhay 1 cai roi quay lai trang dang nhap.",
+  "version": "1.0.0-rc49",
+  "summary": "SPK RC 49 sua do dai video luon hien 0:00 va lam ro chu tren khung dieu khien khi video co nen sang.",
   "changes": [
-    "Sua loi cookie phien bi rot khi truy cap qua http trong LAN: truoc day neu publicUrl cau hinh dang https, server luon dat cookie co co Secure, nen trinh duyet vut cookie khi ban mo app bang http://nas:port — dang nhap tra ve thanh cong (app nhay 1 cai) roi request /projects ngay sau khong co cookie -> 401 -> quay ve trang dang nhap.",
-    "Cookie phien gio quyet dinh co Secure theo tung request dua vao ket noi that (x-forwarded-proto tu reverse proxy DSM, hoac socket TLS truc tiep): truy cap qua https van Secure dung chuan, truy cap qua http trong LAN thi khong Secure nen dang nhap hoat dong binh thuong.",
-    "Them test cho isSecureRequest va cookieSetHeader (https vs http, co/khong reverse proxy)."
+    "Sua loi tat ca nguon deu hien do dai 0:00: qua trinh import goi thang 'ffprobe' nhung tren NAS chi co ffmpeg (CodecPack hoac ban static bundled), khong co ffprobe tren PATH -> probe that bai -> luu durationMs = 0. Gio tim ffprobe canh ffmpeg da resolve / bien moi truong FFPROBE_PATH / PATH; neu khong co thi tu doc metadata bang 'ffmpeg -i' (parse Duration, do phan giai, fps, codec tu stderr).",
+    "Backfill do dai cho nguon da import truoc ban va: khi mo lai danh sach nguon, moi nguon dang 0:00 se duoc probe lai (chi doc header, co cache) va cap nhat vao DB, nen khong can import lai.",
+    "Lam ro chu tren khung dieu khien review khi video co nen sang: them do bong chu (text-shadow) cho toan bo nhan noi, tang do dam cac nhan mo (timecode, ten canh, so frame) va lam manh nhe lop scrim tren/duoi — truoc day cac chu nay bi chim khi video nen trang.",
+    "Them test cho parseFfmpegProbeStderr (tach rieng phan doc metadata tu stderr ffmpeg)."
   ],
   "publishedAt": "2026-09-06T00:00:00.000Z"
 }

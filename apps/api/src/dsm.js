@@ -11,8 +11,9 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, stat, access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { join, dirname } from "node:path";
 import { resolveUsableFfmpeg } from "./ffmpeg-runtime.js";
 
 const execFileAsync = promisify(execFile);
@@ -636,24 +637,99 @@ function guessCodecFromName(name) {
   return ext.toUpperCase() || "unknown";
 }
 
-async function ffprobeFile(path) {
-  const { stdout } = await execFileAsync("ffprobe", [
-    "-v", "error",
-    "-show_entries", "format=duration:stream=index,codec_type,codec_name,width,height,avg_frame_rate",
-    "-of", "json",
-    path,
-  ]);
-  const data = JSON.parse(stdout || "{}");
-  const video = (data.streams || []).find((stream) => stream.codec_type === "video");
-  const durationSec = Number(data.format && data.format.duration) || 0;
+// Locate an ffprobe binary. DSM's CodecPack and the bundled static build ship
+// *ffmpeg* but usually not ffprobe, and a bare `ffprobe` is not on the SPK's
+// PATH — so probing every imported file threw ENOENT and durations came back 0.
+// Try, in order: an explicit env path, ffprobe sitting next to the resolved
+// ffmpeg, then a bare `ffprobe`. The result is cached (the answer never changes
+// within a process).
+let _ffprobeBinPromise = null;
+async function resolveFfprobeBin() {
+  if (_ffprobeBinPromise) return _ffprobeBinPromise;
+  _ffprobeBinPromise = (async () => {
+    const envBin = String(process.env.FFPROBE_PATH || "").trim();
+    if (envBin) { try { await access(envBin, fsConstants.X_OK); return envBin; } catch (_) {} }
+    try {
+      const ff = await resolveUsableFfmpeg("thumbnail", process.env);
+      if (ff && ff.path && ff.path.includes("/")) {
+        const cand = join(dirname(ff.path), "ffprobe");
+        try { await access(cand, fsConstants.X_OK); return cand; } catch (_) {}
+      }
+    } catch (_) {}
+    return "ffprobe";
+  })();
+  return _ffprobeBinPromise;
+}
+
+// Fallback when no ffprobe is available: parse `ffmpeg -i <file>` stderr. ffmpeg
+// prints the input's Duration + stream info before exiting non-zero ("At least
+// one output file must be specified"), so we read it off the rejected call.
+async function ffmpegProbeFile(path) {
+  const ff = await resolveUsableFfmpeg("thumbnail", process.env);
+  if (!ff || !ff.path) throw new Error("no usable ffmpeg for probe");
+  let stderr = "";
+  try {
+    const r = await execFileAsync(ff.path, ["-hide_banner", "-i", path], { maxBuffer: 8 * 1024 * 1024 });
+    stderr = r.stderr || "";
+  } catch (err) {
+    stderr = (err && err.stderr) || ""; // expected: exit 1, info already on stderr
+  }
+  const parsed = parseFfmpegProbeStderr(stderr);
+  // Nothing usable (unreadable/garbage file, or ffmpeg couldn't parse it): throw
+  // so the caller's catch keeps the entry with duration 0 — the original
+  // "probe failed, assume it's still a video" behaviour — instead of dropping a
+  // file that merely couldn't be probed.
+  if (!parsed.hasVideo && parsed.durationMs === 0) throw new Error("ffmpeg probe yielded no info");
+  return parsed;
+}
+
+// Pure parse of `ffmpeg -i` stderr into the probe shape. Exported for testing so
+// the regex logic can be checked against a captured sample without ffmpeg.
+export function parseFfmpegProbeStderr(stderr) {
+  const text = String(stderr || "");
+  const durM = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(text);
+  const durationMs = durM
+    ? Math.round((Number(durM[1]) * 3600 + Number(durM[2]) * 60 + Number(durM[3])) * 1000)
+    : 0;
+  const vLine = /Stream #\d+:\d+[^\n]*:\s*Video:[^\n]*/i.exec(text);
+  const line = vLine ? vLine[0] : "";
+  const codecM = /Video:\s*([a-z0-9_]+)/i.exec(line);
+  const resM = /,\s*(\d{2,5})x(\d{2,5})/.exec(line);
+  const fpsM = /,\s*([\d.]+)\s*fps/i.exec(line) || /,\s*([\d.]+)\s*tbr/i.exec(line);
   return {
-    hasVideo: !!video,
-    codec: normalizeCodec(video && video.codec_name),
-    durationMs: Math.round(durationSec * 1000),
-    width: Number(video && video.width) || 0,
-    height: Number(video && video.height) || 0,
-    frameRate: parseFrameRate(video && video.avg_frame_rate),
+    hasVideo: !!line || durationMs > 0,
+    codec: normalizeCodec(codecM && codecM[1]),
+    durationMs,
+    width: resM ? Number(resM[1]) : 0,
+    height: resM ? Number(resM[2]) : 0,
+    frameRate: fpsM ? Math.round(Number(fpsM[1])) : 0,
   };
+}
+
+async function ffprobeFile(path) {
+  const bin = await resolveFfprobeBin();
+  try {
+    const { stdout } = await execFileAsync(bin, [
+      "-v", "error",
+      "-show_entries", "format=duration:stream=index,codec_type,codec_name,width,height,avg_frame_rate",
+      "-of", "json",
+      path,
+    ]);
+    const data = JSON.parse(stdout || "{}");
+    const video = (data.streams || []).find((stream) => stream.codec_type === "video");
+    const durationSec = Number(data.format && data.format.duration) || 0;
+    return {
+      hasVideo: !!video,
+      codec: normalizeCodec(video && video.codec_name),
+      durationMs: Math.round(durationSec * 1000),
+      width: Number(video && video.width) || 0,
+      height: Number(video && video.height) || 0,
+      frameRate: parseFrameRate(video && video.avg_frame_rate),
+    };
+  } catch (err) {
+    // ffprobe missing or failed (the common DSM case) → derive from ffmpeg.
+    return await ffmpegProbeFile(path);
+  }
 }
 
 async function readCachedProbe(path, { size = 0 } = {}) {

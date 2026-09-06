@@ -314,6 +314,13 @@ export async function patchAsset(id, patch) {
   const sets = []; const vals = []; let i = 1;
   if (typeof patch.title === "string" && patch.title.trim()) { sets.push("title = $" + i++); vals.push(patch.title.trim()); }
   if (typeof patch.position === "number") { sets.push("position = $" + i++); vals.push(patch.position); }
+  // Recovered media metadata (used to backfill assets imported before ffprobe worked).
+  if (typeof patch.durationMs === "number") { sets.push("duration_ms = $" + i++); vals.push(Math.round(patch.durationMs)); }
+  if (typeof patch.frameRate === "number") { sets.push("frame_rate = $" + i++); vals.push(Math.round(patch.frameRate)); }
+  if (typeof patch.width === "number") { sets.push("width_px = $" + i++); vals.push(Math.round(patch.width)); }
+  if (typeof patch.height === "number") { sets.push("height_px = $" + i++); vals.push(Math.round(patch.height)); }
+  if (typeof patch.resolutionLabel === "string") { sets.push("resolution_label = $" + i++); vals.push(patch.resolutionLabel); }
+  if (typeof patch.codec === "string" && patch.codec.trim()) { sets.push("codec = $" + i++); vals.push(patch.codec.trim()); }
   if (!sets.length) return getAsset(id);
   vals.push(id);
   return assetRow(await one(`UPDATE assets SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`, vals));
