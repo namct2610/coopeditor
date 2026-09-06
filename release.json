@@ -1,15 +1,16 @@
 {
-  "version": "1.0.0-rc46",
-  "summary": "SPK RC 46 giao dien Nocturne moi + bo cong cu chu thich day du (chon/di chuyen, but da quang, ellipse, tay, do day net, undo/redo).",
+  "version": "1.0.0-rc47",
+  "summary": "SPK RC 47 dung lai toan bo giao dien theo ban thiet ke Nocturne moi (bo hoan toan skin cu), khung text chu thich kieu PowerPoint, button Material 3, va sua light theme.",
   "changes": [
-    "Doi toan bo bang mau sang Nocturne: nen tim than (--co-bg #161826, --co-panel #1e2030), them token rieng --co-stage cho khung video, accent chuyen tu #6c5cf6 sang #9184d9 tren toan he thong.",
-    "Bo cong tac 'Bat che do chu thich': lop ve luon san sang, cong cu mac dinh la Chon; click vao vung trong khung hinh van play/pause nhu cu.",
-    "Them 4 cong cu moi: Chon/di chuyen (V), But da quang (H), Khoanh tron (O), Tay (E) — cong voi But ve (P), Mui ten (A), Khung (R), Text (T).",
-    "Them do day net (3 muc) va cho phep doi mau/do day cua net da ve bang cach chon net do truoc.",
-    "Them undo/redo (Cmd+Z / Shift+Cmd+Z) va Delete de xoa net dang chon; thanh cong cu tach thanh 2 hang tren-duoi khung hinh.",
-    "Sua loi lop SVG chu thich bi vuong 1:1 thay vi phu kin khung hinh — truoc day net ve bi lech so voi vi tri chuot.",
-    "Backend validateAnnotation nhan them tool ellipse/highlight va luu do day net (clamp 1..24); tach ra apps/api/src/annotation.js kem test rieng.",
-    "Man hinh review co them the version va avatar nguoi dang xem cung (truoc day chi hien o topBar, khong hien trong review)."
+    "Dung lai toan bo view layer tu ban thiet ke Nocturne moi: ngon ngu phang dan dat boi typography, rail doc chi con wordmark 52px, moi hanh dong la chu mau accent thay vi nut co vien; xoa het chrome cu (topBar, sidebar, card grid, speed panel).",
+    "Them bang lenh Command Palette (Cmd/Ctrl+K) tim nhanh du an / nguon / ghi chu trong mot danh sach.",
+    "Man review chuyen thanh san khau tran vien: chrome tu mo khi phat, ghi chu la the kinh troi tren video; them nut Quay lai va phim Esc boc tung lop roi thoat khoi review.",
+    "Vien khung text chu thich lam lai kieu PowerPoint: keo de tao khung, 4 tay cam de doi kich thuoc, keo than de di chuyen, double-click de sua, text tu xuong dong va khong bi bien dang (dua text ra lop HTML rieng thay vi ve trong SVG bi keo gian).",
+    "Sua giat khi doi cong cu ve: chi ve lai thanh cong cu thay vi dung lai toan bo DOM (nhanh hon ~10 lan).",
+    "Nut hanh dong chinh chuyen sang Material 3 co phan cap (filled / tonal / outlined + hieu ung ripple); chu tren nut filled la trang o light theme, muc dam o dark theme.",
+    "Sua lai light theme: overlay va menu doc duoc (truoc day scrim toi de len chu toi), token do tuong phan da kiem tra, tach mau chu accent rieng cho nen sang.",
+    "Nhan phim tat hien dung theo he dieu hanh: Windows/Linux hien Ctrl+K thay vi Cmd (bieu tuong).",
+    "Sua nhieu loi tiem an: khong vao duoc trang Cai dat (thieu route hash), openSource doc nham du an khi mo tu Palette, o Palette khong nhan focus, crash khi mo deep link luc API chua tra ve, va khung text ket o che do sua khi commit."
   ],
-  "publishedAt": "2026-07-26T00:00:00.000Z"
+  "publishedAt": "2026-09-06T00:00:00.000Z"
 }

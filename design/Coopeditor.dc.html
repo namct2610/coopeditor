@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&display=swap" />
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#161826; }
+  * { box-sizing: border-box; }
+  a { color:#9184d9; text-decoration:none; }
+  a:hover { color:#d2cefd; }
+  input, textarea, button { font-family: inherit; }
+  ::-webkit-scrollbar { width:9px; height:9px }
+  ::-webkit-scrollbar-thumb { background:rgba(233,233,237,0.12); border-radius:999px; border:2px solid transparent; background-clip:padding-box }
+  ::-webkit-scrollbar-track { background:transparent }
+  @keyframes coFade { from { opacity:0 } to { opacity:1 } }
+</style>
+</helmet>
+<div style="position:fixed;inset:0;display:flex;overflow:hidden;background:#161826;color:#e9e9ed;font-family:Onest,-apple-system,system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;">
+
+  <div style="width:52px;flex:0 0 52px;display:flex;flex-direction:column;align-items:center;padding:22px 0;z-index:20;">
+    <div style="display:flex;flex-direction:row;align-items:flex-start;gap:0;align-self:flex-end;margin-right:8px;">
+      <div onClick="{{ goHub }}" title="Coopeditor" style="writing-mode:vertical-rl;font-size:23px;font-weight:600;letter-spacing:-0.01em;cursor:pointer;user-select:none;white-space:nowrap;"><span style="color:#9184d9;">Coop</span><span style="color:#e9e9ed;">editor</span></div>
+      <div style="writing-mode:vertical-rl;font-size:11.5px;font-weight:400;color:#75798c;white-space:nowrap;user-select:none;margin-left:-6px;">Công cụ giao tiếp cho người sáng tạo</div>
+    </div>
+    <div style="flex:1"></div>
+    <div onClick="{{ goSettings }}" title="Minh Trí — cài đặt" style="width:28px;height:28px;border-radius:50%;background:#9184d9;display:grid;place-items:center;color:#0d0e18;font-size:11px;font-weight:600;cursor:pointer;">MT</div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:44px;">
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;">Dự án</div>
+        <div style="font-size:14px;color:#75798c;">{{ projectCount }}</div>
+        <div style="flex:1"></div>
+        <div onClick="{{ openPalette }}" style="font-size:13px;color:#75798c;cursor:pointer;">⌘K để tìm</div>
+        <div onClick="{{ openNewProject }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;">Dự án mới</div>
+      </div>
+      <sc-for list="{{ projects }}" as="p" hint-placeholder-count="6">
+        <div onClick="{{ p.open }}" style="display:flex;align-items:center;gap:22px;padding:19px 0;border-bottom:1px solid rgba(233,233,237,0.055);cursor:pointer;">
+          <div style="width:3px;height:22px;border-radius:2px;background:{{ p.railTint }};"></div>
+          <div style="flex:1;min-width:0;font-size:19px;font-weight:500;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+          <div style="font-size:13.5px;color:#9397ab;white-space:nowrap;">{{ p.openNotes }}</div>
+          <div style="font-size:13.5px;color:#9397ab;white-space:nowrap;">{{ p.assetCount }}</div>
+          <div style="font-size:13.5px;color:#9397ab;width:118px;text-align:right;white-space:nowrap;">{{ p.updated }}</div>
+        </div>
+      </sc-for>
+      <div style="margin-top:34px;font-size:13px;color:#75798c;">Đã lưu trữ 3 dự án · <span onClick="{{ noop }}" style="color:#75798c;cursor:pointer;">hiện</span></div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isProject }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:56px 88px 72px 36px;">
+      <div onClick="{{ goHub }}" style="font-size:13px;color:#9397ab;cursor:pointer;margin-bottom:18px;">← Dự án</div>
+      <div style="display:flex;align-items:baseline;gap:18px;margin-bottom:8px;">
+        <div style="font-size:28px;font-weight:600;letter-spacing:-0.03em;">{{ projectName }}</div>
+        <div style="flex:1"></div>
+        <div onClick="{{ openImport }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;white-space:nowrap;">Thêm nguồn</div>
+        <div onClick="{{ openShare }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;white-space:nowrap;">Chia sẻ</div>
+      </div>
+      <div style="font-size:13.5px;color:#9397ab;margin-bottom:40px;">{{ projectMeta }}</div>
+      <sc-for list="{{ assets }}" as="a" hint-placeholder-count="6">
+        <div onClick="{{ a.open }}" style="display:flex;align-items:center;gap:20px;padding:17px 0;border-bottom:1px solid rgba(233,233,237,0.055);cursor:pointer;">
+          <div style="width:26px;flex:0 0 26px;font-variant-numeric:tabular-nums;font-size:13px;color:#75798c;">{{ a.pos }}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:17px;font-weight:500;letter-spacing:-0.01em;color:{{ a.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ a.title }}</div>
+            <div style="margin-top:3px;font-size:12.5px;color:#75798c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ a.meta }}</div>
+          </div>
+          <div style="font-size:13px;color:{{ a.stateColor }};white-space:nowrap;">{{ a.stateLabel }}</div>
+          <div style="font-size:13px;color:#9397ab;width:78px;text-align:right;white-space:nowrap;">{{ a.notesLabel }}</div>
+          <div style="font-variant-numeric:tabular-nums;font-size:13px;color:#9397ab;width:56px;text-align:right;">{{ a.durLabel }}</div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+    <div onMouseEnter="{{ showChrome }}" onMouseLeave="{{ hideChrome }}" style="flex:1;min-height:0;position:relative;background:#0d0e18;display:flex;flex-direction:column;">
+
+      <div style="position:absolute;left:0;right:0;top:0;height:80px;z-index:3;background:linear-gradient(180deg,rgba(13,14,24,0.9),transparent);display:flex;align-items:center;gap:14px;padding:0 26px;opacity:{{ chromeOpacity }};transition:opacity 260ms ease;">
+        <div onClick="{{ goProject }}" style="font-size:13.5px;color:#8b8fa3;cursor:pointer;white-space:nowrap;">{{ projectName }}</div>
+        <div style="font-size:13.5px;color:#75798c;">/</div>
+        <div style="font-size:13.5px;font-weight:500;white-space:nowrap;">{{ assetTitle }}</div>
+        <div onClick="{{ cycleVersion }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;">{{ versionLabel }}</div>
+        <div style="flex:1"></div>
+        <div style="font-size:13px;color:#9397ab;">{{ presenceLabel }}</div>
+        <div onClick="{{ openShare }}" style="font-size:13px;color:#9184d9;cursor:pointer;">Chia sẻ</div>
+      </div>
+
+      <div onClick="{{ togglePlay }}" style="flex:1;min-height:0;display:grid;place-items:center;cursor:pointer;">
+        <div style="width:100%;aspect-ratio:16/9;background:{{ sceneBg }};position:relative;overflow:hidden;">
+          <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 50% 45%,transparent 55%,rgba(0,0,0,0.5));"></div>
+          <div style="position:absolute;left:26px;top:80px;font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;color:rgba(255,255,255,0.55);">{{ tcCurrent }}</div>
+          <div style="position:absolute;left:26px;bottom:96px;font-size:11.5px;font-weight:500;letter-spacing:0.1em;color:rgba(255,255,255,0.4);opacity:{{ chromeOpacity }};transition:opacity 260ms ease;">{{ sceneLabel }}</div>
+          <sc-if value="{{ paused }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;">
+              <div style="width:64px;height:64px;border-radius:50%;background:rgba(13,14,24,0.42);backdrop-filter:blur(8px);display:grid;place-items:center;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none" style="margin-left:3px"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:4;padding:0 26px 26px;background:linear-gradient(0deg,rgba(13,14,24,0.92),transparent);">
+        <div style="position:relative;height:26px;margin-bottom:6px;">
+          <sc-for list="{{ markers }}" as="m" hint-placeholder-count="4">
+            <div onClick="{{ m.jump }}" title="{{ m.tip }}" style="position:absolute;bottom:0;left:{{ m.leftPct }};transform:translateX(-50%);cursor:pointer;padding:6px;">
+              <div style="width:7px;height:7px;border-radius:50%;background:{{ m.dotColor }};"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div onClick="{{ seek }}" style="position:relative;height:3px;background:rgba(233,233,237,0.14);border-radius:2px;cursor:pointer;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:{{ playPct }};background:#9184d9;border-radius:2px;"></div>
+          <div style="position:absolute;left:{{ playPct }};top:-3px;width:9px;height:9px;border-radius:50%;background:#fff;transform:translateX(-50%);"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;margin-top:16px;opacity:{{ chromeOpacity }};transition:opacity 260ms ease;">
+          <div onClick="{{ togglePlay }}" style="width:34px;height:34px;border-radius:50%;background:#9184d9;display:grid;place-items:center;cursor:pointer;">
+            <sc-if value="{{ paused }}" hint-placeholder-val="{{ true }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#0d0e18" stroke="none" style="margin-left:2px"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>
+            </sc-if>
+            <sc-if value="{{ playing }}" hint-placeholder-val="{{ false }}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="#0d0e18" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
+            </sc-if>
+          </div>
+          <div style="font-variant-numeric:tabular-nums;font-size:13px;color:#b2b6ca;">{{ tcCurrent }} <span style="color:#75798c;">/ {{ tcDuration }}</span></div>
+          <div style="flex:1"></div>
+          <div onClick="{{ toggleDraw }}" style="font-size:13px;color:{{ drawColor }};cursor:pointer;">Vẽ ghi chú</div>
+          <div onClick="{{ cycleQuality }}" style="font-size:13px;color:#9397ab;cursor:pointer;">{{ qualityLabel }}</div>
+          <div onClick="{{ toggleNotes }}" style="font-size:13px;color:#9184d9;cursor:pointer;">{{ notesToggleLabel }}</div>
+        </div>
+      </div>
+
+      <sc-if value="{{ drawing }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:26px;top:96px;z-index:6;display:flex;align-items:center;gap:16px;background:rgba(22,24,38,0.82);backdrop-filter:blur(14px);border-radius:11px;padding:10px 16px;animation:coFade 180ms ease;">
+          <sc-for list="{{ drawTools }}" as="t" hint-placeholder-count="4">
+            <div onClick="{{ t.pick }}" title="{{ t.label }}" style="font-size:13px;color:{{ t.color }};cursor:pointer;">{{ t.label }}</div>
+          </sc-for>
+          <div style="width:1px;height:15px;background:rgba(233,233,237,0.12);"></div>
+          <div onClick="{{ noop }}" style="font-size:13px;color:#9397ab;cursor:pointer;">Hoàn tác</div>
+          <div onClick="{{ toggleDraw }}" style="font-size:13px;color:#9397ab;cursor:pointer;">Xong</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ notesOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;right:26px;top:96px;bottom:124px;width:308px;z-index:5;display:flex;flex-direction:column;gap:10px;opacity:{{ chromeOpacity }};transition:opacity 260ms ease;">
+        <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ comments }}" as="c" hint-placeholder-count="4">
+            <div onClick="{{ c.jump }}" style="background:{{ c.cardBg }};backdrop-filter:blur(14px);border-radius:12px;padding:15px 17px;cursor:pointer;opacity:{{ c.opacity }};">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;">
+                <div style="width:20px;height:20px;border-radius:50%;background:{{ c.color }};display:grid;place-items:center;font-size:9px;font-weight:600;color:#0d0e18;">{{ c.initial }}</div>
+                <div style="font-size:12.5px;font-weight:500;">{{ c.name }}</div>
+                <div style="font-size:12.5px;color:#9397ab;font-variant-numeric:tabular-nums;">{{ c.tcShort }}</div>
+                <div style="flex:1"></div>
+                <div onClick="{{ c.resolve }}" title="Đánh dấu xong" style="font-size:12.5px;color:{{ c.checkColor }};cursor:pointer;">✓</div>
+              </div>
+              <div style="font-size:13.5px;line-height:1.55;color:#d7d8e0;">{{ c.content }}</div>
+              <sc-if value="{{ c.hasDrawing }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:7px;font-size:12px;color:#7d72c4;">có ghi chú vẽ</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:rgba(22,24,38,0.82);backdrop-filter:blur(14px);border-radius:12px;padding:12px 17px;display:flex;align-items:center;gap:12px;">
+          <div style="font-variant-numeric:tabular-nums;font-size:12px;color:#9184d9;">{{ tcShortCurrent }}</div>
+          <input value="{{ draft }}" onChange="{{ setDraft }}" onKeyDown="{{ draftKey }}" placeholder="Ghi chú tại điểm này…" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#e9e9ed;font-size:13.5px;" />
+          <div onClick="{{ postComment }}" style="font-size:12.5px;color:#9184d9;cursor:pointer;">↵</div>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;min-height:0;display:flex;overflow:hidden;">
+      <div style="width:210px;flex:0 0 210px;padding:56px 0 40px 36px;display:flex;flex-direction:column;">
+        <div onClick="{{ goHub }}" style="font-size:13px;color:#9397ab;cursor:pointer;margin-bottom:30px;">← Dự án</div>
+        <sc-for list="{{ settingsNav }}" as="s" hint-placeholder-count="6">
+          <div onClick="{{ s.pick }}" style="padding:8px 0;font-size:14px;color:{{ s.color }};font-weight:{{ s.weight }};cursor:pointer;">{{ s.label }}</div>
+        </sc-for>
+        <div style="flex:1"></div>
+        <div onClick="{{ noop }}" style="font-size:13px;color:#75798c;cursor:pointer;">Đăng xuất</div>
+      </div>
+      <div style="flex:1;min-width:0;overflow-y:auto;padding:56px 88px 72px 56px;">
+        <div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">{{ settingsTitle }}</div>
+        <div style="font-size:13.5px;color:#9397ab;margin:6px 0 40px;">{{ settingsSub }}</div>
+        <sc-for list="{{ settingsRows }}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;align-items:baseline;gap:24px;padding:16px 0;border-bottom:1px solid rgba(233,233,237,0.055);">
+            <div style="width:220px;flex:0 0 220px;font-size:14px;color:#8b8fa3;">{{ r.label }}</div>
+            <div style="flex:1;min-width:0;font-size:14px;color:#e9e9ed;">{{ r.value }}</div>
+            <div onClick="{{ r.act }}" style="font-size:13px;color:{{ r.actionColor }};cursor:pointer;white-space:nowrap;">{{ r.action }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+
+  <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;background:rgba(11,12,20,0.72);backdrop-filter:blur(6px);z-index:80;display:flex;justify-content:center;padding:96px 24px;">
+    <div onClick="{{ stop }}" style="width:100%;max-width:660px;max-height:100%;display:flex;flex-direction:column;">
+      <div style="font-size:22px;font-weight:600;letter-spacing:-0.02em;">Thêm nguồn từ NAS</div>
+      <div style="font-size:13px;color:#9397ab;margin:6px 0 26px;font-variant-numeric:tabular-nums;">volume1 / Media / VinhHao_TVC</div>
+      <div style="flex:1;min-height:0;overflow-y:auto;">
+        <div onClick="{{ noop }}" style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(233,233,237,0.055);cursor:pointer;">
+          <div style="width:16px;flex:0 0 16px;color:#75798c;font-size:13px;">›</div>
+          <div style="flex:1;font-size:15px;font-weight:500;">02_Selects</div>
+          <div style="font-size:13px;color:#9397ab;">14 file</div>
+        </div>
+        <sc-for list="{{ nasFiles }}" as="f" hint-placeholder-count="5">
+          <div onClick="{{ f.toggle }}" style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(233,233,237,0.055);cursor:pointer;">
+            <div style="width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:1.5px solid {{ f.ringColor }};background:{{ f.fillColor }};"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15px;font-weight:500;color:{{ f.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ f.name }}</div>
+              <div style="margin-top:2px;font-size:12.5px;color:#75798c;">{{ f.meta }}</div>
+            </div>
+            <div style="font-size:13px;color:#9397ab;">{{ f.res }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;padding-top:22px;">
+        <div style="flex:1;font-size:13px;color:#9397ab;">{{ importSummary }}</div>
+        <div onClick="{{ closeOverlays }}" style="font-size:13.5px;color:#9397ab;cursor:pointer;">Huỷ</div>
+        <div onClick="{{ doImport }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;">Thêm vào dự án</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ shareOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;background:rgba(11,12,20,0.72);backdrop-filter:blur(6px);z-index:80;display:flex;justify-content:center;padding:120px 24px;">
+    <div onClick="{{ stop }}" style="width:100%;max-width:520px;">
+      <div style="font-size:22px;font-weight:600;letter-spacing:-0.02em;">Chia sẻ {{ projectName }}</div>
+      <div style="font-size:13px;color:#9397ab;margin:6px 0 26px;">Người có link xem được proxy, không tải được file gốc.</div>
+      <div style="display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid rgba(233,233,237,0.09);">
+        <input placeholder="email@congty.vn" style="flex:1;background:transparent;border:none;outline:none;color:#e9e9ed;font-size:15px;" />
+        <div onClick="{{ noop }}" style="font-size:13.5px;color:#9184d9;cursor:pointer;white-space:nowrap;">Mời</div>
+      </div>
+      <div style="margin-top:6px;">
+        <sc-for list="{{ members }}" as="m" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(233,233,237,0.045);">
+            <div style="width:24px;height:24px;border-radius:50%;background:{{ m.color }};display:grid;place-items:center;font-size:10px;font-weight:600;color:#0d0e18;">{{ m.initial }}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:500;">{{ m.name }}</div>
+              <div style="margin-top:1px;font-size:12.5px;color:#75798c;">{{ m.email }}</div>
+            </div>
+            <div onClick="{{ m.cycle }}" style="font-size:13px;color:#8b8fa3;cursor:pointer;">{{ m.role }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;padding-top:22px;">
+        <div onClick="{{ noop }}" style="flex:1;font-size:13px;color:#9184d9;cursor:pointer;">Copy link xem</div>
+        <div onClick="{{ closeOverlays }}" style="font-size:13.5px;color:#9397ab;cursor:pointer;">Xong</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlays }}" style="position:fixed;inset:0;background:rgba(11,12,20,0.72);backdrop-filter:blur(6px);z-index:90;display:flex;justify-content:center;padding:140px 24px;">
+    <div onClick="{{ stop }}" style="width:100%;max-width:560px;">
+      <input value="{{ query }}" onChange="{{ setQuery }}" placeholder="Tìm dự án, nguồn, ghi chú…" autoFocus="{{ true }}" style="width:100%;background:transparent;border:none;outline:none;color:#e9e9ed;font-size:24px;font-weight:500;letter-spacing:-0.02em;padding-bottom:16px;border-bottom:1px solid rgba(233,233,237,0.12);" />
+      <div style="margin-top:10px;">
+        <sc-for list="{{ paletteResults }}" as="r" hint-placeholder-count="5">
+          <div onClick="{{ r.go }}" style="display:flex;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid rgba(233,233,237,0.045);cursor:pointer;">
+            <div style="width:64px;flex:0 0 64px;font-size:12px;color:#75798c;">{{ r.kind }}</div>
+            <div style="flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.label }}</div>
+            <div style="font-size:12.5px;color:#75798c;white-space:nowrap;">{{ r.meta }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top:18px;font-size:12.5px;color:#75798c;">↑↓ chọn · ↵ mở · esc đóng</div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;autoHideChrome&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Review&quot;},&quot;notesDefaultOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Review&quot;}}">
+const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],["#15171c","#3a4453"],["#291230","#6e2a55"],["#241a0e","#7a5524"],["#102b2b","#1f5a52"],["#1a1430","#3a2f6e"]];
+const grad = (i) => `linear-gradient(150deg,${PAL[i % 8][0]},${PAL[i % 8][1]})`;
+
+const SCENES = [
+  { at: 0, label: "INT · KITCHEN — DAY · 01 Wide", i: 0 },
+  { at: 16000, label: "CU · GLASS FILLING · 02 Insert", i: 1 },
+  { at: 38000, label: "INT · KITCHEN — DAY · 03 Two shot", i: 2 },
+  { at: 62000, label: "INSERT · FILTER UNIT · 04 Macro", i: 3 },
+  { at: 88000, label: "EXT · BALCONY — DUSK · 05 Wide", i: 4 },
+  { at: 114000, label: "CU · SMILE · 06 Close", i: 5 },
+];
+
+const PROJECTS = [
+  { id: "p1", name: "Nước khoáng Vĩnh Hảo — TVC 30s", updated: "8 phút trước", assets: 6, notes: 4, i: 0 },
+  { id: "p2", name: "Sữa hạt Nutimilk — Digital 15s", updated: "Hôm nay 09:12", assets: 4, notes: 2, i: 1 },
+  { id: "p3", name: "Bảo hiểm An Tâm — Phim 60s", updated: "Hôm qua", assets: 9, notes: 0, i: 2 },
+  { id: "p4", name: "Cà phê Lộc Trời — Reels series", updated: "2 ngày trước", assets: 12, notes: 7, i: 4 },
+  { id: "p5", name: "Nhà máy Bình Dương — Corporate", updated: "12/08", assets: 3, notes: 0, i: 6 },
+  { id: "p6", name: "Tết 2026 — Sizzle nội bộ", updated: "04/08", assets: 2, notes: 0, i: 7 },
+];
+
+const ASSETS = [
+  { id: "a1", pos: 1, title: "VH_TVC30_offline_v4.mov", meta: "ProRes 422 · 4096×2160 · 24 fps · /volume1/Media/VinhHao_TVC/01_Offline", durLabel: "2:22", pct: 100, notes: 4 },
+  { id: "a2", pos: 2, title: "VH_TVC30_offline_v3.mov", meta: "ProRes 422 · 4096×2160 · 24 fps · /volume1/Media/VinhHao_TVC/01_Offline", durLabel: "2:20", pct: 100, notes: 11 },
+  { id: "a3", pos: 3, title: "VH_bstock_kitchen_A007.mxf", meta: "XAVC-I · 3840×2160 · 25 fps · /volume1/Media/VinhHao_TVC/02_Selects", durLabel: "8:41", pct: 64, notes: 0 },
+  { id: "a4", pos: 4, title: "VH_bstock_balcony_A011.mxf", meta: "XAVC-I · 3840×2160 · 25 fps · /volume1/Media/VinhHao_TVC/02_Selects", durLabel: "5:03", pct: 100, notes: 2 },
+  { id: "a5", pos: 5, title: "VH_grade_test_LUT2.mov", meta: "ProRes 4444 · 4096×2160 · 24 fps · /volume1/Media/VinhHao_TVC/03_Grade", durLabel: "0:38", pct: 100, notes: 0 },
+  { id: "a6", pos: 6, title: "VH_TVC30_mix_stem.wav", meta: "PCM 48k · stereo · /volume1/Media/VinhHao_TVC/04_Audio", durLabel: "2:22", pct: 22, notes: 0 },
+];
+
+const QUALITIES = ["540p", "720p", "1080p", "Gốc 4K"];
+const ROLES = ["Xem", "Ghi chú", "Quản lý"];
+const DRAW_TOOLS = ["Bút", "Mũi tên", "Khung", "Text"];
+
+const DUR = 142000;
+const FPS = 24;
+
+function fmtTc(ms) {
+  const f = Math.floor((ms % 1000) / (1000 / FPS));
+  const s = Math.floor(ms / 1000);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(Math.floor(s / 3600))}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}:${p(f)}`;
+}
+function fmtShort(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: "hub",
+    projectId: "p1",
+    assetId: "a1",
+    playing: false,
+    currentMs: 12330,
+    chrome: true,
+    notesOpen: null,
+    drawing: false,
+    drawTool: "Bút",
+    quality: 1,
+    version: 4,
+    settingsSection: "profile",
+    importOpen: false,
+    shareOpen: false,
+    paletteOpen: false,
+    query: "",
+    draft: "",
+    selected: { n1: true, n2: true },
+    resolved: { c4: true },
+    roles: { u2: 0, u3: 1, u4: 2 },
+    comments: [
+      { id: "c1", name: "Bạn", initial: "B", color: "#9184d9", ms: 12330, content: "Cắt sớm 4 frame ở nhịp này, đang bị trễ so với nhạc.", drawing: true },
+      { id: "c2", name: "Khách", initial: "K", color: "#b6b0e8", ms: 38400, content: "Logo hiện hơi nhanh, khách muốn giữ thêm khoảng 10 frame." },
+      { id: "c3", name: "Hà", initial: "H", color: "#7d72c4", ms: 62000, content: "Cảnh macro filter cần giảm sharpen, đang thấy viền." },
+      { id: "c4", name: "Khách", initial: "K", color: "#b6b0e8", ms: 114800, content: "Đoạn balcony ok rồi, duyệt." },
+    ],
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); this.setState({ paletteOpen: true }); }
+      else if (e.key === "Escape") this.setState({ paletteOpen: false, importOpen: false, shareOpen: false });
+      else if (e.key === " " && this.state.screen === "review") { e.preventDefault(); this.togglePlay(); }
+    };
+    window.addEventListener("keydown", this._key);
+    this._tick = setInterval(() => {
+      if (!this.state.playing) return;
+      this.setState((s) => ({ currentMs: (s.currentMs + 200) % DUR }));
+    }, 200);
+  }
+  componentWillUnmount() {
+    window.removeEventListener("keydown", this._key);
+    clearInterval(this._tick);
+  }
+
+  togglePlay = () => this.setState((s) => ({ playing: !s.playing, chrome: s.playing }));
+
+  renderVals() {
+    const st = this.state;
+    const project = PROJECTS.find((p) => p.id === st.projectId) || PROJECTS[0];
+    const asset = ASSETS.find((a) => a.id === st.assetId) || ASSETS[0];
+    const scene = SCENES.slice().reverse().find((s) => st.currentMs >= s.at) || SCENES[0];
+    const autoHide = this.props.autoHideChrome ?? true;
+    const chromeVisible = !autoHide || st.chrome || !st.playing;
+    const notesOpen = st.notesOpen === null ? (this.props.notesDefaultOpen ?? true) : st.notesOpen;
+
+    const go = (screen, patch) => () => this.setState({ screen, importOpen: false, shareOpen: false, paletteOpen: false, ...(patch || {}) });
+
+    const comments = st.comments.map((c) => {
+      const resolved = !!st.resolved[c.id];
+      return {
+        ...c,
+        tcShort: fmtShort(c.ms),
+        opacity: resolved ? "0.45" : "1",
+        cardBg: "rgba(22,24,38,0.82)",
+        checkColor: resolved ? "#9184d9" : "#9397ab",
+        hasDrawing: !!c.drawing,
+        jump: () => this.setState({ currentMs: c.ms }),
+        resolve: (e) => {
+          if (e) e.stopPropagation();
+          this.setState((s) => ({ resolved: { ...s.resolved, [c.id]: !s.resolved[c.id] } }));
+        },
+      };
+    });
+
+    const nasRaw = [
+      { id: "n1", name: "VH_A013_C004_0812RK.mxf", meta: "XAVC-I · 12.4 GB · 6:12", res: "4K" },
+      { id: "n2", name: "VH_A013_C005_0812RK.mxf", meta: "XAVC-I · 29.4 GB · 14:50", res: "4K" },
+      { id: "n3", name: "VH_A014_C001_0813RK.mxf", meta: "XAVC-I · 8.1 GB · 4:05", res: "4K" },
+      { id: "n4", name: "VH_drone_sunset_02.mp4", meta: "H.264 · 2.2 GB · 3:11", res: "4K" },
+      { id: "n5", name: "VH_interview_client.mov", meta: "ProRes · 18.9 GB · 22:40", res: "HD" },
+    ];
+    const selCount = nasRaw.filter((f) => st.selected[f.id]).length;
+
+    const members = [
+      { id: "u1", name: "Minh Trí", email: "minhtri@studio.vn", initial: "MT", color: "#9184d9", fixed: "Chủ dự án" },
+      { id: "u2", name: "Hà Phương", email: "ha@studio.vn", initial: "HP", color: "#7d72c4" },
+      { id: "u3", name: "Khách — Vĩnh Hảo", email: "review@vinhhao.vn", initial: "VH", color: "#b6b0e8" },
+      { id: "u4", name: "Dũng (color)", email: "dung@grade.vn", initial: "D", color: "#a79ce4" },
+    ].map((m) => ({
+      ...m,
+      role: m.fixed || ROLES[st.roles[m.id] || 0],
+      cycle: m.fixed ? () => {} : () => this.setState((s) => ({ roles: { ...s.roles, [m.id]: ((s.roles[m.id] || 0) + 1) % ROLES.length } })),
+    }));
+
+    const SETTINGS = {
+      profile: {
+        label: "Tài khoản", title: "Tài khoản", sub: "Đồng bộ từ DSM khi đăng nhập.",
+        rows: [
+          { label: "Tên", value: "Minh Trí" },
+          { label: "Email", value: "minhtri@studio.vn" },
+          { label: "Vai trò", value: "Chủ workspace" },
+          { label: "Phiên DSM", value: "còn 6 giờ", action: "Đăng nhập lại" },
+        ],
+      },
+      proxy: {
+        label: "Proxy", title: "Proxy", sub: "Bậc proxy tạo sẵn cho mỗi nguồn mới.",
+        rows: [
+          { label: "Bậc mặc định", value: "540p 2 Mbps · 720p 4 Mbps", action: "Đổi" },
+          { label: "1080p theo yêu cầu", value: "Bật" },
+          { label: "Cache SSD", value: "38.2 GB / 100 GB" },
+          { label: "Dọn proxy mồ côi", value: "6 file · 4.1 GB", action: "Dọn" },
+        ],
+      },
+      nas: {
+        label: "NAS", title: "NAS", sub: "Thư mục nguồn được quét định kỳ.",
+        rows: [
+          { label: "Mount", value: "/volume1/Media" },
+          { label: "Quét lại", value: "mỗi 15 phút", action: "Quét ngay" },
+          { label: "Trạng thái", value: "Đã kết nối · 12 phút trước" },
+        ],
+      },
+      notify: {
+        label: "Thông báo", title: "Thông báo", sub: "Chỉ những việc cần bạn xử lý.",
+        rows: [
+          { label: "Ghi chú mới trong dự án của tôi", value: "Email + trong app" },
+          { label: "Proxy xong", value: "Tắt", action: "Bật" },
+          { label: "Khách xem lần đầu", value: "Trong app" },
+        ],
+      },
+      update: {
+        label: "Cập nhật", title: "Cập nhật", sub: "Bản SPK cài trên NAS.",
+        rows: [
+          { label: "Đang chạy", value: "1.8.2" },
+          { label: "Mới nhất", value: "1.9.0", action: "Cập nhật" },
+          { label: "Kênh", value: "Ổn định" },
+        ],
+      },
+    };
+    const secKey = st.settingsSection;
+    const sec = SETTINGS[secKey] || SETTINGS.profile;
+
+    const q = st.query.trim().toLowerCase();
+    const results = [
+      ...PROJECTS.map((p) => ({ kind: "Dự án", label: p.name, meta: p.updated, go: go("project", { projectId: p.id }) })),
+      ...ASSETS.map((a) => ({ kind: "Nguồn", label: a.title, meta: a.durLabel, go: go("review", { assetId: a.id }) })),
+      ...st.comments.map((c) => ({ kind: "Ghi chú", label: c.content, meta: fmtShort(c.ms), go: go("review", { currentMs: c.ms }) })),
+    ].filter((r) => !q || r.label.toLowerCase().includes(q)).slice(0, 6);
+
+    return {
+      isHub: st.screen === "hub", isProject: st.screen === "project",
+      isReview: st.screen === "review", isSettings: st.screen === "settings",
+      goHub: go("hub"), goProject: go("project"), goSettings: go("settings"),
+      noop: () => {}, stop: (e) => e && e.stopPropagation(),
+      projectCount: PROJECTS.length,
+      projects: PROJECTS.map((p) => ({
+        ...p,
+        assetCount: p.assets + " nguồn",
+        openNotes: p.notes ? p.notes + " ghi chú mở" : "",
+        railTint: p.notes ? "#9184d9" : "rgba(233,233,237,0.12)",
+        cover: grad(p.i),
+        open: go("project", { projectId: p.id }),
+      })),
+      projectName: project.name,
+      projectMeta: project.assets + " nguồn · " + project.notes + " ghi chú mở · 128.4 GB · cập nhật " + project.updated,
+      assets: ASSETS.map((a) => ({
+        ...a,
+        titleColor: a.pct < 100 ? "#8b8fa3" : "#e9e9ed",
+        stateLabel: a.pct < 100 ? "đang tạo proxy " + a.pct + "%" : "",
+        stateColor: "#9184d9",
+        notesLabel: a.notes ? a.notes + " ghi chú" : "",
+        open: go("review", { assetId: a.id, currentMs: 12330 }),
+      })),
+      assetTitle: asset.title.replace(/\.[^.]+$/, ""),
+      versionLabel: "v" + st.version,
+      cycleVersion: () => this.setState((s) => ({ version: s.version === 4 ? 3 : 4 })),
+      presenceLabel: "K, H đang xem",
+      sceneBg: grad(scene.i),
+      sceneLabel: scene.label,
+      tcCurrent: fmtTc(st.currentMs),
+      tcDuration: fmtTc(DUR),
+      tcShortCurrent: fmtShort(st.currentMs),
+      playPct: ((st.currentMs / DUR) * 100).toFixed(2) + "%",
+      playing: st.playing, paused: !st.playing,
+      togglePlay: this.togglePlay,
+      chromeOpacity: chromeVisible ? "1" : "0",
+      showChrome: () => this.setState({ chrome: true }),
+      hideChrome: () => this.setState({ chrome: false }),
+      seek: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        this.setState({ currentMs: Math.max(0, Math.min(DUR, ((e.clientX - r.left) / r.width) * DUR)) });
+      },
+      markers: st.comments.map((c) => ({
+        leftPct: ((c.ms / DUR) * 100).toFixed(2) + "%",
+        dotColor: st.resolved[c.id] ? "rgba(145,132,217,0.35)" : "#9184d9",
+        tip: c.name + " · " + fmtShort(c.ms),
+        jump: () => this.setState({ currentMs: c.ms, notesOpen: true, chrome: true }),
+      })),
+      comments,
+      notesOpen,
+      notesToggleLabel: notesOpen ? st.comments.length + " ghi chú" : st.comments.length + " ghi chú ›",
+      toggleNotes: () => this.setState({ notesOpen: !notesOpen }),
+      drawing: st.drawing,
+      drawColor: st.drawing ? "#9184d9" : "#9397ab",
+      toggleDraw: () => this.setState((s) => ({ drawing: !s.drawing })),
+      drawTools: DRAW_TOOLS.map((t) => ({
+        label: t,
+        color: st.drawTool === t ? "#e9e9ed" : "#9397ab",
+        pick: () => this.setState({ drawTool: t }),
+      })),
+      qualityLabel: QUALITIES[st.quality],
+      cycleQuality: () => this.setState((s) => ({ quality: (s.quality + 1) % QUALITIES.length })),
+      draft: st.draft,
+      setDraft: (e) => this.setState({ draft: e.target.value }),
+      draftKey: (e) => { if (e.key === "Enter") this.postComment(); },
+      postComment: () => this.postComment(),
+      settingsNav: Object.keys(SETTINGS).map((k) => ({
+        label: SETTINGS[k].label,
+        color: k === secKey ? "#e9e9ed" : "#8b8fa3",
+        weight: k === secKey ? "500" : "400",
+        pick: () => this.setState({ settingsSection: k }),
+      })),
+      settingsTitle: sec.title,
+      settingsSub: sec.sub,
+      settingsRows: sec.rows.map((r) => ({
+        ...r,
+        action: r.action || "",
+        actionColor: "#9184d9",
+        act: () => {},
+      })),
+      importOpen: st.importOpen, shareOpen: st.shareOpen, paletteOpen: st.paletteOpen,
+      openImport: () => this.setState({ importOpen: true }),
+      openShare: () => this.setState({ shareOpen: true }),
+      openPalette: () => this.setState({ paletteOpen: true }),
+      openNewProject: () => this.setState({ paletteOpen: true, query: "Dự án mới" }),
+      closeOverlays: () => this.setState({ importOpen: false, shareOpen: false, paletteOpen: false }),
+      nasFiles: nasRaw.map((f) => {
+        const on = !!st.selected[f.id];
+        return {
+          ...f,
+          ringColor: on ? "#9184d9" : "rgba(233,233,237,0.2)",
+          fillColor: on ? "#9184d9" : "transparent",
+          titleColor: on ? "#e9e9ed" : "#b2b6ca",
+          toggle: () => this.setState((s) => ({ selected: { ...s.selected, [f.id]: !s.selected[f.id] } })),
+        };
+      }),
+      importSummary: selCount ? "Đã chọn " + selCount + " file · proxy 540p + 720p sẽ tạo tự động" : "Chưa chọn file nào",
+      doImport: () => this.setState({ importOpen: false }),
+      members,
+      query: st.query,
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      paletteResults: results,
+    };
+  }
+
+  postComment() {
+    const text = this.state.draft.trim();
+    if (!text) return;
+    this.setState((s) => ({
+      draft: "",
+      comments: s.comments.concat([{
+        id: "c" + (s.comments.length + 1) + Date.now().toString(36),
+        name: "Bạn", initial: "B", color: "#9184d9", ms: s.currentMs, content: text,
+      }]),
+    }));
+  }
+}
+</script>
+</body>
+</html>

@@ -12,15 +12,15 @@ test.describe("review flow", () => {
     await page.getByLabel("Mật khẩu").fill("x");
     await page.getByRole("button", { name: "Đăng nhập" }).click();
 
-    await expect(page.getByText("Workspace")).toBeVisible();
+    await expect(page.getByText("Dự án")).toBeVisible();
     await page.getByText("TVC Q3 2026 — Karofi Hero").click();
-    await page.getByRole("button", { name: "Import từ NAS" }).click();
+    await page.getByText("Thêm nguồn").click();
     await page.getByText("Hero_take7.mov").click();
-    await page.getByRole("button", { name: /Import 1 nguồn/i }).click();
+    await page.getByText("Thêm vào dự án").click();
 
     await page.getByText("Opening_Wide_Kitchen").click();
-    await page.getByRole("button", { name: /1080p/i }).click();
-    await page.getByRole("button", { name: /Tạo proxy/i }).click();
+    await page.getByText(/1080p/).first().click();
+    await page.getByText(/Tạo proxy/).first().click();
 
     await expect.poll(async () => page.locator("text=1080p").first().textContent()).not.toContain("Tạo proxy");
 
