@@ -619,6 +619,39 @@ async function handle(req, res, url) {
     const decorated = await Promise.all(list.map((project) => decorateProject(project, sess.userId)));
     return send(res, 200, decorated);
   }
+  // Workspace calendar: every airing (video with an air date) the user can see,
+  // within [from, to] ISO dates. Aggregates across all accessible projects so
+  // the Lịch view shows the whole studio's broadcast schedule in one place.
+  if (p === "/calendar" && m === "GET") {
+    const from = String(url.searchParams.get("from") || "").slice(0, 10);
+    const to = String(url.searchParams.get("to") || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      return bad(res, "from and to (YYYY-MM-DD) required");
+    }
+    const projects = await store.listProjectsForUser(sess.userId, { includeArchived: false });
+    const items = [];
+    for (const project of projects) {
+      if (project.archivedAt) continue;
+      const assets = await store.listAssetsByProject(project.id);
+      for (const a of assets) {
+        const d = a.airDate;
+        if (!d || d < from || d > to) continue;
+        items.push({
+          assetId: a.id,
+          projectId: project.id,
+          projectName: project.name,
+          title: a.title,
+          airDate: d,
+          durationMs: a.durationMs || 0,
+          status: a.status,
+          paletteA: a.paletteA,
+          paletteB: a.paletteB,
+        });
+      }
+    }
+    items.sort((x, y) => x.airDate.localeCompare(y.airDate) || x.projectName.localeCompare(y.projectName));
+    return send(res, 200, items);
+  }
   if (p === "/project-templates" && m === "GET") {
     return send(res, 200, await store.listProjectTemplates());
   }
@@ -881,6 +914,11 @@ async function handle(req, res, url) {
       if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
       const body = await readJson(req).catch(() => null);
       if (!body) return bad(res, "Invalid body");
+      // air date must be a plain ISO day or null (clear) — reject anything else
+      // at the trust boundary so a bad value can't land in the DB.
+      if ("airDate" in body && body.airDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.airDate))) {
+        return bad(res, "airDate must be YYYY-MM-DD or null");
+      }
       const updated = await store.patchAsset(assetId, body);
       if (!updated) return bad(res, "Asset not found", 404);
       await audit.record({ actorUserId: sess.userId, action: "asset.updated", resourceType: "asset", resourceId: assetId, projectId, payload: body });

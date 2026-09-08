@@ -160,6 +160,12 @@
     [data-settings-row] > div:first-child { width: 100% !important; flex: 0 0 100% !important; }
     /* Overlays: full-bleed */
     [data-overlay] { padding: 56px 18px 24px !important; }
+    /* Calendar: tight side padding, and chips collapse to colour dots — a
+       month grid can't fit titles at 7 columns on a phone. */
+    #calScroll { padding: 28px 12px 40px !important; }
+    #calScroll [data-cal-day] { min-height: 84px !important; padding: 5px 3px !important; }
+    .cal-chip { padding: 2px !important; gap: 0 !important; justify-content: center; }
+    .cal-chip span:last-child { display: none !important; }
   }
 </style>
 </head>
@@ -349,6 +355,14 @@ const state = {
   // Floating draw bar visibility (design: "Vẽ ghi chú" toggles it).
   drawOpen: false,
   paletteQuery: "",
+  // Lịch (calendar) — workspace-wide airing schedule. calMonth is the visible
+  // month; calItems is what /calendar returned for the visible grid range.
+  calYear: 0, calMonth: 0,   // 0 = uninitialised → set to current month on first open
+  calItems: [],
+  calLoading: false,
+  calError: "",
+  calDragAssetId: null,      // asset chip being dragged to reschedule
+  calDropDay: null,          // ISO day currently hovered as a drop target
   // Review chrome auto-hides while playing (design: opacity 0 on the top bar,
   // transport and notes panel). Pointer entering the stage brings it back.
   chromeVisible: true,
@@ -390,6 +404,11 @@ function setStateNow(patch) {
 }
 function effStatus(p) { if (!p) return "progress"; return state.projectStatus[p.id] || p.status; }
 
+// "2026-09-12" → "12/09" for compact row display.
+function fmtAirDate(iso) {
+  const p = String(iso || "").split("-");
+  return p.length === 3 ? p[2] + "/" + p[1] : String(iso || "");
+}
 function fmtDur(ms) { const s = Math.floor(ms / 1000); const m = Math.floor(s / 60), ss = s % 60; return m + ":" + String(ss).padStart(2, "0"); }
 function fmtTc(ms) {
   const fps = state.fps; let frames = Math.round((ms / 1000) * fps);
@@ -721,6 +740,7 @@ function openSourceContextMenu(sourceId, x, y) {
 let _applyingHashRoute = false;
 function desiredHashFromState() {
   if (state.view === "proxyStorage") return "#/proxy-storage";
+  if (state.view === "calendar") return "#/calendar";
   if (state.view === "settings") return "#/settings/" + encodeURIComponent(state.settingsSection || "profile");
   if (state.view === "review" && state.selectedProjectId && state.selectedId) {
     return "#/project/" + encodeURIComponent(state.selectedProjectId) + "/source/" + encodeURIComponent(state.selectedId);
@@ -755,6 +775,16 @@ function applyHashRoute() {
       } else if (!state.proxyStorageSummary && !state.proxyStorageSummaryLoading) {
         refreshProxyStorageSummary().catch(() => {});
       }
+      return;
+    }
+    if (hash === "#/calendar") {
+      state.view = "calendar";
+      state.showProxyStorage = false;
+      state.projectContextMenu = null;
+      state.sourceContextMenu = null;
+      ensureCalMonth();
+      render();
+      refreshCalendar().catch(() => {});
       return;
     }
     const settingsMatch = hash.match(/^#\/settings(?:\/([^/]+))?$/);
@@ -1709,13 +1739,166 @@ function getTimelineMarkerLayout(comments, durationMs, fps, timelineWidthPx) {
 // behind ⌘K and leans on the row itself: an accent rail marks projects that
 // still have open notes, so "what needs me" reads down the left edge.
 // ---------------------------------------------------------------------------
+// ============================ LỊCH (calendar) ============================
+// Workspace-wide airing schedule: every video that has an air date, shown on a
+// month grid, aggregated across all accessible projects.
+function ensureCalMonth() {
+  if (!state.calYear || !state.calMonth) {
+    const d = new Date();
+    state.calYear = d.getFullYear();
+    state.calMonth = d.getMonth() + 1;
+  }
+}
+function calIsoDay(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+// Visible grid = the Monday on/before the 1st through 6 full weeks (42 cells).
+function calGridRange(y, m) {
+  const first = new Date(y, m - 1, 1);
+  const startOffset = (first.getDay() + 6) % 7; // Mon=0 … Sun=6
+  const start = new Date(y, m - 1, 1 - startOffset);
+  const end = new Date(start); end.setDate(start.getDate() + 41);
+  return { start, end };
+}
+function goCalendar() {
+  pause();
+  ensureCalMonth();
+  setStateNow({ view: "calendar", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null });
+  refreshCalendar().catch(() => {});
+}
+async function refreshCalendar() {
+  ensureCalMonth();
+  const { start, end } = calGridRange(state.calYear, state.calMonth);
+  state.calLoading = true; state.calError = ""; scheduleRender();
+  try {
+    const items = await api("/calendar?from=" + calIsoDay(start) + "&to=" + calIsoDay(end));
+    state.calItems = Array.isArray(items) ? items : [];
+    state.calLoading = false;
+    render();
+  } catch (e) {
+    state.calLoading = false;
+    state.calError = (e && e.message) || "Không tải được lịch";
+    render();
+  }
+}
+function calShiftMonth(delta) {
+  ensureCalMonth();
+  let m = state.calMonth + delta, y = state.calYear;
+  while (m > 12) { m -= 12; y += 1; }
+  while (m < 1) { m += 12; y -= 1; }
+  state.calYear = y; state.calMonth = m;
+  render();
+  refreshCalendar().catch(() => {});
+}
+function calGoToday() {
+  const d = new Date();
+  state.calYear = d.getFullYear(); state.calMonth = d.getMonth() + 1;
+  render();
+  refreshCalendar().catch(() => {});
+}
+// Open a source that may live in a project whose sources aren't loaded yet
+// (the calendar aggregates every project).
+async function openAiringSource(projectId, assetId) {
+  if (projectId) {
+    state.selectedProjectId = projectId;
+    if (!state.sourcesByProject[projectId]) {
+      try { await refreshProjectSources(projectId); } catch (_) {}
+    }
+  }
+  openSource(assetId);
+}
+// Set (or clear with null) a video's air date, persist, and reflect it in any
+// loaded copy + the calendar.
+async function setAssetAirDate(assetId, airDate) {
+  const value = airDate || null;
+  for (const pid of Object.keys(state.sourcesByProject || {})) {
+    const src = (state.sourcesByProject[pid] || []).find((x) => x.id === assetId);
+    if (src) src.airDate = value;
+  }
+  render();
+  try {
+    await api("/assets/" + encodeURIComponent(assetId), { method: "PATCH", body: { airDate: value } });
+    if (state.view === "calendar") await refreshCalendar();
+  } catch (e) {
+    toast((e && e.message) || "Không đặt được ngày air", "error");
+    if (state.selectedProjectId) refreshProjectSources(state.selectedProjectId).then(() => render()).catch(() => {});
+  }
+}
+
+// Section switcher shown at the top of both Dự án and Lịch — the two top-level
+// areas of the app.
+function sectionSwitch(active) {
+  const tab = (id, label, act) => `<div data-act="${act}" class="co-act" style="font-size:30px;font-weight:600;letter-spacing:-0.03em;color:${active === id ? "var(--co-text)" : "var(--co-faint)"};cursor:pointer;">${esc(label)}</div>`;
+  return `<div style="display:flex;align-items:baseline;gap:20px;">${tab("projects", "Dự án", "goProjects")}${tab("calendar", "Lịch", "goCalendar")}</div>`;
+}
+
+function calChip(it) {
+  const color = it.paletteB || "var(--co-accent)";
+  return `<div draggable="true" data-cal-asset="${esc(it.assetId)}" data-cal-project="${esc(it.projectId)}" data-act="openAiring" data-arg="${esc(it.projectId)}::${esc(it.assetId)}" title="${esc(it.projectName)} — ${esc(it.title)}" class="cal-chip" style="display:flex;align-items:center;gap:6px;padding:3px 7px;border-radius:6px;background:var(--co-hover);cursor:pointer;">
+    <span style="width:6px;height:6px;border-radius:50%;background:${color};flex:0 0 6px;"></span>
+    <span style="font-size:11.5px;color:var(--co-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(it.title)}</span>
+  </div>`;
+}
+
+function calendarView(vals) {
+  ensureCalMonth();
+  const y = state.calYear, m = state.calMonth;
+  const { start } = calGridRange(y, m);
+  const todayIso = calIsoDay(new Date());
+  const byDay = {};
+  for (const it of state.calItems || []) (byDay[it.airDate] = byDay[it.airDate] || []).push(it);
+  const total = (state.calItems || []).filter((it) => {
+    const p = String(it.airDate || "").split("-");
+    return Number(p[0]) === y && Number(p[1]) === m;
+  }).length;
+  const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+  const cells = [];
+  for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push(d); }
+  return `
+  <main data-screen id="calScroll" style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
+    <div style="display:flex;align-items:baseline;gap:20px;margin-bottom:30px;">
+      ${sectionSwitch("calendar")}
+      <div style="flex:1"></div>
+      <div data-act="calToday" class="co-act" style="font-size:13px;color:var(--co-muted);cursor:pointer;">Hôm nay</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+      <div style="font-size:17px;font-weight:600;letter-spacing:-0.01em;">Tháng ${m}, ${y}</div>
+      <div data-act="calPrev" class="co-act" title="Tháng trước" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;font-size:16px;color:var(--co-muted);cursor:pointer;" class="co-hover">‹</div>
+      <div data-act="calNext" class="co-act" title="Tháng sau" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;font-size:16px;color:var(--co-muted);cursor:pointer;">›</div>
+      <div style="flex:1"></div>
+      <div style="font-size:13.5px;color:var(--co-muted);"><span style="color:var(--co-accent-text);font-weight:600;">${total}</span> video lên sóng tháng này${state.calLoading ? " · đang tải…" : ""}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));">
+      ${weekdays.map((w) => `<div style="font-size:12px;font-weight:500;color:var(--co-faint);padding:0 0 10px 6px;">${w}</div>`).join("")}
+      ${cells.map((d) => {
+        const iso = calIsoDay(d);
+        const inMonth = (d.getMonth() + 1) === m;
+        const isToday = iso === todayIso;
+        const items = byDay[iso] || [];
+        const drop = state.calDropDay === iso;
+        return `<div data-cal-day="${iso}" style="min-height:118px;border-top:1px solid var(--co-hairline);border-left:1px solid var(--co-hairline);padding:7px 5px;${!inMonth ? "opacity:0.4;" : ""}${drop ? "background:var(--co-accent-soft);box-shadow:inset 0 0 0 1px var(--co-accent-line);" : ""}">
+          <div style="width:23px;height:23px;display:grid;place-items:center;border-radius:50%;font-size:12px;margin-bottom:6px;${isToday ? "background:var(--co-accent);color:var(--co-on-accent);font-weight:600;" : "color:var(--co-muted);"}">${d.getDate()}</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${items.slice(0, 4).map(calChip).join("")}
+            ${items.length > 4 ? `<div style="font-size:11.5px;color:var(--co-faint);padding-left:4px;">+${items.length - 4} nữa</div>` : ""}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+    ${state.calError ? `<div style="margin-top:18px;font-size:13px;color:var(--co-bad);">${esc(state.calError)}</div>` : ""}
+    ${!state.calLoading && !state.calError && (state.calItems || []).length === 0
+      ? `<div style="margin-top:26px;font-size:13.5px;color:var(--co-muted);line-height:1.6;max-width:520px;">Chưa có video nào đặt ngày lên sóng. Mở một dự án và đặt <b style="color:var(--co-text-2);">ngày air</b> cho nguồn, hoặc kéo một video thả vào ô ngày trong lịch.</div>`
+      : ""}
+  </main>`;
+}
+
 function projectsHub(vals) {
   const projects = vals.projectGroups.flatMap((g) => g.projects);
   const archived = vals.archivedCount || 0;
   return `
   <main data-screen id="hubScroll" style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:44px;">
-      <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;">Dự án</div>
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:44px;">
+      ${sectionSwitch("projects")}
       <div style="font-size:14px;color:var(--co-faint);">${projects.length}</div>
       <div style="flex:1"></div>
       <div data-act="openPalette" data-hide-sm class="co-act" style="font-size:13px;color:var(--co-faint);cursor:pointer;">${SHORTCUT_PALETTE} để tìm</div>
@@ -1780,7 +1963,11 @@ function projectDetail(vals) {
           <div style="margin-top:3px;font-size:12.5px;color:var(--co-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.meta)}</div>
         </div>
         <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-accent-text);white-space:nowrap;">${a.transcoding ? esc(a.statusLabel) : ""}</div>
-        <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:78px;text-align:right;white-space:nowrap;">${a.comments ? a.comments + " ghi chú" : ""}</div>
+        <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:72px;text-align:right;white-space:nowrap;">${a.comments ? a.comments + " ghi chú" : ""}</div>
+        <label data-stop="1" data-row-col="sm-hide" draggable="false" title="Ngày lên sóng" class="co-act" style="position:relative;display:inline-flex;align-items:center;justify-content:flex-end;width:92px;font-size:13px;color:${a.airDate ? "var(--co-accent-text)" : "var(--co-faint)"};cursor:pointer;white-space:nowrap;">
+          <input type="date" data-air-date-asset="${a.id}" value="${esc(a.airDate)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;" />
+          ${a.airLabel ? "Air " + esc(a.airLabel) : "Đặt ngày"}
+        </label>
         <div style="font-variant-numeric:tabular-nums;font-size:13px;color:var(--co-muted);width:56px;text-align:right;">${esc(a.durLabel)}</div>
       </div>
     `).join("")}
@@ -3127,6 +3314,8 @@ function computeVals() {
       transcoding: src.status === "processing",
       pct: src.progress || 0,
       nasPath: src.nasPath || src.path || src.title || "NAS",
+      airDate: src.airDate || "",
+      airLabel: src.airDate ? fmtAirDate(src.airDate) : "",
     };
   });
   const nProjReady = projSources.filter((x) => x.status === "ready").length;
@@ -3510,6 +3699,7 @@ function render() {
   // own header, and everything transient (palette, overlays) floats above.
   const screen =
     state.view === "projects" ? projectsHub(vals)
+    : state.view === "calendar" ? calendarView(vals)
     : state.view === "project" ? projectDetail(vals)
     : state.view === "review" ? review(vals)
     : state.view === "settings" ? settingsPage(vals)
@@ -3617,6 +3807,15 @@ window.addEventListener("hashchange", () => {
 function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
+    case "goCalendar": return goCalendar();
+    case "calPrev": return calShiftMonth(-1);
+    case "calNext": return calShiftMonth(1);
+    case "calToday": return calGoToday();
+    case "openAiring": {
+      const sep = String(arg || "").indexOf("::");
+      if (sep < 0) return;
+      return openAiringSource(arg.slice(0, sep), arg.slice(sep + 2));
+    }
     // ---- Nocturne design: palette, chrome fade, floating panels ----
     case "openPalette": {
       setStateNow({ paletteOpen: true, paletteQuery: "" });
@@ -3847,6 +4046,11 @@ document.addEventListener("input", (e) => {
   }
 });
 document.addEventListener("change", (e) => {
+  if (e.target && e.target.dataset && e.target.dataset.airDateAsset) {
+    // native <input type="date"> → PATCH; empty value clears the air date.
+    setAssetAirDate(e.target.dataset.airDateAsset, e.target.value || null);
+    return;
+  }
   if (e.target && e.target.id === "memberInviteUser") {
     state.inviteUserId = e.target.value;
     render();
@@ -3936,24 +4140,48 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "j" || e.key === "J") { seekBy(-2000); }
 });
 
-// Drag & drop on source rows
+// Drag & drop on source rows (reorder) + calendar chips (reschedule air date)
 document.addEventListener("dragstart", (e) => {
+  const chip = e.target && e.target.closest && e.target.closest("[data-cal-asset]");
+  if (chip) {
+    state.calDragAssetId = chip.dataset.calAsset;
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", chip.dataset.calAsset); } catch (_) {} }
+    return;
+  }
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
   if (!r) return;
   dragStart(r.dataset.dragId, e);
 });
 document.addEventListener("dragover", (e) => {
+  const cell = state.calDragAssetId && e.target && e.target.closest && e.target.closest("[data-cal-day]");
+  if (cell) {
+    e.preventDefault();
+    if (state.calDropDay !== cell.dataset.calDay) { state.calDropDay = cell.dataset.calDay; scheduleRender(); }
+    return;
+  }
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
   if (!r) return;
   e.preventDefault();
 });
 document.addEventListener("dragenter", (e) => {
+  if (state.calDragAssetId) return;
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
   if (!r) return;
   dragEnter(r.dataset.dragId);
 });
-document.addEventListener("dragend", () => dragEnd());
+document.addEventListener("dragend", () => {
+  if (state.calDragAssetId) { state.calDragAssetId = null; state.calDropDay = null; render(); return; }
+  dragEnd();
+});
 document.addEventListener("drop", (e) => {
+  if (state.calDragAssetId) {
+    const cell = e.target && e.target.closest && e.target.closest("[data-cal-day]");
+    const assetId = state.calDragAssetId;
+    state.calDragAssetId = null; state.calDropDay = null;
+    if (cell && assetId) { e.preventDefault(); setAssetAirDate(assetId, cell.dataset.calDay); }
+    else render();
+    return;
+  }
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
   if (r) { e.preventDefault(); }
   dragEnd();
@@ -5237,6 +5465,7 @@ function applyRemoteToState() {
       posterUrl: apiMediaUrl("/assets/" + s.id + "/poster"),
       playbackUrl: apiMediaUrl("/assets/" + s.id + "/source"),
       status: s.status, progress: s.progress, versions: s.versionsCount, comments: s.commentsCount,
+      airDate: s.airDate || null,
       a: s.paletteA, b: s.paletteB,
     }));
   }

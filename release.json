@@ -1,11 +1,13 @@
 {
-  "version": "1.0.0-rc49",
-  "summary": "SPK RC 49 sua do dai video luon hien 0:00 va lam ro chu tren khung dieu khien khi video co nen sang.",
+  "version": "1.0.0-rc50",
+  "summary": "SPK RC 50 them muc Lich: lich phat song tong hop toan bo video theo ngay air, dat ngay air cho tung nguon va keo-tha len lich.",
   "changes": [
-    "Sua loi tat ca nguon deu hien do dai 0:00: qua trinh import goi thang 'ffprobe' nhung tren NAS chi co ffmpeg (CodecPack hoac ban static bundled), khong co ffprobe tren PATH -> probe that bai -> luu durationMs = 0. Gio tim ffprobe canh ffmpeg da resolve / bien moi truong FFPROBE_PATH / PATH; neu khong co thi tu doc metadata bang 'ffmpeg -i' (parse Duration, do phan giai, fps, codec tu stderr).",
-    "Backfill do dai cho nguon da import truoc ban va: khi mo lai danh sach nguon, moi nguon dang 0:00 se duoc probe lai (chi doc header, co cache) va cap nhat vao DB, nen khong can import lai.",
-    "Lam ro chu tren khung dieu khien review khi video co nen sang: them do bong chu (text-shadow) cho toan bo nhan noi, tang do dam cac nhan mo (timecode, ten canh, so frame) va lam manh nhe lop scrim tren/duoi — truoc day cac chu nay bi chim khi video nen trang.",
-    "Them test cho parseFfmpegProbeStderr (tach rieng phan doc metadata tu stderr ffmpeg)."
+    "Them muc Lich ben canh Du an (chuyen qua lai bang thanh o dau man hinh): lich thang gop tat ca video co ngay air tu moi du an, moi o ngay hien cac video len song hom do (kem cham mau theo du an), va tong so video len song trong thang.",
+    "Dat ngay air cho video: moi nguon trong trang du an co o chon ngay (dung date picker cua he dieu hanh); dat ngay xong video se hien tren Lich. Bo trong de xoa ngay air.",
+    "Keo-tha tren Lich: keo mot video tha vao o ngay khac de doi ngay len song ngay tren lich.",
+    "Bam vao video trong Lich se mo thang man review cua video do (tu dong tai du an tuong ung neu chua tai).",
+    "Backend: them cot air_date (ISO YYYY-MM-DD) cho asset (migration cho ca Postgres va SQLite), endpoint /calendar gop video theo pham vi ngay va phan quyen theo thanh vien du an, validate ngay air o tang API.",
+    "Tren dien thoai lich hien gon lai thanh cham mau cho moi ngay (man hinh hep khong du cho ten video)."
   ],
-  "publishedAt": "2026-09-06T00:00:00.000Z"
+  "publishedAt": "2026-09-08T00:00:00.000Z"
 }

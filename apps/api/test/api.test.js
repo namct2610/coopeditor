@@ -657,6 +657,42 @@ test("users directory is scoped for accounts without project access", async () =
   await http("/auth/dsm/login", { method: "POST", body: { account: "minh", passwd: "x" } });
 });
 
+test("air date can be set/cleared and drives the workspace calendar", async () => {
+  // reuses the session cookie from earlier tests (a fresh login here would trip
+  // the login rate-limit exercised by the preceding test).
+  // set an air date well away from the seeded current-month demo dates
+  const set = await http("/assets/p1s1", { method: "PATCH", body: { airDate: "2026-06-15" } });
+  assert.equal(set.status, 200);
+  assert.equal(set.json.airDate, "2026-06-15");
+
+  // it appears on the June calendar with its project name
+  const june = await http("/calendar?from=2026-06-01&to=2026-06-30");
+  assert.equal(june.status, 200);
+  const hit = june.json.find((x) => x.assetId === "p1s1");
+  assert.ok(hit, "p1s1 should be in June calendar");
+  assert.equal(hit.airDate, "2026-06-15");
+  assert.ok(hit.projectName && hit.projectId, "calendar item carries project identity");
+
+  // it is NOT on a different month
+  const july = await http("/calendar?from=2026-07-01&to=2026-07-31");
+  assert.ok(!july.json.some((x) => x.assetId === "p1s1"));
+
+  // bad date is rejected at the trust boundary
+  const bad = await http("/assets/p1s1", { method: "PATCH", body: { airDate: "15/06/2026" } });
+  assert.equal(bad.status, 400);
+
+  // clearing removes it from the calendar
+  const clear = await http("/assets/p1s1", { method: "PATCH", body: { airDate: null } });
+  assert.equal(clear.status, 200);
+  assert.equal(clear.json.airDate, null);
+  const june2 = await http("/calendar?from=2026-06-01&to=2026-06-30");
+  assert.ok(!june2.json.some((x) => x.assetId === "p1s1"));
+
+  // calendar requires a valid range
+  const badRange = await http("/calendar?from=nope&to=2026-06-30");
+  assert.equal(badRange.status, 400);
+});
+
 test("logout invalidates session", async () => {
   await http("/auth/logout", { method: "POST" });
   const r = await http("/me");

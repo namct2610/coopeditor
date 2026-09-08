@@ -163,6 +163,22 @@ mkAsset("p11", [
   ["Broll_Home_Use", 60000, "ProRes 422", "24.0 GB", "ready", 0, 1, 0],
 ]);
 
+// Demo air dates: spread a few assets across the current month so the Lịch
+// (calendar) view has content in dev/demo without manual scheduling. Dates are
+// computed at load time so the demo always lands in the visible month.
+(function seedDemoAirDates() {
+  const d = new Date();
+  const iso = (day) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const plan = [
+    ["p1s1", 3], ["p1s2", 3], ["p1s6", 10], ["p2s1", 7], ["p2s3", 14],
+    ["p3s1", 12], ["p4s1", 18], ["p1s8", 21], ["p2s2", 25], ["p3s2", 25], ["p4s2", 28],
+  ];
+  for (const [id, day] of plan) {
+    const a = assets.get(id);
+    if (a) a.airDate = iso(day);
+  }
+})();
+
 // --- versions: every asset gets V1..Vn ---
 export const versions = new Map();
 const versionsByAsset = new Map();
@@ -410,6 +426,7 @@ export function patchAsset(id, patch) {
   if (typeof patch.height === "number") asset.height = Math.round(patch.height);
   if (typeof patch.resolutionLabel === "string") asset.resolutionLabel = patch.resolutionLabel;
   if (typeof patch.codec === "string" && patch.codec.trim()) asset.codec = patch.codec.trim();
+  if ("airDate" in patch) asset.airDate = patch.airDate || null;
   return asset;
 }
 export function deleteAsset(id) {

@@ -40,6 +40,7 @@ const assetRow = (r) => r && ({
   codec: r.codec, sizeLabel: r.size_label, durationMs: r.duration_ms, frameRate: r.frame_rate,
   width: r.width_px || 0, height: r.height_px || 0, resolutionLabel: r.resolution_label || "",
   mimeType: r.mime_type || "application/octet-stream",
+  airDate: r.air_date || null,
   status: r.derived_status || r.status, progress: r.derived_progress ?? r.progress, paletteA: r.palette_a, paletteB: r.palette_b,
   commentsCount: Number(r.comments_count || 0), versionsCount: Number(r.versions_count || 0),
   createdAt: r.created_at,
@@ -321,6 +322,7 @@ export async function patchAsset(id, patch) {
   if (typeof patch.height === "number") { sets.push("height_px = $" + i++); vals.push(Math.round(patch.height)); }
   if (typeof patch.resolutionLabel === "string") { sets.push("resolution_label = $" + i++); vals.push(patch.resolutionLabel); }
   if (typeof patch.codec === "string" && patch.codec.trim()) { sets.push("codec = $" + i++); vals.push(patch.codec.trim()); }
+  if ("airDate" in patch) { sets.push("air_date = $" + i++); vals.push(patch.airDate || null); }
   if (!sets.length) return getAsset(id);
   vals.push(id);
   return assetRow(await one(`UPDATE assets SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`, vals));
