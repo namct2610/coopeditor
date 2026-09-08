@@ -632,22 +632,17 @@ async function handle(req, res, url) {
     const items = [];
     for (const project of projects) {
       if (project.archivedAt) continue;
+      const d = project.airDate;
+      if (!d || d < from || d > to) continue;
       const assets = await store.listAssetsByProject(project.id);
-      for (const a of assets) {
-        const d = a.airDate;
-        if (!d || d < from || d > to) continue;
-        items.push({
-          assetId: a.id,
-          projectId: project.id,
-          projectName: project.name,
-          title: a.title,
-          airDate: d,
-          durationMs: a.durationMs || 0,
-          status: a.status,
-          paletteA: a.paletteA,
-          paletteB: a.paletteB,
-        });
-      }
+      items.push({
+        projectId: project.id,
+        projectName: project.name,
+        airDate: d,
+        videoCount: assets.length,
+        paletteA: project.paletteA || (assets[0] && assets[0].paletteA) || "#15171c",
+        paletteB: project.paletteB || (assets[0] && assets[0].paletteB) || "#3a4453",
+      });
     }
     items.sort((x, y) => x.airDate.localeCompare(y.airDate) || x.projectName.localeCompare(y.projectName));
     return send(res, 200, items);
@@ -721,6 +716,9 @@ async function handle(req, res, url) {
         } catch (err) {
           return bad(res, (err && err.message) || "Project thumbnail không hợp lệ");
         }
+      }
+      if ("airDate" in body && body.airDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.airDate))) {
+        return bad(res, "airDate must be YYYY-MM-DD or null");
       }
       const patch = { ...body };
       delete patch.thumbDataUrl;

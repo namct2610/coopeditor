@@ -1,13 +1,12 @@
 {
-  "version": "1.0.0-rc50",
-  "summary": "SPK RC 50 them muc Lich: lich phat song tong hop toan bo video theo ngay air, dat ngay air cho tung nguon va keo-tha len lich.",
+  "version": "1.0.0-rc51",
+  "summary": "SPK RC 51 chuyen ngay len song sang cap du an, date picker moi tu ve, va so ngay trong lich to hon.",
   "changes": [
-    "Them muc Lich ben canh Du an (chuyen qua lai bang thanh o dau man hinh): lich thang gop tat ca video co ngay air tu moi du an, moi o ngay hien cac video len song hom do (kem cham mau theo du an), va tong so video len song trong thang.",
-    "Dat ngay air cho video: moi nguon trong trang du an co o chon ngay (dung date picker cua he dieu hanh); dat ngay xong video se hien tren Lich. Bo trong de xoa ngay air.",
-    "Keo-tha tren Lich: keo mot video tha vao o ngay khac de doi ngay len song ngay tren lich.",
-    "Bam vao video trong Lich se mo thang man review cua video do (tu dong tai du an tuong ung neu chua tai).",
-    "Backend: them cot air_date (ISO YYYY-MM-DD) cho asset (migration cho ca Postgres va SQLite), endpoint /calendar gop video theo pham vi ngay va phan quyen theo thanh vien du an, validate ngay air o tang API.",
-    "Tren dien thoai lich hien gon lai thanh cham mau cho moi ngay (man hinh hep khong du cho ten video)."
+    "Ngay len song gio dat o cap DU AN thay vi tung video le: moi du an co mot ngay len song, tat ca video trong du an cung len song ngay do. Dat ngay ngay tren header trang du an (nut 'Dat ngay len song' / 'Len song DD/MM').",
+    "Lich hien moi du an la mot muc (ten du an + so video), tong dem lai '<N> video · <M> du an len song thang nay'. Bam vao muc de mo du an; keo-tha muc sang o ngay khac de doi ngay len song cho ca du an.",
+    "Thay o chon ngay native (input type=date) bang date picker tu ve theo phong cach Nocturne: lich thang, chuyen thang, chon ngay, xoa ngay — dong nhat tren moi trinh duyet.",
+    "So ngay trong luoi lich to hon (12px -> 16px) cho de nhin.",
+    "Sua loi: sau khi dat ngay, header cap nhat ngay lap tuc (truoc day render dung lai danh sach du an tu ban goc nen ghi de mat gia tri vua dat) va thao tac mo picker phan hoi tuc thi (khong con phu thuoc requestAnimationFrame)."
   ],
-  "publishedAt": "2026-09-08T00:00:00.000Z"
+  "publishedAt": "2026-09-09T00:00:00.000Z"
 }

@@ -23,7 +23,7 @@ seedUser({ id: "u_khach", name: "Khách hàng", initial: "K", color: "#35c389", 
 // --- projects ---
 export const projects = new Map();
 function P(id, name, status, client, updatedAt, teamUserIds) {
-  projects.set(id, { id, name, status, client, updatedAt, teamUserIds, createdAt: now() });
+  projects.set(id, { id, name, status, client, updatedAt, teamUserIds, airDate: null, createdAt: now() });
 }
 P("p1", "TVC Q3 2026 — Karofi Hero", "progress", "Karofi PH · Brand", "12 phút trước", ["u_minh", "u_lan", "u_tu"]);
 P("p2", "Product Launch — PureFlow U05", "progress", "Karofi PH · Product", "1 giờ trước", ["u_lan", "u_phong"]);
@@ -163,20 +163,13 @@ mkAsset("p11", [
   ["Broll_Home_Use", 60000, "ProRes 422", "24.0 GB", "ready", 0, 1, 0],
 ]);
 
-// Demo air dates: spread a few assets across the current month so the Lịch
-// (calendar) view has content in dev/demo without manual scheduling. Dates are
-// computed at load time so the demo always lands in the visible month.
+// Demo air dates at the PROJECT level so the Lịch (calendar) has content in
+// dev/demo. Computed at load time so they always land in the visible month.
 (function seedDemoAirDates() {
   const d = new Date();
   const iso = (day) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  const plan = [
-    ["p1s1", 3], ["p1s2", 3], ["p1s6", 10], ["p2s1", 7], ["p2s3", 14],
-    ["p3s1", 12], ["p4s1", 18], ["p1s8", 21], ["p2s2", 25], ["p3s2", 25], ["p4s2", 28],
-  ];
-  for (const [id, day] of plan) {
-    const a = assets.get(id);
-    if (a) a.airDate = iso(day);
-  }
+  const plan = [["p1", 3], ["p2", 7], ["p3", 12], ["p4", 18], ["p5", 25], ["p6", 28]];
+  for (const [id, day] of plan) { const pr = projects.get(id); if (pr) pr.airDate = iso(day); }
 })();
 
 // --- versions: every asset gets V1..Vn ---

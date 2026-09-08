@@ -114,6 +114,7 @@
   .co-blue-hover:hover { color: var(--co-accent-ink) !important; }
   .co-attach-hover:hover { background: rgba(255,255,255,0.12) !important; }
   textarea:focus, input:focus { outline: none; }
+  .dp-day:hover { background: var(--co-hover); }
 
   /* Review chrome floats over arbitrary video — often bright/blown-out footage.
      A text-shadow keeps every overlay label legible on both dark and white
@@ -361,7 +362,12 @@ const state = {
   calItems: [],
   calLoading: false,
   calError: "",
-  calDragAssetId: null,      // asset chip being dragged to reschedule
+  calDragProjectId: null,    // project chip being dragged to reschedule
+  // Custom date-picker popover (replaces the native input). datePickerFor is the
+  // project id being scheduled; datePickerY/M is the month it currently shows.
+  datePickerFor: null,
+  datePickerY: 0, datePickerM: 0,
+  datePickerPos: null,
   calDropDay: null,          // ISO day currently hovered as a drop target
   // Review chrome auto-hides while playing (design: opacity 0 on the top bar,
   // transport and notes panel). Pointer entering the stage brings it back.
@@ -1798,35 +1804,33 @@ function calGoToday() {
 }
 // Open a source that may live in a project whose sources aren't loaded yet
 // (the calendar aggregates every project).
-async function openAiringSource(projectId, assetId) {
-  if (projectId) {
-    state.selectedProjectId = projectId;
-    if (!state.sourcesByProject[projectId]) {
-      try { await refreshProjectSources(projectId); } catch (_) {}
-    }
-  }
-  openSource(assetId);
-}
 // Set (or clear with null) a video's air date, persist, and reflect it in any
 // loaded copy + the calendar.
-async function setAssetAirDate(assetId, airDate) {
-  const value = airDate || null;
-  for (const pid of Object.keys(state.sourcesByProject || {})) {
-    const src = (state.sourcesByProject[pid] || []).find((x) => x.id === assetId);
-    if (src) src.airDate = value;
-  }
-  render();
-  try {
-    await api("/assets/" + encodeURIComponent(assetId), { method: "PATCH", body: { airDate: value } });
-    if (state.view === "calendar") await refreshCalendar();
-  } catch (e) {
-    toast((e && e.message) || "Không đặt được ngày air", "error");
-    if (state.selectedProjectId) refreshProjectSources(state.selectedProjectId).then(() => render()).catch(() => {});
-  }
-}
 
 // Section switcher shown at the top of both Dự án and Lịch — the two top-level
 // areas of the app.
+// Project-level air scheduling.
+async function setProjectAirDate(projectId, airDate) {
+  const value = airDate || null;
+  // render() rebuilds PROJECTS from REMOTE_PROJECTS via applyRemoteToState, so a
+  // mutation on PROJECTS alone is wiped on the next render (the header would
+  // never show the date even though it saved). Update the remote source too.
+  const applyLocal = (v) => {
+    const p = PROJECTS.find((x) => x.id === projectId); if (p) p.airDate = v;
+    if (Array.isArray(REMOTE_PROJECTS)) { const rp = REMOTE_PROJECTS.find((x) => x.id === projectId); if (rp) rp.airDate = v; }
+  };
+  const prev = (PROJECTS.find((x) => x.id === projectId) || {}).airDate || null;
+  applyLocal(value);
+  render();
+  try {
+    await api("/projects/" + encodeURIComponent(projectId), { method: "PATCH", body: { airDate: value } });
+    if (state.view === "calendar") await refreshCalendar();
+  } catch (e) {
+    applyLocal(prev); render();
+    toast((e && e.message) || "Không đặt được ngày air", "error");
+  }
+}
+
 function sectionSwitch(active) {
   const tab = (id, label, act) => `<div data-act="${act}" class="co-act" style="font-size:30px;font-weight:600;letter-spacing:-0.03em;color:${active === id ? "var(--co-text)" : "var(--co-faint)"};cursor:pointer;">${esc(label)}</div>`;
   return `<div style="display:flex;align-items:baseline;gap:20px;">${tab("projects", "Dự án", "goProjects")}${tab("calendar", "Lịch", "goCalendar")}</div>`;
@@ -1834,9 +1838,55 @@ function sectionSwitch(active) {
 
 function calChip(it) {
   const color = it.paletteB || "var(--co-accent)";
-  return `<div draggable="true" data-cal-asset="${esc(it.assetId)}" data-cal-project="${esc(it.projectId)}" data-act="openAiring" data-arg="${esc(it.projectId)}::${esc(it.assetId)}" title="${esc(it.projectName)} — ${esc(it.title)}" class="cal-chip" style="display:flex;align-items:center;gap:6px;padding:3px 7px;border-radius:6px;background:var(--co-hover);cursor:pointer;">
+  return `<div draggable="true" data-cal-project="${esc(it.projectId)}" data-act="openProject" data-arg="${esc(it.projectId)}" title="${esc(it.projectName)} — ${it.videoCount} video" class="cal-chip" style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:6px;background:var(--co-hover);cursor:pointer;">
     <span style="width:6px;height:6px;border-radius:50%;background:${color};flex:0 0 6px;"></span>
-    <span style="font-size:11.5px;color:var(--co-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(it.title)}</span>
+    <span class="cal-chip-name" style="font-size:12px;color:var(--co-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;">${esc(it.projectName)}</span>
+    <span class="cal-chip-count" style="font-size:11px;color:var(--co-faint);flex:0 0 auto;">${it.videoCount}</span>
+  </div>`;
+}
+
+// Custom date-picker popover — a Nocturne-styled month grid, used to set a
+// project's air date (the native <input type="date"> looked out of place).
+function datePickerPopover() {
+  const pid = state.datePickerFor;
+  if (!pid) return "";
+  const p = PROJECTS.find((x) => x.id === pid);
+  const selected = (p && p.airDate) || "";
+  const y = state.datePickerY, m = state.datePickerM;
+  const { start } = calGridRange(y, m);
+  const todayIso = calIsoDay(new Date());
+  const weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+  const cells = [];
+  for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push(d); }
+  const pos = state.datePickerPos || { x: 200, y: 160 };
+  return `
+  <div data-act="closeDatePicker" style="position:fixed;inset:0;z-index:95;">
+    <div data-stop="1" style="position:fixed;left:${pos.x}px;top:${pos.y}px;width:286px;background:var(--co-menu);border:1px solid var(--co-border-2);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,0.5);padding:14px;z-index:96;animation:coFade 140ms ease;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+        <div style="flex:1;font-size:14px;font-weight:600;">Tháng ${m}, ${y}</div>
+        <div data-act="dpPrev" class="co-act co-hover" title="Tháng trước" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;cursor:pointer;color:var(--co-muted);font-size:15px;">‹</div>
+        <div data-act="dpNext" class="co-act co-hover" title="Tháng sau" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;cursor:pointer;color:var(--co-muted);font-size:15px;">›</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+        ${weekdays.map((w) => `<div style="font-size:10.5px;font-weight:500;color:var(--co-faint);text-align:center;padding-bottom:6px;">${w}</div>`).join("")}
+        ${cells.map((d) => {
+          const iso = calIsoDay(d);
+          const inMonth = (d.getMonth() + 1) === m;
+          const isToday = iso === todayIso;
+          const sel = iso === selected;
+          const style = sel
+            ? "background:var(--co-accent);color:var(--co-on-accent);font-weight:600;"
+            : isToday ? "box-shadow:inset 0 0 0 1px var(--co-accent-line);color:var(--co-text);"
+            : inMonth ? "color:var(--co-text-2);" : "color:var(--co-faint);";
+          return `<div data-act="dpPick" data-arg="${iso}" class="dp-day" style="height:34px;display:grid;place-items:center;border-radius:8px;font-size:13px;cursor:pointer;${style}">${d.getDate()}</div>`;
+        }).join("")}
+      </div>
+      <div style="display:flex;align-items:center;margin-top:12px;">
+        <div data-act="dpClear" class="co-act" style="font-size:12.5px;color:${selected ? "var(--co-bad)" : "var(--co-faint)"};cursor:pointer;">Xoá ngày</div>
+        <div style="flex:1"></div>
+        <div data-act="closeDatePicker" class="co-act" style="font-size:12.5px;color:var(--co-muted);cursor:pointer;">Đóng</div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -1847,7 +1897,11 @@ function calendarView(vals) {
   const todayIso = calIsoDay(new Date());
   const byDay = {};
   for (const it of state.calItems || []) (byDay[it.airDate] = byDay[it.airDate] || []).push(it);
-  const total = (state.calItems || []).filter((it) => {
+  const total = (state.calItems || []).reduce((sum, it) => {
+    const p = String(it.airDate || "").split("-");
+    return (Number(p[0]) === y && Number(p[1]) === m) ? sum + (it.videoCount || 0) : sum;
+  }, 0);
+  const projCount = (state.calItems || []).filter((it) => {
     const p = String(it.airDate || "").split("-");
     return Number(p[0]) === y && Number(p[1]) === m;
   }).length;
@@ -1866,7 +1920,7 @@ function calendarView(vals) {
       <div data-act="calPrev" class="co-act" title="Tháng trước" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;font-size:16px;color:var(--co-muted);cursor:pointer;" class="co-hover">‹</div>
       <div data-act="calNext" class="co-act" title="Tháng sau" style="width:26px;height:26px;display:grid;place-items:center;border-radius:8px;font-size:16px;color:var(--co-muted);cursor:pointer;">›</div>
       <div style="flex:1"></div>
-      <div style="font-size:13.5px;color:var(--co-muted);"><span style="color:var(--co-accent-text);font-weight:600;">${total}</span> video lên sóng tháng này${state.calLoading ? " · đang tải…" : ""}</div>
+      <div style="font-size:13.5px;color:var(--co-muted);"><span style="color:var(--co-accent-text);font-weight:600;">${total}</span> video · ${projCount} dự án lên sóng tháng này${state.calLoading ? " · đang tải…" : ""}</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));">
       ${weekdays.map((w) => `<div style="font-size:12px;font-weight:500;color:var(--co-faint);padding:0 0 10px 6px;">${w}</div>`).join("")}
@@ -1876,8 +1930,8 @@ function calendarView(vals) {
         const isToday = iso === todayIso;
         const items = byDay[iso] || [];
         const drop = state.calDropDay === iso;
-        return `<div data-cal-day="${iso}" style="min-height:118px;border-top:1px solid var(--co-hairline);border-left:1px solid var(--co-hairline);padding:7px 5px;${!inMonth ? "opacity:0.4;" : ""}${drop ? "background:var(--co-accent-soft);box-shadow:inset 0 0 0 1px var(--co-accent-line);" : ""}">
-          <div style="width:23px;height:23px;display:grid;place-items:center;border-radius:50%;font-size:12px;margin-bottom:6px;${isToday ? "background:var(--co-accent);color:var(--co-on-accent);font-weight:600;" : "color:var(--co-muted);"}">${d.getDate()}</div>
+        return `<div data-cal-day="${iso}" style="min-height:124px;border-top:1px solid var(--co-hairline);border-left:1px solid var(--co-hairline);padding:7px 5px;${!inMonth ? "opacity:0.4;" : ""}${drop ? "background:var(--co-accent-soft);box-shadow:inset 0 0 0 1px var(--co-accent-line);" : ""}">
+          <div style="width:30px;height:30px;display:grid;place-items:center;border-radius:50%;font-size:16px;font-weight:500;margin-bottom:6px;${isToday ? "background:var(--co-accent);color:var(--co-on-accent);font-weight:600;" : (inMonth ? "color:var(--co-text);" : "color:var(--co-faint);")}">${d.getDate()}</div>
           <div style="display:flex;flex-direction:column;gap:4px;">
             ${items.slice(0, 4).map(calChip).join("")}
             ${items.length > 4 ? `<div style="font-size:11.5px;color:var(--co-faint);padding-left:4px;">+${items.length - 4} nữa</div>` : ""}
@@ -1887,7 +1941,7 @@ function calendarView(vals) {
     </div>
     ${state.calError ? `<div style="margin-top:18px;font-size:13px;color:var(--co-bad);">${esc(state.calError)}</div>` : ""}
     ${!state.calLoading && !state.calError && (state.calItems || []).length === 0
-      ? `<div style="margin-top:26px;font-size:13.5px;color:var(--co-muted);line-height:1.6;max-width:520px;">Chưa có video nào đặt ngày lên sóng. Mở một dự án và đặt <b style="color:var(--co-text-2);">ngày air</b> cho nguồn, hoặc kéo một video thả vào ô ngày trong lịch.</div>`
+      ? `<div style="margin-top:26px;font-size:13.5px;color:var(--co-muted);line-height:1.6;max-width:520px;">Chưa có dự án nào đặt ngày lên sóng. Mở một dự án và đặt <b style="color:var(--co-text-2);">ngày lên sóng</b>, hoặc kéo một dự án thả vào ô ngày trong lịch.</div>`
       : ""}
   </main>`;
 }
@@ -1946,6 +2000,7 @@ function projectDetail(vals) {
       <div style="flex:1"></div>
       ${vals.canManageProject ? mBtn("filled", { act: "openImport", label: "Thêm nguồn", sm: true }) : ""}
       ${mBtn("tonal", { act: "toggleMembers", label: "Chia sẻ", sm: true })}
+      ${vals.canManageProject ? `<div data-act="openDatePicker" data-arg="${esc(state.selectedProjectId)}" class="co-act" title="Ngày lên sóng của dự án" style="font-size:13.5px;color:${vals.projectAirDate ? "var(--co-accent-text)" : "var(--co-muted)"};cursor:pointer;white-space:nowrap;">${vals.projectAirDate ? "Lên sóng " + esc(vals.projectAirLabel) : "Đặt ngày lên sóng"}</div>` : ""}
       <div data-act="openProjectMenu" data-arg="${esc(state.selectedProjectId)}" data-hide-sm class="co-act" title="Tác vụ dự án" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;white-space:nowrap;">Tác vụ</div>
     </div>
     <div style="font-size:13.5px;color:var(--co-muted);margin-bottom:40px;">${esc(vals.detailMeta)}</div>
@@ -1963,11 +2018,7 @@ function projectDetail(vals) {
           <div style="margin-top:3px;font-size:12.5px;color:var(--co-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.meta)}</div>
         </div>
         <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-accent-text);white-space:nowrap;">${a.transcoding ? esc(a.statusLabel) : ""}</div>
-        <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:72px;text-align:right;white-space:nowrap;">${a.comments ? a.comments + " ghi chú" : ""}</div>
-        <label data-stop="1" data-row-col="sm-hide" draggable="false" title="Ngày lên sóng" class="co-act" style="position:relative;display:inline-flex;align-items:center;justify-content:flex-end;width:92px;font-size:13px;color:${a.airDate ? "var(--co-accent-text)" : "var(--co-faint)"};cursor:pointer;white-space:nowrap;">
-          <input type="date" data-air-date-asset="${a.id}" value="${esc(a.airDate)}" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;" />
-          ${a.airLabel ? "Air " + esc(a.airLabel) : "Đặt ngày"}
-        </label>
+        <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:78px;text-align:right;white-space:nowrap;">${a.comments ? a.comments + " ghi chú" : ""}</div>
         <div style="font-variant-numeric:tabular-nums;font-size:13px;color:var(--co-muted);width:56px;text-align:right;">${esc(a.durLabel)}</div>
       </div>
     `).join("")}
@@ -3543,6 +3594,8 @@ function computeVals() {
 
   return {
     projectName: selProject.name, projectGroups,
+    projectAirDate: selProject.airDate || "",
+    projectAirLabel: selProject.airDate ? fmtAirDate(selProject.airDate) : "",
     presenceLabel, archivedCount,
     nasLibrary: window.__nasLibrary || null,
     proxyCache,
@@ -3718,6 +3771,7 @@ function render() {
     ${state.showUpdateModal ? updateModal(vals) : ""}
     ${state.showCreateProject ? createProjectModal() : ""}
     ${state.paletteOpen ? commandPalette(vals) : ""}
+    ${state.datePickerFor ? datePickerPopover() : ""}
     ${projectContextMenu()}
     ${sourceContextMenu()}
   `;
@@ -3811,11 +3865,23 @@ function handleAct(act, arg, e, node) {
     case "calPrev": return calShiftMonth(-1);
     case "calNext": return calShiftMonth(1);
     case "calToday": return calGoToday();
-    case "openAiring": {
-      const sep = String(arg || "").indexOf("::");
-      if (sep < 0) return;
-      return openAiringSource(arg.slice(0, sep), arg.slice(sep + 2));
+    case "openDatePicker": {
+      const proj = PROJECTS.find((x) => x.id === arg);
+      const parts = proj && proj.airDate ? proj.airDate.split("-") : null;
+      const now = new Date();
+      const yy = parts ? Number(parts[0]) : now.getFullYear();
+      const mm = parts ? Number(parts[1]) : now.getMonth() + 1;
+      const rect = node && node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+      const px = rect ? Math.max(12, Math.min(rect.left, window.innerWidth - 298)) : 200;
+      const py = rect ? Math.min(rect.bottom + 6, window.innerHeight - 380) : 160;
+      return setStateNow({ datePickerFor: arg, datePickerY: yy, datePickerM: mm, datePickerPos: { x: px, y: py } });
     }
+    case "closeDatePicker": return setStateNow({ datePickerFor: null });
+    case "dpPrev": { let mm = state.datePickerM - 1, yy = state.datePickerY; if (mm < 1) { mm = 12; yy -= 1; } return setStateNow({ datePickerY: yy, datePickerM: mm }); }
+    case "dpNext": { let mm = state.datePickerM + 1, yy = state.datePickerY; if (mm > 12) { mm = 1; yy += 1; } return setStateNow({ datePickerY: yy, datePickerM: mm }); }
+    case "dpPick": { const pid = state.datePickerFor; setStateNow({ datePickerFor: null }); return setProjectAirDate(pid, arg); }
+    case "dpClear": { const pid = state.datePickerFor; setStateNow({ datePickerFor: null }); return setProjectAirDate(pid, null); }
+
     // ---- Nocturne design: palette, chrome fade, floating panels ----
     case "openPalette": {
       setStateNow({ paletteOpen: true, paletteQuery: "" });
@@ -4046,11 +4112,6 @@ document.addEventListener("input", (e) => {
   }
 });
 document.addEventListener("change", (e) => {
-  if (e.target && e.target.dataset && e.target.dataset.airDateAsset) {
-    // native <input type="date"> → PATCH; empty value clears the air date.
-    setAssetAirDate(e.target.dataset.airDateAsset, e.target.value || null);
-    return;
-  }
   if (e.target && e.target.id === "memberInviteUser") {
     state.inviteUserId = e.target.value;
     render();
@@ -4079,6 +4140,7 @@ document.addEventListener("keydown", (e) => {
     // Peel one layer per press, most transient first. The last rung leaves
     // review entirely — Escape on a full-bleed player should mean "get me out".
     if (state.projectContextMenu || state.sourceContextMenu) return setState({ projectContextMenu: null, sourceContextMenu: null });
+    if (state.datePickerFor) return setState({ datePickerFor: null });
     if (state.paletteOpen) return setState({ paletteOpen: false, paletteQuery: "" });
     if (state.showImport) return closeImport();
     if (state.showMembers) return setState({ showMembers: false });
@@ -4142,10 +4204,10 @@ document.addEventListener("keydown", (e) => {
 
 // Drag & drop on source rows (reorder) + calendar chips (reschedule air date)
 document.addEventListener("dragstart", (e) => {
-  const chip = e.target && e.target.closest && e.target.closest("[data-cal-asset]");
+  const chip = e.target && e.target.closest && e.target.closest("[data-cal-project]");
   if (chip) {
-    state.calDragAssetId = chip.dataset.calAsset;
-    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", chip.dataset.calAsset); } catch (_) {} }
+    state.calDragProjectId = chip.dataset.calProject;
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", chip.dataset.calProject); } catch (_) {} }
     return;
   }
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
@@ -4153,7 +4215,7 @@ document.addEventListener("dragstart", (e) => {
   dragStart(r.dataset.dragId, e);
 });
 document.addEventListener("dragover", (e) => {
-  const cell = state.calDragAssetId && e.target && e.target.closest && e.target.closest("[data-cal-day]");
+  const cell = state.calDragProjectId && e.target && e.target.closest && e.target.closest("[data-cal-day]");
   if (cell) {
     e.preventDefault();
     if (state.calDropDay !== cell.dataset.calDay) { state.calDropDay = cell.dataset.calDay; scheduleRender(); }
@@ -4164,21 +4226,21 @@ document.addEventListener("dragover", (e) => {
   e.preventDefault();
 });
 document.addEventListener("dragenter", (e) => {
-  if (state.calDragAssetId) return;
+  if (state.calDragProjectId) return;
   const r = e.target && e.target.closest && e.target.closest("[data-drag-id]");
   if (!r) return;
   dragEnter(r.dataset.dragId);
 });
 document.addEventListener("dragend", () => {
-  if (state.calDragAssetId) { state.calDragAssetId = null; state.calDropDay = null; render(); return; }
+  if (state.calDragProjectId) { state.calDragProjectId = null; state.calDropDay = null; render(); return; }
   dragEnd();
 });
 document.addEventListener("drop", (e) => {
-  if (state.calDragAssetId) {
+  if (state.calDragProjectId) {
     const cell = e.target && e.target.closest && e.target.closest("[data-cal-day]");
-    const assetId = state.calDragAssetId;
-    state.calDragAssetId = null; state.calDropDay = null;
-    if (cell && assetId) { e.preventDefault(); setAssetAirDate(assetId, cell.dataset.calDay); }
+    const projectId = state.calDragProjectId;
+    state.calDragProjectId = null; state.calDropDay = null;
+    if (cell && projectId) { e.preventDefault(); setProjectAirDate(projectId, cell.dataset.calDay); }
     else render();
     return;
   }
@@ -5454,6 +5516,7 @@ function applyRemoteToState() {
     // Sửa/Xóa buttons, audit panel) silently hides for actual owners.
     myRole: p.myRole,
     archivedAt: p.archivedAt,
+    airDate: p.airDate || null,
   }));
   PROJECTS_REF.length = 0; transformedProjects.forEach((x) => PROJECTS_REF.push(x));
   const byProj = {};

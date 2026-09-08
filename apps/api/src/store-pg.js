@@ -34,6 +34,7 @@ const projectRow = (r) => r && ({
   id: r.id, name: r.name, status: r.status, client: r.client,
   updatedAt: r.updated_at, teamUserIds: _teamIds(r.team_user_ids), myRole: r.my_role || undefined,
   archivedAt: r.archived_at || null, createdAt: r.created_at,
+  airDate: r.air_date || null,
 });
 const assetRow = (r) => r && ({
   id: r.id, projectId: r.project_id, title: r.title, position: r.position, nasPath: r.nas_path,
@@ -232,6 +233,7 @@ export async function patchProject(id, patch) {
   if (patch.status) { sets.push("status = $" + i++); vals.push(patch.status); }
   if (patch.name) { sets.push("name = $" + i++); vals.push(patch.name); }
   if (typeof patch.client === "string") { sets.push("client = $" + i++); vals.push(patch.client); }
+  if ("airDate" in patch) { sets.push("air_date = $" + i++); vals.push(patch.airDate || null); }
   sets.push("updated_at = 'vừa xong'");
   vals.push(id);
   await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${i}`, vals);

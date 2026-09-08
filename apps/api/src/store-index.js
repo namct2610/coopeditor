@@ -36,6 +36,7 @@ export const patchProject        = USE_PG ? impl.patchProject        : async (id
   if (patch.status) p.status = patch.status;
   if (patch.name) p.name = patch.name;
   if (typeof patch.client === "string") p.client = patch.client;
+  if ("airDate" in patch) p.airDate = patch.airDate || null;
   p.updatedAt = "vừa xong";
   return p;
 };
