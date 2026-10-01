@@ -1,12 +1,12 @@
 {
-  "version": "1.0.0-rc51",
-  "summary": "SPK RC 51 chuyen ngay len song sang cap du an, date picker moi tu ve, va so ngay trong lich to hon.",
+  "version": "1.0.0-rc52",
+  "summary": "SPK RC 52 them muc Kich ban (soan thao kieu Google Docs, binh luan theo luong), tai video goc va tai ca du an thanh file ZIP.",
   "changes": [
-    "Ngay len song gio dat o cap DU AN thay vi tung video le: moi du an co mot ngay len song, tat ca video trong du an cung len song ngay do. Dat ngay ngay tren header trang du an (nut 'Dat ngay len song' / 'Len song DD/MM').",
-    "Lich hien moi du an la mot muc (ten du an + so video), tong dem lai '<N> video · <M> du an len song thang nay'. Bam vao muc de mo du an; keo-tha muc sang o ngay khac de doi ngay len song cho ca du an.",
-    "Thay o chon ngay native (input type=date) bang date picker tu ve theo phong cach Nocturne: lich thang, chuyen thang, chon ngay, xoa ngay — dong nhat tren moi trinh duyet.",
-    "So ngay trong luoi lich to hon (12px -> 16px) cho de nhin.",
-    "Sua loi: sau khi dat ngay, header cap nhat ngay lap tuc (truoc day render dung lai danh sach du an tu ban goc nen ghi de mat gia tri vua dat) va thao tac mo picker phan hoi tuc thi (khong con phu thuoc requestAnimationFrame)."
+    "Muc Kich ban moi, nam canh Du an va Lich: soan thao kieu Google Docs voi tieu de, phong chu, co chu, mau chu, to nen, can le, danh sach, checklist, lien ket va bang (them/xoa hang cot, gop/tach o, hang tieu de, keo doi do rong cot). Tu dong luu; neu hai nguoi cung sua, nguoi luu sau duoc chon giu ban nao, khong bi ghi de am tham.",
+    "Binh luan kich ban kieu Google Docs: boi den mot doan de binh luan dung cho, tra loi theo luong, danh dau da giai quyet / mo lai, sua va xoa binh luan cua minh. Trang thai duyet: Nhap, Cho duyet, Da duyet.",
+    "Gan kich ban vao du an bang menu moi co o tim kiem; trang du an hien cac kich ban da gan va nut 'Viet kich ban'. Tai khoan khach khong thay muc Kich ban.",
+    "Tai video: nut tai ban goc o tung video, va nut 'Tai tat ca' dong goi ca du an thanh mot file ZIP (khong nen, khong tao file tam tren NAS, ho tro file tren 4GB, toi da 2 luot tai ZIP cung luc).",
+    "Sua loi: tai lai trang (F5) o Lich, mot du an hay bat ky trang nao khong con bi day ve trang Du an; header du an va cac tab tu xuong dong tren dien thoai."
   ],
-  "publishedAt": "2026-09-09T00:00:00.000Z"
+  "publishedAt": "2026-10-01T00:00:00.000Z"
 }
