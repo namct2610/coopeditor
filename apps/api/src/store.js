@@ -595,3 +595,49 @@ export function addAssetFromImport({ projectId, title, codec, sizeLabel, duratio
 }
 
 export function setRenditionStatus(rid, patch) { const r = renditions.get(rid); if (r) Object.assign(r, patch); return r; }
+
+// ---- Kịch bản (scripts) — same contract as store-pg.js ----
+const scripts = new Map();
+const scriptComments = new Map();
+const scriptMeta = ({ body, ...s }) => ({ ...s, commentCount: [...scriptComments.values()].filter((c) => c.scriptId === s.id && !c.parentId && !c.resolved).length });
+export function listScripts() { return [...scripts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(scriptMeta); }
+export function getScript(id) { const s = scripts.get(id); return s ? { ...s } : null; }
+export function createScript({ title, projectId = null, userId }) {
+  const at = new Date().toISOString();
+  const s = { id: "scr_" + randomUUID().slice(0, 8), title, body: "", status: "draft", projectId, version: 1, createdBy: userId, updatedBy: userId, createdAt: at, updatedAt: at };
+  scripts.set(s.id, s);
+  return { ...s };
+}
+export function updateScript(id, patch, { baseVersion, userId }) {
+  const s = scripts.get(id);
+  if (!s) return null;
+  const content = "title" in patch || "body" in patch;
+  if (content && s.version !== baseVersion) return { conflict: true, script: { ...s } };
+  for (const k of ["title", "body", "status", "projectId"]) if (k in patch) s[k] = patch[k];
+  if (content) s.version += 1;
+  s.updatedBy = userId; s.updatedAt = new Date().toISOString();
+  return { script: { ...s } };
+}
+export function deleteScript(id) {
+  for (const c of scriptComments.values()) if (c.scriptId === id) scriptComments.delete(c.id);
+  return scripts.delete(id);
+}
+export function listScriptComments(scriptId) { return [...scriptComments.values()].filter((c) => c.scriptId === scriptId).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((c) => ({ ...c })); }
+export function addScriptComment({ scriptId, userId, content, quote = null, parentId = null }) {
+  const c = { id: "scc_" + randomUUID().slice(0, 12), scriptId, parentId, authorUserId: userId, content, quote, resolved: false, resolvedBy: null, createdAt: new Date().toISOString(), updatedAt: null };
+  scriptComments.set(c.id, c);
+  return { ...c };
+}
+export function updateScriptComment(id, patch) {
+  const c = scriptComments.get(id);
+  if (!c) return null;
+  if ("content" in patch) { c.content = patch.content; c.updatedAt = new Date().toISOString(); }
+  if ("resolved" in patch) { c.resolved = !!patch.resolved; c.resolvedBy = patch.resolved ? patch.resolvedBy : null; }
+  return { ...c };
+}
+export function getScriptComment(id) { const c = scriptComments.get(id); return c ? { ...c } : null; }
+// Deleting a thread root takes its replies with it (pg: ON DELETE CASCADE).
+export function deleteScriptComment(id) {
+  for (const c of scriptComments.values()) if (c.parentId === id) scriptComments.delete(c.id);
+  return scriptComments.delete(id);
+}

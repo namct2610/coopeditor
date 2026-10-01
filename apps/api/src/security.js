@@ -73,6 +73,14 @@ const shareCommentBuckets = new Map(); // token:ip -> { count, resetAt }
 const SHARE_COMMENT_WINDOW_MS = 60_000;
 const MAX_SHARE_COMMENT_ATTEMPTS = 12;
 
+// RFC 6266 attachment header: ASCII fallback + UTF-8 filename* so Vietnamese
+// names survive. Quotes/backslashes/non-printables in the fallback become "_"
+// so a crafted NAS filename can't break out of the quoted header value.
+export function attachmentDisposition(name) {
+  const ascii = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^\x20-\x7e]|["\\]/g, "_");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
 export function clientIp(req) {
   const xf = req.headers["x-forwarded-for"];
   if (xf) return String(xf).split(",")[0].trim();

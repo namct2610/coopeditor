@@ -176,3 +176,34 @@ test("SPK sqlite requestTranscode enqueues a real transcode job instead of simul
   assert.equal(queued.rows.length, 1);
   assert.equal(queued.rows[0].status, "queued");
 });
+
+test("SPK sqlite store runs the scripts lifecycle (versioned save, comments, project unlink)", async () => {
+  const s = await store.createScript({ title: "Kịch bản A", projectId, userId });
+  assert.equal(s.version, 1);
+  const ok = await store.updateScript(s.id, { body: "<p>x</p>" }, { baseVersion: 1, userId });
+  assert.equal(ok.script.version, 2);
+  const stale = await store.updateScript(s.id, { body: "<p>y</p>" }, { baseVersion: 1, userId });
+  assert.equal(stale.conflict, true);
+  assert.equal(stale.script.body, "<p>x</p>");
+  const st = await store.updateScript(s.id, { status: "approved" }, { userId });
+  assert.equal(st.script.status, "approved");
+  assert.equal(st.script.version, 2);
+  const root = await store.addScriptComment({ scriptId: s.id, userId, content: "ok", quote: "x" });
+  const reply = await store.addScriptComment({ scriptId: s.id, userId, content: "re", parentId: root.id });
+  assert.equal(reply.parentId, root.id);
+  const [meta] = (await store.listScripts()).filter((x) => x.id === s.id);
+  assert.equal(meta.commentCount, 1, "open threads only");
+  const res = await store.updateScriptComment(root.id, { resolved: true, resolvedBy: userId });
+  assert.equal(res.resolved, true);
+  assert.equal(res.resolvedBy, userId);
+  const ed = await store.updateScriptComment(root.id, { content: "ok2" });
+  assert.equal(ed.content, "ok2");
+  assert.ok(ed.updatedAt);
+  await store.deleteScriptComment(root.id);
+  assert.equal((await store.listScriptComments(s.id)).length, 0, "replies cascade with their thread");
+  await store.addScriptComment({ scriptId: s.id, userId, content: "again" });
+  assert.equal(meta.projectId, projectId);
+  assert.equal(await store.updateScript("missing", { status: "draft" }, { userId }), null);
+  assert.equal(await store.deleteScript(s.id), true);
+  assert.equal((await store.listScriptComments(s.id)).length, 0, "comments cascade");
+});

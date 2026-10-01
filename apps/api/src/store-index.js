@@ -105,3 +105,14 @@ export const upsertUserFromOidc = USE_PG ? impl.upsertUserFromOidc : A(impl.upse
 export const enqueueTranscode = USE_PG ? impl.enqueueTranscode : async () => {};
 
 export function poolReady() { return USE_PG ? !!db() : true; }
+
+export const listScripts         = USE_PG ? impl.listScripts         : A(impl.listScripts);
+export const getScript           = USE_PG ? impl.getScript           : A(impl.getScript);
+export const createScript        = USE_PG ? impl.createScript        : A(impl.createScript);
+export const updateScript        = USE_PG ? impl.updateScript        : A(impl.updateScript);
+export const deleteScript        = USE_PG ? impl.deleteScript        : A(impl.deleteScript);
+export const listScriptComments  = USE_PG ? impl.listScriptComments  : A(impl.listScriptComments);
+export const addScriptComment    = USE_PG ? impl.addScriptComment    : A(impl.addScriptComment);
+export const updateScriptComment = USE_PG ? impl.updateScriptComment : A(impl.updateScriptComment);
+export const getScriptComment    = USE_PG ? impl.getScriptComment    : A(impl.getScriptComment);
+export const deleteScriptComment = USE_PG ? impl.deleteScriptComment : A(impl.deleteScriptComment);

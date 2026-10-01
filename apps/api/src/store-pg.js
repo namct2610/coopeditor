@@ -721,3 +721,67 @@ export async function addAssetFromImport({ projectId, title, codec, sizeLabel, d
   }
   return assetRow({ ...aRow, comments_count: 0, versions_count: 1 });
 }
+
+// ---- Kịch bản (scripts) ----
+const scriptRow = (r, withBody = true) => r && ({
+  id: r.id, title: r.title, status: r.status, projectId: r.project_id || null,
+  version: num(r.version, 1), createdBy: r.created_by || null, updatedBy: r.updated_by || null,
+  createdAt: r.created_at, updatedAt: r.updated_at,
+  ...(withBody ? { body: r.body || "" } : { commentCount: num(r.comment_count) }),
+});
+const scriptCommentRow = (r) => r && ({
+  id: r.id, scriptId: r.script_id, parentId: r.parent_id || null, authorUserId: r.author_user_id, content: r.content,
+  quote: r.quote || null, resolved: !!num(r.resolved), resolvedBy: r.resolved_by || null, createdAt: r.created_at, updatedAt: r.updated_at || null,
+});
+
+export async function listScripts() {
+  return (await q(`SELECT s.id, s.title, s.status, s.project_id, s.version, s.created_by, s.updated_by, s.created_at, s.updated_at,
+      (SELECT COUNT(*) FROM script_comments c WHERE c.script_id = s.id AND c.parent_id IS NULL AND c.resolved = 0) AS comment_count
+    FROM scripts s ORDER BY s.updated_at DESC`, [])).map((r) => scriptRow(r, false));
+}
+export async function getScript(id) { return scriptRow(await one(`SELECT * FROM scripts WHERE id = $1`, [id])); }
+export async function createScript({ title, projectId = null, userId }) {
+  const at = new Date().toISOString();
+  return scriptRow(await one(`INSERT INTO scripts (id, title, body, status, project_id, version, created_by, updated_by, created_at, updated_at)
+    VALUES ($1,$2,'','draft',$3,1,$4,$5,$6,$7) RETURNING *`, ["scr_" + randomUUID().slice(0, 8), title, projectId, userId, userId, at, at]));
+}
+// Title/body edits must name the version they were based on; a mismatch means
+// someone else saved first → { conflict, script } instead of overwriting.
+// Status/project changes don't touch content, so they skip the check.
+export async function updateScript(id, patch, { baseVersion, userId }) {
+  const content = "title" in patch || "body" in patch;
+  // Params are numbered in order of appearance: the SQLite adapter maps every
+  // $N to a positional "?" and ignores the number.
+  const vals = [userId, new Date().toISOString()];
+  const sets = ["updated_by = $1", "updated_at = $2"];
+  for (const [key, col] of [["title", "title"], ["body", "body"], ["status", "status"], ["projectId", "project_id"]]) {
+    if (key in patch) { vals.push(patch[key]); sets.push(`${col} = $${vals.length}`); }
+  }
+  if (content) sets.push("version = version + 1");
+  vals.push(id);
+  let where = `id = $${vals.length}`;
+  if (content) { vals.push(baseVersion); where += ` AND version = $${vals.length}`; }
+  const row = await one(`UPDATE scripts SET ${sets.join(", ")} WHERE ${where} RETURNING *`, vals);
+  if (row) return { script: scriptRow(row) };
+  const current = await getScript(id);
+  return current ? { conflict: true, script: current } : null;
+}
+export async function deleteScript(id) { return !!(await one(`DELETE FROM scripts WHERE id = $1 RETURNING id`, [id])); }
+export async function listScriptComments(scriptId) {
+  return (await q(`SELECT * FROM script_comments WHERE script_id = $1 ORDER BY created_at`, [scriptId])).map(scriptCommentRow);
+}
+export async function addScriptComment({ scriptId, userId, content, quote = null, parentId = null }) {
+  return scriptCommentRow(await one(`INSERT INTO script_comments (id, script_id, parent_id, author_user_id, content, quote, resolved, created_at) VALUES ($1,$2,$3,$4,$5,$6,0,$7) RETURNING *`,
+    ["scc_" + randomUUID().slice(0, 12), scriptId, parentId, userId, content, quote, new Date().toISOString()]));
+}
+// patch: { content } (edit, stamps updated_at) and/or { resolved, resolvedBy }
+export async function updateScriptComment(id, patch) {
+  const vals = [], sets = [];
+  if ("content" in patch) { vals.push(patch.content); sets.push(`content = $${vals.length}`); vals.push(new Date().toISOString()); sets.push(`updated_at = $${vals.length}`); }
+  if ("resolved" in patch) { vals.push(patch.resolved ? 1 : 0); sets.push(`resolved = $${vals.length}`); vals.push(patch.resolved ? patch.resolvedBy : null); sets.push(`resolved_by = $${vals.length}`); }
+  if (!sets.length) return getScriptComment(id);
+  vals.push(id);
+  return scriptCommentRow(await one(`UPDATE script_comments SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING *`, vals));
+}
+export async function getScriptComment(id) { return scriptCommentRow(await one(`SELECT * FROM script_comments WHERE id = $1`, [id])); }
+export async function deleteScriptComment(id) { return !!(await one(`DELETE FROM script_comments WHERE id = $1 RETURNING id`, [id])); }

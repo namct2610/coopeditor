@@ -688,6 +688,75 @@ test("project air date can be set/cleared and drives the workspace calendar", as
   assert.equal(badRange.status, 400);
 });
 
+test("scripts: create, versioned save + conflict, status, comments, client blocked", async () => {
+  const me = await http("/me");
+  assert.equal(me.json.canUseScripts, true);
+
+  const created = await http("/scripts", { method: "POST", body: { title: "  TVC Tết  ", projectId: "p1" } });
+  assert.equal(created.status, 201);
+  const s = created.json;
+  assert.equal(s.title, "TVC Tết");
+  assert.equal(s.status, "draft");
+  assert.equal(s.version, 1);
+  assert.ok(s.projectName, "decorated with project name");
+
+  const saved = await http("/scripts/" + s.id, { method: "PATCH", body: { body: "<p>Cảnh 1</p>", baseVersion: 1 } });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.version, 2);
+
+  // a second editor still on version 1 must not overwrite
+  const stale = await http("/scripts/" + s.id, { method: "PATCH", body: { body: "<p>cũ</p>", baseVersion: 1 } });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.json.script.body, "<p>Cảnh 1</p>");
+  assert.equal((await http("/scripts/" + s.id, { method: "PATCH", body: { body: "x" } })).status, 400);
+
+  // status change needs no version and doesn't bump it
+  const st = await http("/scripts/" + s.id, { method: "PATCH", body: { status: "review" } });
+  assert.equal(st.json.status, "review");
+  assert.equal(st.json.version, 2);
+  assert.equal((await http("/scripts/" + s.id, { method: "PATCH", body: { status: "nope" } })).status, 400);
+  assert.equal((await http("/scripts/" + s.id, { method: "PATCH", body: { projectId: "nope" } })).status, 404);
+
+  const c = await http("/scripts/" + s.id + "/comments", { method: "POST", body: { content: "Sửa cảnh 1", quote: "Cảnh 1" } });
+  assert.equal(c.status, 201);
+  assert.equal(c.json.quote, "Cảnh 1");
+  assert.equal(c.json.authorName, "minh");
+  const reply = await http("/scripts/" + s.id + "/comments", { method: "POST", body: { content: "Ok", parentId: c.json.id, quote: "ignored" } });
+  assert.equal(reply.json.parentId, c.json.id);
+  assert.equal(reply.json.quote, null, "replies carry no anchor");
+  // reply-to-reply flattens onto the root
+  const nested = await http("/scripts/" + s.id + "/comments", { method: "POST", body: { content: "+1", parentId: reply.json.id } });
+  assert.equal(nested.json.parentId, c.json.id);
+  const edited = await http("/script-comments/" + c.json.id, { method: "PATCH", body: { content: "Sửa lại cảnh 1" } });
+  assert.equal(edited.json.content, "Sửa lại cảnh 1");
+  assert.ok(edited.json.updatedAt);
+  assert.equal((await http("/script-comments/" + reply.json.id, { method: "PATCH", body: { resolved: true } })).status, 400, "only roots resolve");
+  const full = await http("/scripts/" + s.id);
+  assert.equal(full.json.body, "<p>Cảnh 1</p>");
+  assert.equal(full.json.comments.length, 3);
+  const list = await http("/scripts");
+  assert.equal(list.json.find((x) => x.id === s.id).commentCount, 1, "one open thread");
+  const resolved = await http("/script-comments/" + c.json.id, { method: "PATCH", body: { resolved: true } });
+  assert.equal(resolved.json.resolved, true);
+  assert.equal(resolved.json.resolvedByName, "minh");
+  assert.equal((await http("/scripts")).json.find((x) => x.id === s.id).commentCount, 0, "resolved threads don't count");
+  assert.equal(list.json.find((x) => x.id === s.id).body, undefined, "list omits bodies");
+
+  // clients can't see scripts at all
+  await http("/auth/logout", { method: "POST" }); cookie = "";
+  await http("/auth/dsm/login", { method: "POST", body: { account: "client", passwd: "x" } });
+  assert.equal((await http("/me")).json.canUseScripts, false);
+  assert.equal((await http("/scripts")).status, 403);
+  assert.equal((await http("/scripts/" + s.id)).status, 403);
+  await http("/auth/logout", { method: "POST" }); cookie = "";
+  await http("/auth/dsm/login", { method: "POST", body: { account: "minh", passwd: "x" } });
+
+  assert.equal((await http("/script-comments/" + c.json.id, { method: "DELETE" })).status, 200);
+  assert.equal((await http("/scripts/" + s.id)).json.comments.length, 0, "deleting a thread removes its replies");
+  assert.equal((await http("/scripts/" + s.id, { method: "DELETE" })).status, 200);
+  assert.equal((await http("/scripts/" + s.id)).status, 404);
+});
+
 test("logout invalidates session", async () => {
   await http("/auth/logout", { method: "POST" });
   const r = await http("/me");

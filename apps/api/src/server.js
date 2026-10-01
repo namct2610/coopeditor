@@ -23,7 +23,7 @@ import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } fro
 import { eventBusMode, publishEvent, startEventBus } from "./event-bus.js";
 import { hasValidSignedPlaybackToken, serveHls, s3ListPrefix, s3DeletePrefix, fsListPrefix, fsDeletePrefix, hlsBackendInfo } from "./hls-proxy.js";
 import { tryServeSpa } from "./web-spa.js";
-import { applyCors, isTrustedMutationRequest, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
+import { applyCors, attachmentDisposition, isTrustedMutationRequest, loginMetrics, loginRateLimit, loginSuccess, shareCommentRateLimit } from "./security.js";
 import * as presence from "./presence.js";
 import {
   COOKIE_NAME, createSession, getSession, destroySession,
@@ -41,6 +41,7 @@ import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
 import { buildSpkCatalog } from "./spk-feed.js";
 import { validateAnnotation } from "./annotation.js";
+import { writeZip, zipLength } from "./zip-stream.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
 
@@ -236,9 +237,17 @@ async function loadProjectThumb(projectId) {
   }
 }
 
-async function streamLocalMedia(req, res, filePath, contentType) {
+// ponytail: global cap so a few 30GB ZIPs can't starve the disks for review
+// playback/transcode; per-user limits if this ever gets contended.
+const MAX_ZIP_DOWNLOADS = 2;
+let activeZipDownloads = 0;
+// Stored paths may be posix (/volume1/…) or UNC (\\NAS\share\…).
+const nasFileName = (p) => String(p).split(/[\\/]/).pop() || "video";
+
+async function streamLocalMedia(req, res, filePath, contentType, downloadName) {
   const info = await stat(filePath);
   const total = info.size;
+  if (downloadName) res.setHeader("content-disposition", attachmentDisposition(downloadName));
   const range = req.headers.range;
   if (range) {
     const match = String(range).match(/bytes=(\d*)-(\d*)/);
@@ -300,6 +309,38 @@ async function canManageUpdates(userId) {
 async function canBrowseNasLibrary(userId) {
   const members = await store.listProjectMembersForUser(userId).catch(() => []);
   return !!(members && members.some((member) => member.role === "owner" || member.role === "editor"));
+}
+
+// Kịch bản is for the team, not clients. A "client" is a global client account,
+// or someone whose every project membership is the client role (DSM accounts
+// invited only to review). Staff with no projects yet still get access.
+async function canUseScripts(userId) {
+  const [user, members] = await Promise.all([
+    store.getUser(userId),
+    store.listProjectMembersForUser(userId).catch(() => []),
+  ]);
+  if (!user || user.role === "client") return false;
+  return !(members && members.length && members.every((m) => m.role === "client"));
+}
+
+const SCRIPT_STATUSES = ["draft", "review", "approved"];
+const MAX_SCRIPT_BODY = 512 * 1024;
+
+async function decorateScripts(list) {
+  const [projects, users] = await Promise.all([store.listProjects(), store.listUsers()]);
+  const pName = new Map(projects.map((p) => [p.id, p.name]));
+  const uName = new Map(users.map((u) => [u.id, u.name]));
+  return list.map((s) => ({ ...s, projectName: s.projectId ? pName.get(s.projectId) || null : null, updatedByName: uName.get(s.updatedBy) || null }));
+}
+
+async function decorateScriptComments(list) {
+  const users = new Map((await store.listUsers()).map((u) => [u.id, u]));
+  return list.map((c) => ({
+    ...c,
+    authorName: (users.get(c.authorUserId) || {}).name || "?",
+    authorColor: (users.get(c.authorUserId) || {}).color || null,
+    resolvedByName: c.resolvedBy ? (users.get(c.resolvedBy) || {}).name || null : null,
+  }));
 }
 
 async function listVisibleUsersForUser(userId) {
@@ -591,7 +632,116 @@ async function handle(req, res, url) {
 
   if (p === "/me" && m === "GET") {
     const user = await store.getUser(sess.userId);
-    return send(res, 200, { user });
+    return send(res, 200, { user, canUseScripts: await canUseScripts(sess.userId) });
+  }
+  if (p === "/scripts" || p.startsWith("/scripts/") || p.startsWith("/script-comments/")) {
+    if (!(await canUseScripts(sess.userId))) return bad(res, "Forbidden", 403);
+    if (p === "/scripts" && m === "GET") return send(res, 200, await decorateScripts(await store.listScripts()));
+    // A linked project must be one the caller can see, so a script can't be
+    // pinned onto (and leak the name of) someone else's project.
+    const checkProject = async (projectId) => {
+      if (projectId === null) return true;
+      if (typeof projectId !== "string" || !(await store.getProject(projectId))) { bad(res, "Project not found", 404); return false; }
+      return !!(await requireProjectAccess(res, projectId, sess.userId));
+    };
+    if (p === "/scripts" && m === "POST") {
+      const body = await readJson(req).catch(() => null);
+      const title = body && typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
+      if (!title) return bad(res, "title required");
+      const projectId = body.projectId || null;
+      if (!(await checkProject(projectId))) return;
+      const s = await store.createScript({ title, projectId, userId: sess.userId });
+      await audit.record({ actorUserId: sess.userId, action: "script.created", resourceType: "script", resourceId: s.id, projectId: projectId || undefined, payload: { title } });
+      return send(res, 201, (await decorateScripts([s]))[0]);
+    }
+    if ((mat = p.match(/^\/scripts\/([^/]+)$/))) {
+      const id = mat[1];
+      const current = await store.getScript(id);
+      if (!current) return bad(res, "Script not found", 404);
+      if (m === "GET") {
+        const [[decorated], comments] = await Promise.all([decorateScripts([current]), store.listScriptComments(id)]);
+        return send(res, 200, { ...decorated, comments: await decorateScriptComments(comments) });
+      }
+      if (m === "PATCH") {
+        const body = await readJson(req).catch(() => null);
+        if (!body) return bad(res, "Invalid body");
+        const patch = {};
+        if ("title" in body) {
+          const t = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
+          if (!t) return bad(res, "title required");
+          patch.title = t;
+        }
+        if ("body" in body) {
+          if (typeof body.body !== "string" || body.body.length > MAX_SCRIPT_BODY) return bad(res, "body must be a string up to 512KB");
+          patch.body = body.body;
+        }
+        if ("status" in body) {
+          if (!SCRIPT_STATUSES.includes(body.status)) return bad(res, "invalid status");
+          patch.status = body.status;
+        }
+        if ("projectId" in body) {
+          patch.projectId = body.projectId || null;
+          if (!(await checkProject(patch.projectId))) return;
+        }
+        if (("title" in patch || "body" in patch) && !Number.isInteger(body.baseVersion)) return bad(res, "baseVersion required");
+        const r = await store.updateScript(id, patch, { baseVersion: body.baseVersion, userId: sess.userId });
+        if (!r) return bad(res, "Script not found", 404);
+        const [decorated] = await decorateScripts([r.script]);
+        if (r.conflict) return send(res, 409, { error: "Kịch bản vừa được người khác sửa", script: decorated });
+        if ("status" in patch && patch.status !== current.status) {
+          await audit.record({ actorUserId: sess.userId, action: "script.status_changed", resourceType: "script", resourceId: id, payload: { from: current.status, to: patch.status } });
+        }
+        return send(res, 200, decorated);
+      }
+      if (m === "DELETE") {
+        await store.deleteScript(id);
+        await audit.record({ actorUserId: sess.userId, action: "script.deleted", resourceType: "script", resourceId: id, payload: { title: current.title } });
+        return send(res, 200, { ok: true });
+      }
+    }
+    if ((mat = p.match(/^\/scripts\/([^/]+)\/comments$/)) && m === "POST") {
+      if (!(await store.getScript(mat[1]))) return bad(res, "Script not found", 404);
+      const body = await readJson(req).catch(() => null);
+      const content = body && typeof body.content === "string" ? body.content.trim().slice(0, 4000) : "";
+      if (!content) return bad(res, "content required");
+      // Replies always hang off the thread root (no nesting), like Docs.
+      let parentId = null;
+      if (body.parentId) {
+        const parent = await store.getScriptComment(String(body.parentId));
+        if (!parent || parent.scriptId !== mat[1]) return bad(res, "Parent comment not found", 404);
+        parentId = parent.parentId || parent.id;
+      }
+      const quote = !parentId && typeof body.quote === "string" && body.quote.trim() ? body.quote.trim().slice(0, 500) : null;
+      const c = await store.addScriptComment({ scriptId: mat[1], userId: sess.userId, content, quote, parentId });
+      return send(res, 201, (await decorateScriptComments([c]))[0]);
+    }
+    if ((mat = p.match(/^\/script-comments\/([^/]+)$/)) && (m === "PATCH" || m === "DELETE")) {
+      const c = await store.getScriptComment(mat[1]);
+      if (!c) return bad(res, "Comment not found", 404);
+      if (m === "DELETE") {
+        if (c.authorUserId !== sess.userId) return bad(res, "Forbidden", 403);
+        await store.deleteScriptComment(c.id);
+        return send(res, 200, { ok: true });
+      }
+      const body = await readJson(req).catch(() => null);
+      if (!body) return bad(res, "Invalid body");
+      const patch = {};
+      if ("content" in body) {
+        // only the author rewrites their words; anyone on the team may resolve
+        if (c.authorUserId !== sess.userId) return bad(res, "Forbidden", 403);
+        const content = typeof body.content === "string" ? body.content.trim().slice(0, 4000) : "";
+        if (!content) return bad(res, "content required");
+        patch.content = content;
+      }
+      if ("resolved" in body) {
+        if (c.parentId) return bad(res, "Only a thread can be resolved");
+        patch.resolved = !!body.resolved;
+        patch.resolvedBy = sess.userId;
+      }
+      const updated = await store.updateScriptComment(c.id, patch);
+      return send(res, 200, (await decorateScriptComments([updated]))[0]);
+    }
+    return bad(res, "Not found", 404);
   }
 
   if (p === "/nas/thumb" && m === "GET") {
@@ -894,6 +1044,42 @@ async function handle(req, res, url) {
     }
     return send(res, 200, assets);
   }
+  if ((mat = p.match(/^\/projects\/([^/]+)\/download\.zip$/)) && m === "GET") {
+    const projectId = mat[1];
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const project = await store.getProject(projectId);
+    if (!project) return bad(res, "Project not found", 404);
+    const entries = [], missing = [], used = new Set();
+    for (const a of await store.listAssetsByProject(projectId)) {
+      const localPath = a.nasPath ? await dsm.assertReadableSourcePath(a.nasPath, { actor: "api" }).catch(() => null) : null;
+      const info = localPath ? await stat(localPath).catch(() => null) : null;
+      if (!info || !info.isFile()) { missing.push(a.title); continue; }
+      // Same file name from two NAS folders → "x (2).mp4"
+      const base = nasFileName(a.nasPath), dot = base.lastIndexOf(".");
+      let name = base;
+      for (let n = 2; used.has(name.toLowerCase()); n++) name = dot > 0 ? `${base.slice(0, dot)} (${n})${base.slice(dot)}` : `${base} (${n})`;
+      used.add(name.toLowerCase());
+      entries.push({ name, path: localPath, size: info.size, mtime: info.mtime });
+    }
+    const bytes = zipLength(entries);
+    // The FE asks first (?check=1) so a 404/429 becomes a toast instead of the
+    // browser navigating to this JSON.
+    if (url.searchParams.get("check") === "1") return send(res, 200, { files: entries.length, bytes, missing, busy: activeZipDownloads >= MAX_ZIP_DOWNLOADS });
+    if (!entries.length) return bad(res, "Không có file gốc nào trên NAS", 404);
+    if (activeZipDownloads >= MAX_ZIP_DOWNLOADS) return bad(res, "Đang có quá nhiều lượt tải ZIP, thử lại sau", 429);
+    activeZipDownloads++;
+    res.once("close", () => { activeZipDownloads--; });
+    await audit.record({ actorUserId: sess.userId, action: "project.downloaded", resourceType: "project", resourceId: projectId, projectId, payload: { files: entries.length, bytes } });
+    res.statusCode = 200;
+    res.setHeader("content-type", "application/zip");
+    res.setHeader("content-length", String(bytes));
+    res.setHeader("content-disposition", attachmentDisposition((project.name || "coopeditor").replace(/[\\/:*?"<>|]/g, "_") + ".zip"));
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-accel-buffering", "no"); // DSM's nginx: stream, don't spool to disk
+    try { await writeZip(res, entries); res.end(); }
+    catch (err) { req.log.warn({ err: String(err && err.message || err), projectId }, "zip download aborted"); res.destroy(); }
+    return;
+  }
   if ((mat = p.match(/^\/projects\/([^/]+)\/sources\/reorder$/)) && m === "PATCH") {
     const projectId = mat[1];
     if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner", "editor"]))) return;
@@ -959,7 +1145,9 @@ async function handle(req, res, url) {
     if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
     try {
       const localPath = await dsm.assertReadableSourcePath(asset.nasPath, { actor: "api" });
-      return await streamLocalMedia(req, res, localPath, asset.mimeType || mimeFromPath(asset.nasPath));
+      const download = url.searchParams.get("download") === "1";
+      if (download) await audit.record({ actorUserId: sess.userId, action: "asset.downloaded", resourceType: "asset", resourceId: assetId, projectId });
+      return await streamLocalMedia(req, res, localPath, asset.mimeType || mimeFromPath(asset.nasPath), download ? nasFileName(asset.nasPath) : null);
     } catch (err) {
       return bad(res, "Khong mo duoc source video: " + (err && err.message), 404);
     }
@@ -1341,7 +1529,7 @@ async function handleLogin(req, res) {
   const token = await createSession({ userId: user.id, dsmSid: r.sid });
   loginSuccess(req);
   await audit.record({ actorUserId: user.id, action: "auth.login", resourceType: "session", payload: { dsmUid: r.uid } });
-  send(res, 200, { user }, { "set-cookie": cookieSetHeader(token, 12 * 3600, isSecureRequest(req)) });
+  send(res, 200, { user, canUseScripts: await canUseScripts(user.id) }, { "set-cookie": cookieSetHeader(token, 12 * 3600, isSecureRequest(req)) });
 }
 
 async function handleOidcStart(req, res) {

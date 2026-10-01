@@ -90,6 +90,7 @@ function staticContentType(pathname) {
   if (pathname.endsWith(".png")) return "image/png";
   if (pathname.endsWith(".ico")) return "image/x-icon";
   if (pathname.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
+  if (pathname.endsWith(".js")) return "text/javascript; charset=utf-8";
   return "application/octet-stream";
 }
 
@@ -97,7 +98,7 @@ async function serveStaticAsset(res, pathname) {
   let filePath = "";
   if (pathname === "/favicon.ico") {
     filePath = resolve(SPA_STATIC_DIR, "brand", "favicon-32.png");
-  } else if (pathname.startsWith("/brand/")) {
+  } else if (pathname.startsWith("/brand/") || pathname.startsWith("/vendor/")) {
     filePath = resolve(SPA_STATIC_DIR, "." + pathname);
     const staticRoot = SPA_STATIC_DIR.endsWith(sep) ? SPA_STATIC_DIR : SPA_STATIC_DIR + sep;
     if (!filePath.startsWith(staticRoot)) return false;

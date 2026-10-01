@@ -1,0 +1,22 @@
+{
+  "name": "coopeditor-editor-bundle",
+  "private": true,
+  "description": "Builds src/static/vendor/tiptap.min.js (TipTap, MIT). Run `npm install && npm run build` here, commit the output.",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --minify --format=iife --global-name=Tiptap --target=es2020 --legal-comments=eof --outfile=../src/static/vendor/tiptap.min.js && node -e \"const f='../src/static/vendor/tiptap.min.js',fs=require('fs');fs.writeFileSync(f,fs.readFileSync('banner.txt','utf8')+fs.readFileSync(f,'utf8'))\""
+  },
+  "devDependencies": {
+    "@tiptap/core": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/extension-text-style": "3.31.4",
+    "@tiptap/extension-highlight": "3.31.4",
+    "@tiptap/extension-text-align": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/extension-list": "3.31.4",
+    "@tiptap/extension-subscript": "3.31.4",
+    "@tiptap/extension-superscript": "3.31.4",
+    "@tiptap/extensions": "3.31.4",
+    "esbuild": "0.28.2"
+  }
+}

@@ -21,7 +21,17 @@ function renderHtml() {
 }
 const HTML = renderHtml();
 
-const server = createServer((_, res) => {
+// Vendored libs (vendor/*.js) are real files — same as web-spa.js on the NAS.
+// Everything else gets the SPA shell.
+const server = createServer((req, res) => {
+  const path = decodeURIComponent((req.url || "/").split("?")[0]);
+  if (path.startsWith("/vendor/") && !path.includes("..")) {
+    try {
+      const body = readFileSync(join(__dirname, "static", path));
+      res.setHeader("content-type", "text/javascript; charset=utf-8");
+      return res.end(body);
+    } catch (_) { res.statusCode = 404; return res.end(); }
+  }
   res.setHeader("content-type", "text/html; charset=utf-8");
   // Never let browsers cache the single-page shell. On NAS deployments users
   // often recreate the stack/project, and a stale cached HTML/JS bundle can

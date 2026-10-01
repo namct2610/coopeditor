@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { isTrustedMutationRequest, isOriginAllowed } from "../src/security.js";
+import { attachmentDisposition, isTrustedMutationRequest, isOriginAllowed } from "../src/security.js";
+
+test("attachmentDisposition keeps UTF-8 name and sanitizes the ASCII fallback", () => {
+  assert.equal(
+    attachmentDisposition('Tết "đẹp"\r\n.mp4'),
+    `attachment; filename="Tet _dep___.mp4"; filename*=UTF-8''T%E1%BA%BFt%20%22%C4%91%E1%BA%B9p%22%0D%0A.mp4`,
+  );
+});
 
 test("isOriginAllowed keeps same-host fallback for alternate public URLs", () => {
   const reqOrigin = "https://review.example.com";

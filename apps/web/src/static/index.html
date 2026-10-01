@@ -86,7 +86,7 @@
   .m-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     height: 38px; padding: 0 22px; border-radius: 999px; border: none; background: transparent;
     font-family: inherit; font-size: 13.5px; font-weight: 500; letter-spacing: 0.1px; line-height: 1;
-    cursor: pointer; white-space: nowrap; user-select: none; -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0; cursor: pointer; white-space: nowrap; user-select: none; -webkit-tap-highlight-color: transparent;
     transition: box-shadow .18s ease, background .18s ease, border-color .18s ease, filter .18s ease; }
   .m-btn:disabled, .m-btn[aria-disabled="true"] { opacity: .55; pointer-events: none; }
   .m-btn--filled { background: var(--co-accent); color: var(--co-on-accent); box-shadow: var(--co-btn-shadow); }
@@ -116,6 +116,106 @@
   textarea:focus, input:focus { outline: none; }
   .dp-day:hover { background: var(--co-hover); }
 
+  /* ===== Kịch bản editor (Docs-like) ===================================== */
+  #scriptTitle:focus { outline: none; }
+  #scriptTitle::placeholder { color: var(--co-faint); }
+  .script-toolbar { position: sticky; top: -28px; z-index: 20; margin: 0 0 14px; padding: 5px 6px; border-radius: 14px;
+    background: var(--co-menu); border: 1px solid var(--co-border-2); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1px; }
+  .tb-row--table { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--co-hairline); }
+  .tb-btn { height: 32px; min-width: 32px; padding: 0 7px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    border-radius: 8px; cursor: pointer; color: var(--co-text-2); font-size: 13.5px; user-select: none; white-space: nowrap; }
+  .tb-btn:hover { background: var(--co-hover); color: var(--co-text); }
+  .tb-btn.is-on { background: var(--co-accent-soft); color: var(--co-accent-text); }
+  .tb-btn.is-off { opacity: .35; pointer-events: none; }
+  .tb-drop { padding-right: 4px; }
+  .tb-caret { display: inline-flex; opacity: .55; }
+  .tb-size { min-width: 38px; border: 1px solid var(--co-border-2); font-variant-numeric: tabular-nums; }
+  .tb-sep { width: 1px; height: 20px; margin: 0 5px; background: var(--co-border-2); }
+  .tb-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 120px; max-height: 360px; overflow-y: auto; padding: 6px;
+    background: var(--co-menu); border: 1px solid var(--co-border-2); border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.35); animation: coFade 120ms ease; }
+  .tb-item { padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--co-text-2); white-space: nowrap; }
+  .tb-item:hover { background: var(--co-hover); color: var(--co-text); }
+  .tb-item.is-on { color: var(--co-accent-text); background: var(--co-accent-soft); }
+  .tbl-cell { width: 20px; height: 20px; border-radius: 4px; cursor: pointer; box-shadow: inset 0 0 0 1px var(--co-border-2); }
+  .tbl-cell.is-on { background: var(--co-accent-soft); box-shadow: inset 0 0 0 1px var(--co-accent); }
+
+  .script-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+  .script-page { background: var(--co-menu); border: 1px solid var(--co-border-2); border-radius: 14px; padding: clamp(28px, 5vw, 56px) clamp(22px, 5.5vw, 64px) 80px; min-height: 72vh; box-sizing: border-box; }
+  .script-doc { outline: none; font-size: 16px; line-height: 1.7; color: var(--co-text-2); caret-color: var(--co-accent); word-break: break-word; min-height: 55vh; }
+  .script-doc > * + * { margin-top: .6em; }
+  .script-doc p { margin: 0; }
+  .script-doc h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.3; color: var(--co-text); margin: 1.1em 0 .3em; }
+  .script-doc h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.35; color: var(--co-text); margin: 1.05em 0 .25em; }
+  .script-doc h3 { font-size: 18px; font-weight: 600; color: var(--co-text); margin: 1em 0 .2em; }
+  .script-doc > :first-child { margin-top: 0; }
+  .script-doc ul, .script-doc ol { padding-left: 1.6em; margin: .4em 0; }
+  .script-doc li > p { margin: 0; }
+  .script-doc li + li { margin-top: .2em; }
+  .script-doc ul[data-type="taskList"] { list-style: none; padding-left: .2em; }
+  .script-doc ul[data-type="taskList"] li { display: flex; gap: 10px; align-items: flex-start; }
+  .script-doc ul[data-type="taskList"] li > label { margin-top: .25em; flex: 0 0 auto; }
+  .script-doc ul[data-type="taskList"] li > label input { accent-color: var(--co-accent); width: 16px; height: 16px; cursor: pointer; }
+  .script-doc ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+  .script-doc ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--co-faint); text-decoration: line-through; }
+  .script-doc blockquote { margin: .8em 0; padding: 4px 0 4px 18px; border-left: 3px solid var(--co-accent); color: var(--co-text); font-style: italic; }
+  .script-doc hr { border: none; border-top: 1px solid var(--co-border-2); margin: 1.4em 0; }
+  .script-doc a { color: var(--co-accent-text); text-decoration: underline; text-underline-offset: 2px; }
+  .script-doc strong, .script-doc b { color: var(--co-text); font-weight: 650; }
+  .script-doc code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; background: var(--co-hover); padding: 1px 5px; border-radius: 5px; }
+  .script-doc pre { background: var(--co-hover); padding: 12px 14px; border-radius: 10px; overflow-x: auto; }
+  .script-doc pre code { background: none; padding: 0; }
+  .script-doc mark { border-radius: 2px; padding: 0 1px; color: #1b1b1b; }
+  .script-doc p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; color: var(--co-faint); pointer-events: none; }
+  .script-doc .tableWrapper { overflow-x: auto; margin: 1em 0; }
+  .script-doc table { border-collapse: collapse; table-layout: fixed; width: 100%; margin: 0; overflow: hidden; }
+  .script-doc td, .script-doc th { position: relative; vertical-align: top; box-sizing: border-box; min-width: 60px; padding: 7px 10px; border: 1px solid var(--co-border-2); }
+  .script-doc th { background: var(--co-hover); color: var(--co-text); font-weight: 600; text-align: left; }
+  .script-doc td > p, .script-doc th > p { margin: 0; }
+  .script-doc .selectedCell::after { content: ""; position: absolute; inset: 0; background: var(--co-accent-soft); pointer-events: none; z-index: 2; }
+  .script-doc .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px; background: var(--co-accent); pointer-events: none; }
+  .script-doc.resize-cursor { cursor: col-resize; }
+  .script-doc .ProseMirror-gapcursor:after { border-top-color: var(--co-text); }
+  .script-doc .ProseMirror-selectednode { outline: 2px solid var(--co-accent); }
+
+  .sc-bubble { position: absolute; right: -14px; z-index: 15; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+    background: var(--co-accent); color: var(--co-on-accent); font-size: 12.5px; font-weight: 600; box-shadow: 0 8px 22px rgba(0,0,0,.3); }
+  .sc-panel { position: sticky; top: 68px; max-height: calc(100vh - 96px); overflow-y: auto; padding-right: 2px; }
+  .sc-card { padding: 14px; border-radius: 14px; background: var(--co-menu); border: 1px solid var(--co-border-2); cursor: pointer; transition: box-shadow .15s ease, border-color .15s ease; }
+  .sc-card:hover { border-color: var(--co-accent-line); }
+  .sc-card.is-active { cursor: default; border-color: var(--co-accent-line); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .sc-input { width: 100%; box-sizing: border-box; resize: vertical; background: var(--co-hover); color: var(--co-text); border: 1px solid var(--co-border-2); border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 13px; }
+  .sc-input:focus { border-color: var(--co-accent-line); }
+  .sc-icon-btn { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--co-muted); flex: 0 0 auto; }
+  .sc-icon-btn:hover { background: var(--co-hover); color: var(--co-text); }
+
+  .sp-chip { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 8px; border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--co-text-2);
+    background: var(--co-hover); border: 1px solid var(--co-border-2); }
+  .sp-chip:hover, .sp-chip.is-on { border-color: var(--co-accent-line); color: var(--co-text); }
+  .sp-chip--empty { background: none; border-style: dashed; color: var(--co-muted); padding: 0 12px; }
+  .sp-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 340px; max-width: calc(100vw - 40px); background: var(--co-menu);
+    border: 1px solid var(--co-border-2); border-radius: 14px; box-shadow: 0 22px 60px rgba(0,0,0,.4); animation: coFade 120ms ease; }
+  .sp-item { display: flex; align-items: center; gap: 11px; padding: 8px; border-radius: 10px; cursor: pointer; }
+  .sp-item:hover, .sp-item.is-first { background: var(--co-hover); }
+  .sp-item.is-on { background: var(--co-accent-soft); }
+
+  @media (max-width: 960px) {
+    .script-layout { grid-template-columns: minmax(0, 1fr); }
+    .sc-panel { position: static; max-height: none; }
+  }
+  @media (max-width: 860px) {
+    .script-page { padding: 24px 18px 48px; }
+    .script-toolbar { top: -28px; overflow-x: auto; }
+    .tb-row { flex-wrap: nowrap; }
+    .tb-pop { position: fixed; top: auto; left: 12px !important; right: 12px; bottom: 12px; max-height: 50vh; width: auto !important; }
+    .sc-bubble { right: 4px; }
+  }
+  @media print {
+    #app nav[data-rail], .script-toolbar, .sc-panel, #scriptBubble, #scriptCount, [data-act="goScripts"] { display: none !important; }
+    .script-layout { display: block; }
+    .script-page { border: none; padding: 0; background: none; }
+  }
+
   /* Review chrome floats over arbitrary video — often bright/blown-out footage.
      A text-shadow keeps every overlay label legible on both dark and white
      frames without darkening the video itself (unlike a heavier scrim). */
@@ -133,6 +233,9 @@
     /* Screens: drop the design's generous 88px right gutter to 18px. */
     [data-screen] { padding: 28px 18px 40px !important; }
     [data-hide-sm] { display: none !important; }
+    /* Three section tabs (Dự án · Lịch · Kịch bản) at 30px don't fit a phone. */
+    [data-section-tab] { font-size: 22px !important; }
+    #scriptTitle { font-size: 22px !important; }
     /* Hub/asset rows: shed the trailing metadata columns, keep title + count */
     [data-row-col="sm-hide"] { display: none !important; }
     /* Review: the right rail can't fit, so the video pins to the top of the
@@ -369,6 +472,26 @@ const state = {
   datePickerY: 0, datePickerM: 0,
   datePickerPos: null,
   calDropDay: null,          // ISO day currently hovered as a drop target
+  // Kịch bản (scripts). scripts = list metadata (no bodies); script = the one
+  // open in the editor, incl. body + comments. scriptSave: saved|dirty|saving|
+  // conflict|error. scriptConflict holds the server copy after a 409.
+  scripts: null,
+  scriptsLoading: false,
+  scriptsError: "",
+  scriptId: null,
+  script: null,
+  scriptSave: "saved",
+  scriptConflict: null,
+  scriptMenu: null,          // open toolbar dropdown (style/font/size/color/hl/link/align/table)
+  scriptProjMenu: false,     // project picker popover
+  scriptProjQuery: "",
+  scriptThreadFilter: "open",
+  scriptActiveThread: null,
+  scriptNewComment: null,    // { from, to, quote } while composing a new thread
+  scriptNewCommentText: "",
+  scriptReplyText: "",
+  scriptEditComment: null,
+  scriptEditCommentText: "",
   // Review chrome auto-hides while playing (design: opacity 0 on the top bar,
   // transport and notes panel). Pointer entering the stage brings it back.
   chromeVisible: true,
@@ -744,9 +867,16 @@ function openSourceContextMenu(sourceId, x, y) {
 }
 
 let _applyingHashRoute = false;
+// Boot renders (while loadRemote is still fetching) used to sync the hash from
+// the default "projects" view and overwrite the deep link before
+// applyHashRoute ever read it — every F5 landed on Dự án. Hold off syncing
+// until the URL the page was opened with has been applied once.
+let _initialRouteApplied = !window.location.hash || window.location.hash === "#/projects";
 function desiredHashFromState() {
   if (state.view === "proxyStorage") return "#/proxy-storage";
   if (state.view === "calendar") return "#/calendar";
+  if (state.view === "scripts") return "#/scripts";
+  if (state.view === "script" && state.scriptId) return "#/script/" + encodeURIComponent(state.scriptId);
   if (state.view === "settings") return "#/settings/" + encodeURIComponent(state.settingsSection || "profile");
   if (state.view === "review" && state.selectedProjectId && state.selectedId) {
     return "#/project/" + encodeURIComponent(state.selectedProjectId) + "/source/" + encodeURIComponent(state.selectedId);
@@ -757,7 +887,7 @@ function desiredHashFromState() {
   return "#/projects";
 }
 function syncHashRoute() {
-  if (_applyingHashRoute) return;
+  if (_applyingHashRoute || !_initialRouteApplied) return;
   if (!remote.me && window.location.hash) return;
   const desired = desiredHashFromState();
   if (window.location.hash !== desired) window.location.hash = desired;
@@ -791,6 +921,14 @@ function applyHashRoute() {
       ensureCalMonth();
       render();
       refreshCalendar().catch(() => {});
+      return;
+    }
+    const scriptMatch = hash.match(/^#\/script\/([^/]+)$/);
+    if ((hash === "#/scripts" || scriptMatch) && remote.canUseScripts) {
+      state.projectContextMenu = null;
+      state.sourceContextMenu = null;
+      if (scriptMatch) openScript(decodeURIComponent(scriptMatch[1]));
+      else goScripts();
       return;
     }
     const settingsMatch = hash.match(/^#\/settings(?:\/([^/]+))?$/);
@@ -842,6 +980,7 @@ function applyHashRoute() {
     render();
   } finally {
     _applyingHashRoute = false;
+    _initialRouteApplied = true;
   }
 }
 
@@ -1286,7 +1425,42 @@ const ICON = {
   bigPlay: '<svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" stroke="none" style="margin-left:4px"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>',
   pauseBtn: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>',
   playBtn: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="margin-left:2px"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>',
+  download: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="m7 10 5 5 5-5"></path><path d="M5 20h14"></path></svg>',
 };
+
+// Original file as an attachment — the API sets Content-Disposition, so the
+// browser downloads in place without leaving the page (works cross-origin too).
+// A 1-byte probe goes first: if the file is gone from the NAS, the anchor would
+// otherwise navigate the whole app to the API's JSON error page.
+async function downloadSource(assetId) {
+  const url = apiMediaUrl("/assets/" + encodeURIComponent(assetId) + "/source");
+  const probe = await fetch(url, { credentials: "include", headers: { Range: "bytes=0-0" } }).catch(() => null);
+  if (!probe || !probe.ok) {
+    const title = (Object.values(state.sourcesByProject).flat().find((s) => s.id === assetId) || {}).title || "video";
+    return toast("Không tải được \"" + title + "\" — không tìm thấy file gốc trên NAS", "error");
+  }
+  const a = document.createElement("a");
+  a.href = url + "?download=1";
+  a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// Whole project as one STORE-mode ZIP streamed by the API (no temp file on the
+// NAS). Asks first so missing files / the concurrency cap surface as a toast
+// rather than the browser navigating to the API's JSON error.
+async function downloadAllSources(projectId) {
+  const url = apiMediaUrl("/projects/" + encodeURIComponent(projectId) + "/download.zip");
+  let info;
+  try { info = await api("/projects/" + encodeURIComponent(projectId) + "/download.zip?check=1"); }
+  catch (e) { return toast((e && e.message) || "Không tải được dự án", "error"); }
+  if (!info.files) return toast("Không có file gốc nào của dự án trên NAS", "error");
+  if (info.busy) return toast("Đang có quá nhiều lượt tải ZIP, thử lại sau ít phút", "error");
+  const a = document.createElement("a");
+  a.href = url; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  const skipped = (info.missing || []).length;
+  toast("Đang tải ZIP " + info.files + " video · " + fmtBytes(info.bytes) + (skipped ? " — bỏ qua " + skipped + " video không còn trên NAS" : ""), skipped ? "error" : undefined);
+}
 
 // ---------------------------------------------------------------------------
 // Left rail (52px). The design replaced the old icon rail with a vertical
@@ -1832,8 +2006,796 @@ async function setProjectAirDate(projectId, airDate) {
 }
 
 function sectionSwitch(active) {
-  const tab = (id, label, act) => `<div data-act="${act}" class="co-act" style="font-size:30px;font-weight:600;letter-spacing:-0.03em;color:${active === id ? "var(--co-text)" : "var(--co-faint)"};cursor:pointer;">${esc(label)}</div>`;
-  return `<div style="display:flex;align-items:baseline;gap:20px;">${tab("projects", "Dự án", "goProjects")}${tab("calendar", "Lịch", "goCalendar")}</div>`;
+  const tab = (id, label, act) => `<div data-act="${act}" data-section-tab class="co-act" style="font-size:30px;font-weight:600;letter-spacing:-0.03em;white-space:nowrap;color:${active === id ? "var(--co-text)" : "var(--co-faint)"};cursor:pointer;">${esc(label)}</div>`;
+  return `<div style="display:flex;align-items:baseline;gap:0 18px;">${tab("projects", "Dự án", "goProjects")}${tab("calendar", "Lịch", "goCalendar")}${remote.canUseScripts ? tab("scripts", "Kịch bản", "goScripts") : ""}</div>`;
+}
+
+// ============================ KỊCH BẢN (scripts) ============================
+// Docs-style scripts: a TipTap (ProseMirror) editor — vendored at
+// vendor/tiptap.min.js and loaded only when a script is opened — with text
+// styles, fonts/sizes/colours, alignment, lists, checklists and tables;
+// Google-Docs-like comment threads anchored to text; a review status; and an
+// optional project link. Autosaves ~1s after typing stops; every content save
+// carries the version it was based on, so a concurrent edit is a 409 + a
+// choice, never a silent overwrite.
+const SCRIPT_STATUS = {
+  draft: { label: "Nháp", color: "var(--co-muted)" },
+  review: { label: "Chờ duyệt", color: "var(--co-warn)" },
+  approved: { label: "Đã duyệt", color: "var(--co-ok)" },
+};
+const SCRIPT_UNTITLED = "Kịch bản chưa đặt tên";
+const SCRIPT_FONTS = [
+  ["", "Mặc định"], ["Arial, Helvetica, sans-serif", "Arial"], ["'Times New Roman', Times, serif", "Times New Roman"],
+  ["Georgia, serif", "Georgia"], ["Verdana, sans-serif", "Verdana"], ["Tahoma, sans-serif", "Tahoma"], ["'Courier New', monospace", "Courier New"],
+];
+const SCRIPT_SIZES = [10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
+const SCRIPT_BASE_SIZE = 16;
+const SCRIPT_COLORS = ["#000000", "#434343", "#666666", "#999999", "#b7b7b7", "#ffffff", "#e53935", "#fb8c00", "#fdd835", "#43a047", "#00acc1", "#1e88e5", "#5e35b1", "#d81b60", "#9184d9", "#8d6e63"];
+const SCRIPT_HIGHLIGHTS = ["#fff59d", "#ffe0b2", "#ffcdd2", "#c8e6c9", "#b3e5fc", "#d1c4e9", "#f8bbd0", "#e0e0e0"];
+
+// ---- TipTap loading + the comment mark ----
+let _tiptapLoad = null;
+function ensureTiptap() {
+  if (window.Tiptap) return Promise.resolve(window.Tiptap);
+  if (!_tiptapLoad) {
+    _tiptapLoad = new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = "vendor/tiptap.min.js";
+      el.onload = () => (window.Tiptap ? resolve(window.Tiptap) : reject(new Error("Thiếu bộ soạn thảo")));
+      el.onerror = () => { _tiptapLoad = null; reject(new Error("Không tải được trình soạn thảo")); };
+      document.head.appendChild(el);
+    });
+  }
+  return _tiptapLoad;
+}
+// Anchors a comment thread to a span: <span class="sc-comment" data-comment-id>.
+// excludes:"" lets threads overlap; inclusive:false stops typing at the edge
+// from growing the anchor.
+function scriptCommentMark(T) {
+  return T.Mark.create({
+    name: "comment",
+    inclusive: false,
+    excludes: "",
+    addAttributes() {
+      return { id: { default: null, parseHTML: (el) => el.getAttribute("data-comment-id"), renderHTML: (a) => (a.id ? { "data-comment-id": a.id } : {}) } };
+    },
+    parseHTML() { return [{ tag: "span[data-comment-id]" }]; },
+    renderHTML({ HTMLAttributes }) { return ["span", T.mergeAttributes(HTMLAttributes, { class: "sc-comment" }), 0]; },
+  });
+}
+
+// ---- list + navigation ----
+async function refreshScripts() {
+  state.scriptsLoading = true; state.scriptsError = "";
+  try { state.scripts = await api("/scripts"); }
+  catch (e) { state.scriptsError = (e && e.message) || "Không tải được danh sách kịch bản"; if (!state.scripts) state.scripts = []; }
+  state.scriptsLoading = false;
+  render();
+}
+function goScripts() {
+  pause();
+  setStateNow({ view: "scripts", showQualityMenu: false, showVersionMenu: false, showTranscode: false, showImport: false, showProxyStorage: false, projectContextMenu: null, sourceContextMenu: null });
+  refreshScripts().catch(() => {});
+}
+// Bumping scriptRev forces a fresh editor — used when the body is replaced
+// from the server (open, or "load the newer version" after a conflict).
+let scriptRev = 0;
+async function openScript(id) {
+  pause();
+  setStateNow({
+    view: "script", scriptId: id, script: state.script && state.script.id === id ? state.script : null,
+    scriptConflict: null, scriptSave: "saved", scriptMenu: null, scriptProjMenu: false, scriptProjQuery: "",
+    scriptNewComment: null, scriptNewCommentText: "", scriptActiveThread: null, scriptReplyText: "", scriptEditComment: null,
+    scriptThreadFilter: "open", projectContextMenu: null, sourceContextMenu: null,
+  });
+  try {
+    const [s] = await Promise.all([api("/scripts/" + encodeURIComponent(id)), ensureTiptap().catch(() => null)]);
+    if (state.scriptId !== id) return;
+    scriptRev++;
+    setStateNow({ script: s });
+  } catch (e) {
+    toast((e && e.message) || "Không mở được kịch bản", "error");
+    if (state.scriptId === id) goScripts();
+  }
+}
+async function createScript() {
+  try {
+    const body = { title: SCRIPT_UNTITLED };
+    if (state.view === "project" && state.selectedProjectId) body.projectId = state.selectedProjectId;
+    const s = await api("/scripts", { method: "POST", body });
+    state.scripts = [s, ...(state.scripts || [])];
+    await openScript(s.id);
+    const t = document.getElementById("scriptTitle");
+    if (t) { t.focus(); t.select(); }
+  } catch (e) { toast((e && e.message) || "Không tạo được kịch bản", "error"); }
+}
+
+// ---- the editor instance ----
+// It lives outside render(): render() emits an empty #scriptEditorMount and
+// mountScriptEditor() moves the persistent host into it, so typing state,
+// selection and undo history survive every re-render.
+let scriptEd = null;
+let scriptEdHost = null;
+let scriptEdKey = "";
+let _editorScript = null;      // script object the live editor belongs to
+let _scriptDirty = false;      // editor edits not yet acknowledged by the server
+function mountScriptEditor(wasFocused) {
+  const mount = document.getElementById("scriptEditorMount");
+  const s = state.script;
+  if (!mount || !s) return;
+  const key = s.id + ":" + scriptRev;
+  if (scriptEd && scriptEdKey === key) {
+    if (scriptEdHost.parentNode !== mount) mount.replaceChildren(scriptEdHost);
+    if (wasFocused) scriptEd.view.focus();
+    return;
+  }
+  if (!window.Tiptap) {
+    ensureTiptap().then(() => render()).catch((e) => { const m = document.getElementById("scriptEditorMount"); if (m) m.innerHTML = `<div style="padding:24px;color:var(--co-bad);font-size:13.5px;">${esc(e.message)}</div>`; });
+    return;
+  }
+  destroyScriptEditor();
+  const T = window.Tiptap;
+  const host = document.createElement("div");
+  host.className = "script-host";
+  scriptEd = new T.Editor({
+    element: host,
+    content: s.body || "",
+    extensions: [
+      T.StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),
+      T.TextStyleKit,
+      T.Highlight.configure({ multicolor: true }),
+      T.TextAlign.configure({ types: ["heading", "paragraph"] }),
+      T.TableKit.configure({ table: { resizable: true, cellMinWidth: 60 } }),
+      T.TaskList, T.TaskItem.configure({ nested: true }),
+      T.Subscript, T.Superscript,
+      T.Placeholder.configure({ placeholder: "Bắt đầu viết kịch bản…" }),
+      T.CharacterCount,
+      scriptCommentMark(T),
+    ],
+    editorProps: { attributes: { class: "script-doc", spellcheck: "false" } },
+    onUpdate: () => { scriptEdited(); },
+    onTransaction: () => scheduleScriptChrome(),
+    onSelectionUpdate: () => { scriptSyncActiveThread(); scheduleScriptChrome(); },
+    onBlur: () => scheduleScriptChrome(),
+  });
+  scriptEdHost = host; scriptEdKey = key; _editorScript = s;
+  mount.replaceChildren(host);
+  paintScriptChrome();
+  scheduleRender(); // comment panel order/orphans depend on the live doc
+}
+// Leaving the editor: flush unsaved edits, then tear the instance down.
+function destroyScriptEditor() {
+  if (!scriptEd) return;
+  if (_scriptDirty && _editorScript) saveScript({ s: _editorScript, bodyHtml: scriptEd.getHTML() });
+  scriptEd.destroy();
+  scriptEd = null; scriptEdHost = null; scriptEdKey = ""; _editorScript = null;
+}
+
+// ---- autosave ----
+let _scriptSaveTimer = null;
+let _scriptEditSeq = 0;
+let _scriptSaving = false;
+function scriptSaveLabel() {
+  return { saved: "Đã lưu", dirty: "Chưa lưu…", saving: "Đang lưu…", conflict: "Xung đột phiên bản", error: "Lưu lỗi — đang thử lại" }[state.scriptSave] || "";
+}
+function paintScriptSave() {
+  const el = document.getElementById("scriptSaveLabel");
+  if (el) { el.textContent = scriptSaveLabel(); el.style.color = state.scriptSave === "error" || state.scriptSave === "conflict" ? "var(--co-bad)" : "var(--co-faint)"; }
+}
+function scriptEdited() {
+  _scriptEditSeq++;
+  _scriptDirty = true;
+  if (state.scriptSave === "conflict") return; // resolve first; edits stay in the editor
+  state.scriptSave = "dirty"; paintScriptSave();
+  clearTimeout(_scriptSaveTimer);
+  _scriptSaveTimer = setTimeout(() => saveScript(), 1000);
+}
+async function saveScript({ force = false, s = state.script, bodyHtml = null } = {}) {
+  clearTimeout(_scriptSaveTimer);
+  if (!s) return;
+  if (state.scriptSave === "conflict" && !force) return;
+  if (_scriptSaving) { _scriptSaveTimer = setTimeout(() => saveScript({ force, s, bodyHtml }), 300); return; }
+  const body = bodyHtml != null ? bodyHtml : (scriptEd && _editorScript === s ? scriptEd.getHTML() : s.body);
+  const title = (s.title || "").trim() || SCRIPT_UNTITLED;
+  const seq = _scriptEditSeq;
+  const baseVersion = force && state.scriptConflict ? state.scriptConflict.version : s.version;
+  _scriptSaving = true;
+  if (state.script === s) { state.scriptSave = "saving"; paintScriptSave(); }
+  try {
+    const r = await api("/scripts/" + encodeURIComponent(s.id), { method: "PATCH", body: { title, body, baseVersion } });
+    Object.assign(s, { version: r.version, title: r.title, body, updatedAt: r.updatedAt, updatedByName: r.updatedByName });
+    const row = (state.scripts || []).find((x) => x.id === s.id);
+    if (row) Object.assign(row, { title: r.title, version: r.version, updatedAt: r.updatedAt, updatedByName: r.updatedByName });
+    if (_scriptEditSeq === seq) _scriptDirty = false;
+    if (state.script === s) {
+      const hadConflict = !!state.scriptConflict;
+      state.scriptConflict = null;
+      state.scriptSave = _scriptEditSeq === seq ? "saved" : "dirty";
+      if (state.scriptSave === "dirty") _scriptSaveTimer = setTimeout(() => saveScript(), 1000);
+      if (hadConflict) render(); else paintScriptSave();
+    }
+  } catch (e) {
+    if (e && e.status === 409 && e.body && e.body.script) {
+      if (state.script === s) { state.scriptConflict = e.body.script; state.scriptSave = "conflict"; render(); }
+      else toast("Không lưu được \"" + s.title + "\": có người vừa sửa kịch bản này", "error");
+    } else if (state.script === s) {
+      state.scriptSave = "error"; paintScriptSave();
+      _scriptSaveTimer = setTimeout(() => saveScript(), 5000);
+    } else toast("Không lưu được \"" + s.title + "\"", "error");
+  } finally { _scriptSaving = false; }
+}
+function scriptTakeTheirs() {
+  if (!state.scriptConflict) return;
+  _scriptEditSeq++;
+  _scriptDirty = false;
+  scriptRev++;
+  setStateNow({ script: { ...state.scriptConflict, comments: (state.script && state.script.comments) || [] }, scriptConflict: null, scriptSave: "saved" });
+}
+
+async function setScriptField(field, value) {
+  const s = state.script; if (!s) return;
+  const prev = { [field]: s[field], projectName: s.projectName };
+  s[field] = value; render();
+  try {
+    const r = await api("/scripts/" + encodeURIComponent(s.id), { method: "PATCH", body: { [field]: value } });
+    Object.assign(s, { projectName: r.projectName });
+    const row = (state.scripts || []).find((x) => x.id === s.id);
+    if (row) Object.assign(row, { [field]: value, projectName: r.projectName, updatedAt: r.updatedAt });
+    render();
+  } catch (e) { Object.assign(s, prev); render(); toast((e && e.message) || "Không cập nhật được kịch bản", "error"); }
+}
+async function deleteScript() {
+  const s = state.script; if (!s) return;
+  if (!window.confirm("Xoá kịch bản \"" + s.title + "\"? Không thể hoàn tác.")) return;
+  try {
+    await api("/scripts/" + encodeURIComponent(s.id), { method: "DELETE" });
+    clearTimeout(_scriptSaveTimer);
+    _scriptDirty = false;
+    state.scripts = (state.scripts || []).filter((x) => x.id !== s.id);
+    state.script = null; state.scriptSave = "saved";
+    goScripts();
+  } catch (e) { toast((e && e.message) || "Không xoá được kịch bản", "error"); }
+}
+
+// ---- toolbar ----
+// The toolbar, selection bubble and word count are repainted in place on each
+// editor transaction (rAF-batched) instead of a full app render.
+let _scriptChromeQueued = false;
+function scheduleScriptChrome() {
+  if (_scriptChromeQueued) return;
+  _scriptChromeQueued = true;
+  // microtask, not rAF: batches a burst of transactions just as well, and
+  // doesn't stall when the tab's frames are throttled.
+  queueMicrotask(() => { _scriptChromeQueued = false; paintScriptChrome(); });
+}
+function paintScriptChrome() {
+  const tb = document.getElementById("scriptToolbar");
+  // never rebuild under a focused field (the link URL input) — it would eat it
+  if (tb && !tb.contains(document.activeElement)) tb.innerHTML = scriptToolbarInner();
+  const cnt = document.getElementById("scriptCount");
+  if (cnt && scriptEd) { const cc = scriptEd.storage.characterCount; cnt.textContent = cc.words() + " từ · " + cc.characters() + " ký tự"; }
+  const bub = document.getElementById("scriptBubble");
+  if (bub) {
+    const sel = scriptEd && scriptEd.state.selection;
+    const show = sel && !sel.empty && scriptEd.isFocused && !state.scriptNewComment;
+    if (show) {
+      const col = bub.parentNode.getBoundingClientRect();
+      const end = scriptEd.view.coordsAtPos(sel.to);
+      bub.style.top = (end.top - col.top - 4) + "px";
+      bub.style.display = "flex";
+    } else bub.style.display = "none";
+  }
+}
+const SICON = {
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  alignLeft: '<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',
+  alignCenter: '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+  alignRight: '<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+  alignJustify: '<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
+  ul: '<circle cx="5" cy="7" r="1.2" fill="currentColor"/><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="5" cy="17" r="1.2" fill="currentColor"/><path d="M9.5 7H20M9.5 12H20M9.5 17H20"/>',
+  ol: '<path d="M10 7h10M10 12h10M10 17h10"/><path d="M4 5.5h1.5V9M4 9h3" stroke-width="1.4"/><path d="M4 14.5h2.5L4 18h3" stroke-width="1.4"/>',
+  task: '<rect x="3.5" y="4.5" width="6" height="6" rx="1.2"/><path d="m5 7.5 1.3 1.3L8.5 6.3"/><rect x="3.5" y="13.5" width="6" height="6" rx="1.2"/><path d="M13 7.5h7M13 16.5h7"/>',
+  outdent: '<path d="M4 6h16M11 10h9M11 14h9M4 18h16"/><path d="m7 9.5-3 2.5 3 2.5"/>',
+  indent: '<path d="M4 6h16M11 10h9M11 14h9M4 18h16"/><path d="m4 9.5 3 2.5-3 2.5"/>',
+  table: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15M15 4.5v15"/>',
+  quote: '<path d="M7 7h4v4c0 3-1.5 5-4 6M14 7h4v4c0 3-1.5 5-4 6"/>',
+  hr: '<path d="M4 12h16"/><path d="M8 7h8M8 17h8" opacity=".35"/>',
+  clear: '<path d="M6 5h12M10 5 7 19M14 5l-1.2 5.5"/><path d="m15 14 5 5M20 14l-5 5"/>',
+  comment: '<path d="M20 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M12 7v6M9 10h6"/>',
+  chevron: '<path d="m7 10 5 5 5-5"/>',
+};
+const sIcon = (name, size = 18) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${SICON[name]}</svg>`;
+
+function scriptToolbarInner() {
+  const ed = scriptEd;
+  if (!ed) return `<div style="padding:4px 8px;font-size:12.5px;color:var(--co-faint);">Đang tải trình soạn thảo…</div>`;
+  const on = (name, attrs) => ed.isActive(name, attrs);
+  const btn = (arg, html, title, active, disabled) => `<div data-act="scriptCmd" data-arg="${arg}" data-keep-sel title="${esc(title)}" class="tb-btn${active ? " is-on" : ""}${disabled ? " is-off" : ""}">${html}</div>`;
+  const sep = `<div class="tb-sep"></div>`;
+  const menuBtn = (menu, html, title, width) => `<div data-act="scriptMenu" data-arg="${menu}" data-keep-sel title="${esc(title)}" class="tb-btn tb-drop${state.scriptMenu === menu ? " is-on" : ""}" style="${width ? "min-width:" + width + "px;justify-content:space-between;" : ""}">${html}<span class="tb-caret">${sIcon("chevron", 14)}</span></div>`;
+  const ts = ed.getAttributes("textStyle");
+  const styleLabel = on("heading", { level: 1 }) ? "Tiêu đề 1" : on("heading", { level: 2 }) ? "Tiêu đề 2" : on("heading", { level: 3 }) ? "Tiêu đề 3" : "Văn bản thường";
+  const fontLabel = (SCRIPT_FONTS.find(([v]) => v && ts.fontFamily && v.toLowerCase() === String(ts.fontFamily).toLowerCase()) || [null, ts.fontFamily ? String(ts.fontFamily).split(",")[0].replace(/['"]/g, "") : "Mặc định"])[1];
+  const size = parseInt(ts.fontSize, 10) || SCRIPT_BASE_SIZE;
+  const color = ts.color || "";
+  const hl = ed.getAttributes("highlight").color || "";
+  const inTable = on("table");
+  const align = ["left", "center", "right", "justify"].find((a) => ed.isActive({ textAlign: a })) || "left";
+  const alignIcon = { left: "alignLeft", center: "alignCenter", right: "alignRight", justify: "alignJustify" }[align];
+  const menu = state.scriptMenu;
+  const pop = (inner, w) => `<div class="tb-pop" data-stop="1" style="${w ? "width:" + w + "px;" : ""}">${inner}</div>`;
+  const item = (arg, label, active, style) => `<div data-act="scriptCmd" data-arg="${esc(arg)}" data-keep-sel class="tb-item${active ? " is-on" : ""}" style="${style || ""}">${label}</div>`;
+  const swatches = (prefix, list, current, noneLabel) => `
+    <div data-act="scriptCmd" data-arg="${prefix}:" data-keep-sel class="tb-item" style="margin-bottom:6px;">${noneLabel}</div>
+    <div style="display:grid;grid-template-columns:repeat(8,22px);gap:5px;">${list.map((c) => `<div data-act="scriptCmd" data-arg="${prefix}:${c}" data-keep-sel title="${c}" style="width:22px;height:22px;border-radius:6px;cursor:pointer;background:${c};box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)${current && current.toLowerCase() === c ? ",0 0 0 2px var(--co-accent)" : ""};"></div>`).join("")}</div>`;
+  const wrap = (menuName, button, popover) => `<div data-script-menu style="position:relative;display:flex;">${button}${menu === menuName ? popover : ""}</div>`;
+
+  const rowMain = [
+    btn("undo", sIcon("undo"), "Hoàn tác (" + KEY_MOD + "Z)", false, !ed.can().undo()),
+    btn("redo", sIcon("redo"), "Làm lại (" + KEY_MOD + KEY_SHIFT + "Z)", false, !ed.can().redo()),
+    sep,
+    wrap("style", menuBtn("style", `<span>${styleLabel}</span>`, "Kiểu đoạn", 128), pop(
+      item("p", "Văn bản thường", styleLabel === "Văn bản thường") +
+      item("h1", `<span style="font-size:22px;font-weight:600;">Tiêu đề 1</span>`, styleLabel === "Tiêu đề 1") +
+      item("h2", `<span style="font-size:18px;font-weight:600;">Tiêu đề 2</span>`, styleLabel === "Tiêu đề 2") +
+      item("h3", `<span style="font-size:15px;font-weight:600;">Tiêu đề 3</span>`, styleLabel === "Tiêu đề 3"), 200)),
+    wrap("font", menuBtn("font", `<span style="max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(fontLabel)}</span>`, "Phông chữ", 118), pop(
+      SCRIPT_FONTS.map(([v, l]) => item("font:" + v, `<span style="font-family:${v ? esc(v) : "inherit"};">${l}</span>`, (v || "") === (ts.fontFamily || ""))).join(""), 210)),
+    sep,
+    btn("size-dec", "−", "Giảm cỡ chữ", false, size <= SCRIPT_SIZES[0]),
+    wrap("size", `<div data-act="scriptMenu" data-arg="size" data-keep-sel title="Cỡ chữ" class="tb-btn tb-size${menu === "size" ? " is-on" : ""}">${size}</div>`, pop(
+      SCRIPT_SIZES.map((n) => item("size:" + n, String(n), n === size, "text-align:center;")).join(""), 80)),
+    btn("size-inc", "+", "Tăng cỡ chữ", false, size >= SCRIPT_SIZES[SCRIPT_SIZES.length - 1]),
+    sep,
+    btn("bold", "<b>B</b>", "In đậm (" + KEY_MOD + "B)", on("bold")),
+    btn("italic", "<i style=\"font-family:Georgia,serif;\">I</i>", "In nghiêng (" + KEY_MOD + "I)", on("italic")),
+    btn("underline", "<u>U</u>", "Gạch chân (" + KEY_MOD + "U)", on("underline")),
+    btn("strike", "<s>S</s>", "Gạch ngang", on("strike")),
+    wrap("color", `<div data-act="scriptMenu" data-arg="color" data-keep-sel title="Màu chữ" class="tb-btn${menu === "color" ? " is-on" : ""}" style="flex-direction:column;gap:1px;"><span style="font-weight:600;line-height:1;">A</span><span style="width:16px;height:3px;border-radius:2px;background:${color || "var(--co-text)"};"></span></div>`,
+      pop(swatches("color", SCRIPT_COLORS, color, "Màu mặc định"), 236)),
+    wrap("hl", `<div data-act="scriptMenu" data-arg="hl" data-keep-sel title="Màu nền chữ" class="tb-btn${menu === "hl" ? " is-on" : ""}" style="flex-direction:column;gap:1px;"><span style="line-height:1;font-size:13px;">✎</span><span style="width:16px;height:3px;border-radius:2px;background:${hl || "transparent"};box-shadow:inset 0 0 0 1px var(--co-border-2);"></span></div>`,
+      pop(swatches("hl", SCRIPT_HIGHLIGHTS, hl, "Không tô nền"), 236)),
+    wrap("link", `<div data-act="scriptMenu" data-arg="link" data-keep-sel title="Chèn liên kết (${KEY_MOD}K)" class="tb-btn${on("link") || menu === "link" ? " is-on" : ""}">${sIcon("link")}</div>`, pop(`
+      <div style="font-size:12px;color:var(--co-muted);margin-bottom:6px;">Liên kết</div>
+      <input id="scriptLinkInput" value="${esc(ed.getAttributes("link").href || "")}" placeholder="https://…" style="width:100%;box-sizing:border-box;background:var(--co-hover);color:var(--co-text);border:1px solid var(--co-border-2);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;" />
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px;">
+        ${on("link") ? `<div data-act="scriptCmd" data-arg="unlink" class="tb-item" style="color:var(--co-bad);">Gỡ</div>` : ""}
+        ${on("link") ? `<a href="${esc(ed.getAttributes("link").href || "#")}" target="_blank" rel="noopener noreferrer" class="tb-item" style="text-decoration:none;color:var(--co-text-2);">Mở ↗</a>` : ""}
+        <div data-act="scriptCmd" data-arg="link-apply" class="tb-item" style="color:var(--co-accent-text);font-weight:600;">Áp dụng</div>
+      </div>`, 280)),
+    sep,
+    wrap("align", menuBtn("align", sIcon(alignIcon), "Căn lề"), pop(`<div style="display:flex;gap:2px;">${btn("align:left", sIcon("alignLeft"), "Căn trái (" + KEY_MOD + KEY_SHIFT + "L)", align === "left")}${btn("align:center", sIcon("alignCenter"), "Căn giữa (" + KEY_MOD + KEY_SHIFT + "E)", align === "center")}${btn("align:right", sIcon("alignRight"), "Căn phải (" + KEY_MOD + KEY_SHIFT + "R)", align === "right")}${btn("align:justify", sIcon("alignJustify"), "Căn đều (" + KEY_MOD + KEY_SHIFT + "J)", align === "justify")}</div>`)),
+    btn("ul", sIcon("ul"), "Danh sách chấm", on("bulletList")),
+    btn("ol", sIcon("ol"), "Danh sách số", on("orderedList")),
+    btn("task", sIcon("task"), "Danh sách việc cần làm", on("taskList")),
+    btn("outdent", sIcon("outdent"), "Giảm thụt lề", false, !(ed.can().liftListItem("listItem") || ed.can().liftListItem("taskItem"))),
+    btn("indent", sIcon("indent"), "Tăng thụt lề", false, !(ed.can().sinkListItem("listItem") || ed.can().sinkListItem("taskItem"))),
+    sep,
+    wrap("table", `<div data-act="scriptMenu" data-arg="table" data-keep-sel title="Chèn bảng" class="tb-btn${menu === "table" || inTable ? " is-on" : ""}">${sIcon("table")}</div>`, pop(`
+      <div style="font-size:12px;color:var(--co-muted);margin-bottom:8px;">Chèn bảng <span id="tblPickLabel" style="color:var(--co-text-2);font-weight:600;">3 × 3</span></div>
+      <div id="tblPick" style="display:grid;grid-template-columns:repeat(8,20px);gap:3px;">${Array.from({ length: 64 }, (_, i) => { const r = Math.floor(i / 8) + 1, c = (i % 8) + 1; return `<div data-act="scriptCmd" data-arg="table:${r}x${c}" data-keep-sel data-tbl-r="${r}" data-tbl-c="${c}" class="tbl-cell${r <= 3 && c <= 3 ? " is-on" : ""}"></div>`; }).join("")}</div>`, 196)),
+    btn("quote", sIcon("quote"), "Trích dẫn / lời thoại", on("blockquote")),
+    btn("hr", sIcon("hr"), "Đường kẻ ngang"),
+    btn("sup", "x<sup style=\"font-size:9px;\">2</sup>", "Chỉ số trên", on("superscript")),
+    btn("sub", "x<sub style=\"font-size:9px;\">2</sub>", "Chỉ số dưới", on("subscript")),
+    btn("clear", sIcon("clear"), "Xoá định dạng"),
+    sep,
+    btn("comment", sIcon("comment") + `<span style="margin-left:5px;font-size:12.5px;">Bình luận</span>`, "Thêm bình luận (" + KEY_MOD + "Alt+M)"),
+  ].join("");
+
+  const rowTable = !inTable ? "" : `<div class="tb-row tb-row--table">
+    <span style="font-size:12px;color:var(--co-faint);margin:0 6px 0 4px;">Bảng</span>
+    ${btn("tbl-row-before", "↑ Thêm hàng", "Chèn hàng phía trên")}${btn("tbl-row-after", "↓ Thêm hàng", "Chèn hàng phía dưới")}
+    ${btn("tbl-col-before", "← Thêm cột", "Chèn cột bên trái")}${btn("tbl-col-after", "→ Thêm cột", "Chèn cột bên phải")}
+    ${sep}
+    ${btn("tbl-merge", "Gộp / tách ô", "Gộp các ô đã chọn hoặc tách ô", false, !ed.can().mergeOrSplit())}
+    ${btn("tbl-header", "Hàng tiêu đề", "Bật/tắt hàng tiêu đề", false)}
+    ${sep}
+    ${btn("tbl-del-row", "Xoá hàng", "Xoá hàng hiện tại")}${btn("tbl-del-col", "Xoá cột", "Xoá cột hiện tại")}
+    ${btn("tbl-delete", `<span style="color:var(--co-bad);">Xoá bảng</span>`, "Xoá cả bảng")}
+  </div>`;
+  return `<div class="tb-row">${rowMain}</div>${rowTable}`;
+}
+
+function scriptCmd(arg) {
+  const ed = scriptEd;
+  if (!ed || !arg) return;
+  const c = () => ed.chain().focus();
+  const [k, v] = arg.includes(":") ? [arg.slice(0, arg.indexOf(":")), arg.slice(arg.indexOf(":") + 1)] : [arg, null];
+  const size = parseInt(ed.getAttributes("textStyle").fontSize, 10) || SCRIPT_BASE_SIZE;
+  const step = (dir) => {
+    const next = dir > 0 ? SCRIPT_SIZES.find((n) => n > size) : [...SCRIPT_SIZES].reverse().find((n) => n < size);
+    if (next) c().setFontSize(next + "px").run();
+  };
+  let closeMenu = true;
+  switch (k) {
+    case "undo": c().undo().run(); break;
+    case "redo": c().redo().run(); break;
+    case "p": c().setParagraph().run(); break;
+    case "h1": case "h2": case "h3": c().toggleHeading({ level: Number(k[1]) }).run(); break;
+    case "font": v ? c().setFontFamily(v).run() : c().unsetFontFamily().run(); break;
+    case "size": Number(v) === SCRIPT_BASE_SIZE ? c().unsetFontSize().run() : c().setFontSize(v + "px").run(); break;
+    case "size-dec": step(-1); closeMenu = false; break;
+    case "size-inc": step(1); closeMenu = false; break;
+    case "bold": c().toggleBold().run(); break;
+    case "italic": c().toggleItalic().run(); break;
+    case "underline": c().toggleUnderline().run(); break;
+    case "strike": c().toggleStrike().run(); break;
+    case "sup": c().toggleSuperscript().run(); break;
+    case "sub": c().toggleSubscript().run(); break;
+    case "color": v ? c().setColor(v).run() : c().unsetColor().run(); break;
+    case "hl": v ? c().setHighlight({ color: v }).run() : c().unsetHighlight().run(); break;
+    case "align": c().setTextAlign(v).run(); break;
+    case "ul": c().toggleBulletList().run(); break;
+    case "ol": c().toggleOrderedList().run(); break;
+    case "task": c().toggleTaskList().run(); break;
+    case "indent": c().sinkListItem(ed.isActive("taskItem") ? "taskItem" : "listItem").run(); break;
+    case "outdent": c().liftListItem(ed.isActive("taskItem") ? "taskItem" : "listItem").run(); break;
+    case "quote": c().toggleBlockquote().run(); break;
+    case "hr": c().setHorizontalRule().run(); break;
+    case "clear": c().unsetAllMarks().clearNodes().run(); break;
+    case "table": { const [r, cols] = v.split("x").map(Number); c().insertTable({ rows: r, cols, withHeaderRow: true }).run(); break; }
+    case "tbl-row-before": c().addRowBefore().run(); break;
+    case "tbl-row-after": c().addRowAfter().run(); break;
+    case "tbl-col-before": c().addColumnBefore().run(); break;
+    case "tbl-col-after": c().addColumnAfter().run(); break;
+    case "tbl-del-row": c().deleteRow().run(); break;
+    case "tbl-del-col": c().deleteColumn().run(); break;
+    case "tbl-merge": c().mergeOrSplit().run(); break;
+    case "tbl-header": c().toggleHeaderRow().run(); break;
+    case "tbl-delete": c().deleteTable().run(); break;
+    case "link-apply": {
+      const input = document.getElementById("scriptLinkInput");
+      let href = ((input && input.value) || "").trim();
+      if (!href) { c().extendMarkRange("link").unsetLink().run(); break; }
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) href = "https://" + href;
+      if (!/^(https?|mailto|tel):/i.test(href)) { toast("Chỉ hỗ trợ liên kết http(s), mailto, tel", "error"); closeMenu = false; break; }
+      if (ed.state.selection.empty && !ed.isActive("link")) c().insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }).run();
+      else c().extendMarkRange("link").setLink({ href }).run();
+      break;
+    }
+    case "unlink": c().extendMarkRange("link").unsetLink().run(); break;
+    case "comment": state.scriptMenu = null; return startScriptComment();
+  }
+  if (closeMenu && state.scriptMenu) state.scriptMenu = null;
+  paintScriptChrome();
+}
+function scriptToggleMenu(name) {
+  state.scriptMenu = state.scriptMenu === name ? null : name;
+  paintScriptChrome();
+  if (state.scriptMenu === "link") { const i = document.getElementById("scriptLinkInput"); if (i) { i.focus(); i.select(); } }
+}
+
+// ---- comments (Docs-style threads) ----
+function scriptThreads() {
+  const all = (state.script && state.script.comments) || [];
+  const roots = all.filter((c) => !c.parentId);
+  const replies = (id) => all.filter((c) => c.parentId === id);
+  return { roots, replies };
+}
+// Doc position of each anchored thread → sidebar order + orphan detection.
+function scriptAnchorPositions() {
+  const pos = {};
+  if (!scriptEd) return pos;
+  scriptEd.state.doc.descendants((node, p) => {
+    for (const m of node.marks || []) if (m.type.name === "comment" && m.attrs.id && pos[m.attrs.id] == null) pos[m.attrs.id] = p;
+  });
+  return pos;
+}
+function scriptSyncActiveThread() {
+  if (!scriptEd) return;
+  const m = scriptEd.state.selection.$from.marks().find((x) => x.type.name === "comment");
+  const id = m ? m.attrs.id : null;
+  if (id && id !== state.scriptActiveThread) {
+    const root = ((state.script && state.script.comments) || []).find((c) => c.id === id);
+    if (root) { state.scriptActiveThread = id; state.scriptThreadFilter = root.resolved ? "resolved" : "open"; state.scriptReplyText = ""; scheduleRender(); }
+  }
+}
+function startScriptComment() {
+  if (!scriptEd) return;
+  const { from, to, empty } = scriptEd.state.selection;
+  const quote = empty ? null : scriptEd.state.doc.textBetween(from, to, " ").trim().slice(0, 500) || null;
+  setStateNow({ scriptNewComment: quote ? { from, to, quote } : { from: null, to: null, quote: null }, scriptNewCommentText: "", scriptThreadFilter: "open", scriptActiveThread: null });
+  const i = document.getElementById("scriptNewCommentInput"); if (i) i.focus();
+}
+async function submitScriptComment() {
+  const s = state.script, draft = state.scriptNewComment;
+  const content = (state.scriptNewCommentText || "").trim();
+  if (!s || !draft || !content) return;
+  try {
+    const c = await api("/scripts/" + encodeURIComponent(s.id) + "/comments", { method: "POST", body: { content, quote: draft.quote } });
+    if (draft.from != null && scriptEd && _editorScript === s) {
+      const max = scriptEd.state.doc.content.size;
+      scriptEd.chain().setTextSelection({ from: Math.min(draft.from, max), to: Math.min(draft.to, max) }).setMark("comment", { id: c.id }).setTextSelection(Math.min(draft.to, max)).run();
+    }
+    s.comments = [...(s.comments || []), c];
+    bumpScriptRowComments(s.id, 1);
+    setStateNow({ scriptNewComment: null, scriptNewCommentText: "", scriptActiveThread: c.id });
+  } catch (e) { toast((e && e.message) || "Không gửi được bình luận", "error"); }
+}
+async function replyScriptComment(rootId) {
+  const s = state.script; const content = (state.scriptReplyText || "").trim();
+  if (!s || !content) return;
+  try {
+    const c = await api("/scripts/" + encodeURIComponent(s.id) + "/comments", { method: "POST", body: { content, parentId: rootId } });
+    s.comments = [...(s.comments || []), c];
+    setStateNow({ scriptReplyText: "" });
+    const i = document.getElementById("scriptReplyInput"); if (i) i.value = "";
+  } catch (e) { toast((e && e.message) || "Không gửi được trả lời", "error"); }
+}
+async function resolveScriptThread(id, resolved) {
+  const s = state.script; if (!s) return;
+  try {
+    const c = await api("/script-comments/" + encodeURIComponent(id), { method: "PATCH", body: { resolved } });
+    s.comments = s.comments.map((x) => (x.id === id ? c : x));
+    bumpScriptRowComments(s.id, resolved ? -1 : 1);
+    setStateNow({ scriptActiveThread: resolved ? null : id, scriptThreadFilter: resolved ? state.scriptThreadFilter : "open" });
+    if (resolved) toast("Đã giải quyết bình luận");
+  } catch (e) { toast((e && e.message) || "Không cập nhật được bình luận", "error"); }
+}
+async function saveScriptCommentEdit() {
+  const s = state.script, id = state.scriptEditComment;
+  const content = (state.scriptEditCommentText || "").trim();
+  if (!s || !id || !content) return;
+  try {
+    const c = await api("/script-comments/" + encodeURIComponent(id), { method: "PATCH", body: { content } });
+    s.comments = s.comments.map((x) => (x.id === id ? c : x));
+    setStateNow({ scriptEditComment: null, scriptEditCommentText: "" });
+  } catch (e) { toast((e && e.message) || "Không sửa được bình luận", "error"); }
+}
+async function deleteScriptComment(id) {
+  const s = state.script; if (!s) return;
+  const target = (s.comments || []).find((c) => c.id === id);
+  if (!target) return;
+  if (!target.parentId && !window.confirm("Xoá cả luồng bình luận này (kèm các trả lời)?")) return;
+  try {
+    await api("/script-comments/" + encodeURIComponent(id), { method: "DELETE" });
+    s.comments = s.comments.filter((c) => c.id !== id && c.parentId !== id);
+    if (!target.parentId) {
+      if (!target.resolved) bumpScriptRowComments(s.id, -1);
+      removeScriptCommentMark(id);
+    }
+    setStateNow({ scriptActiveThread: state.scriptActiveThread === id ? null : state.scriptActiveThread });
+  } catch (e) { toast((e && e.message) || "Không xoá được bình luận", "error"); }
+}
+// Strip one thread's anchor from the body (other overlapping threads stay).
+function removeScriptCommentMark(id) {
+  if (!scriptEd) return;
+  const { tr, doc } = scriptEd.state;
+  doc.descendants((node, pos) => {
+    for (const m of node.marks || []) if (m.type.name === "comment" && m.attrs.id === id) tr.removeMark(pos, pos + node.nodeSize, m);
+  });
+  if (tr.docChanged) scriptEd.view.dispatch(tr);
+}
+function bumpScriptRowComments(scriptId, delta) {
+  const row = (state.scripts || []).find((x) => x.id === scriptId);
+  if (row) row.commentCount = Math.max(0, (row.commentCount || 0) + delta);
+}
+function focusScriptThread(id) {
+  setStateNow({ scriptActiveThread: id, scriptReplyText: "", scriptEditComment: null });
+  const el = document.querySelector('#scriptEditorMount [data-comment-id="' + CSS.escape(id) + '"]');
+  if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  const i = document.getElementById("scriptReplyInput"); if (i) i.focus({ preventScroll: true });
+}
+
+function scriptAvatar(name, color, size = 26) {
+  return `<span style="width:${size}px;height:${size}px;flex:0 0 ${size}px;border-radius:50%;display:grid;place-items:center;font-size:${Math.round(size * 0.46)}px;font-weight:600;color:#fff;background:${esc(color || "var(--co-accent)")};">${esc(String(name || "?").trim().charAt(0).toUpperCase())}</span>`;
+}
+function scriptCommentBody(c, isRoot) {
+  const mine = remote.me && c.authorUserId === remote.me.id;
+  const editing = state.scriptEditComment === c.id;
+  return `
+    <div style="display:flex;align-items:center;gap:9px;">
+      ${scriptAvatar(c.authorName, c.authorColor, isRoot ? 28 : 24)}
+      <div style="min-width:0;flex:1;line-height:1.25;">
+        <div style="font-size:13px;font-weight:600;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.authorName || "?")}</div>
+        <div style="font-size:11.5px;color:var(--co-faint);">${esc(fmtAgo(c.createdAt))}${c.updatedAt ? " · đã sửa" : ""}</div>
+      </div>
+      ${isRoot && !c.resolved ? `<div data-act="resolveScriptThread" data-arg="${esc(c.id)}" title="Đánh dấu đã giải quyết" class="sc-icon-btn" style="color:var(--co-ok);">✓</div>` : ""}
+      ${mine && !editing ? `<div data-act="editScriptComment" data-arg="${esc(c.id)}" title="Sửa" class="sc-icon-btn">✎</div><div data-act="deleteScriptComment" data-arg="${esc(c.id)}" title="Xoá" class="sc-icon-btn">🗑</div>` : ""}
+    </div>
+    ${editing ? `
+      <textarea id="scriptEditCommentInput" rows="3" class="sc-input" style="margin-top:8px;">${esc(state.scriptEditCommentText || "")}</textarea>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">${mBtn("text", { act: "cancelScriptCommentEdit", label: "Huỷ", sm: true })}${mBtn("filled", { act: "saveScriptCommentEdit", label: "Lưu", sm: true })}</div>`
+      : `<div style="margin-top:7px;font-size:13.5px;line-height:1.55;color:var(--co-text-2);white-space:pre-wrap;word-break:break-word;">${esc(c.content)}</div>`}`;
+}
+function scriptCommentsPanel() {
+  const s = state.script;
+  const { roots, replies } = scriptThreads();
+  const pos = scriptAnchorPositions();
+  const open = roots.filter((c) => !c.resolved), done = roots.filter((c) => c.resolved);
+  const filter = state.scriptThreadFilter === "resolved" ? "resolved" : "open";
+  const list = (filter === "open" ? open : done).slice().sort((a, b) => {
+    const pa = pos[a.id], pb = pos[b.id];
+    if (pa != null && pb != null) return pa - pb;
+    if (pa != null) return -1;
+    if (pb != null) return 1;
+    return String(a.createdAt).localeCompare(String(b.createdAt));
+  });
+  const draft = state.scriptNewComment;
+  const tab = (id, label, n) => `<div data-act="setScriptThreadFilter" data-arg="${id}" style="padding:5px 10px;border-radius:999px;cursor:pointer;font-size:12.5px;${filter === id ? "background:var(--co-tonal-bg);color:var(--co-accent-text);font-weight:600;" : "color:var(--co-muted);"}">${label}${n ? ` <span style="opacity:.75;">${n}</span>` : ""}</div>`;
+  const card = (c) => {
+    const active = state.scriptActiveThread === c.id;
+    const orphan = !!(scriptEd && c.quote && pos[c.id] == null); // unknown until the editor is up
+    const reps = replies(c.id);
+    return `<div data-act="focusScriptThread" data-arg="${esc(c.id)}" class="sc-card${active ? " is-active" : ""}">
+      ${c.quote ? `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;"><div style="width:3px;align-self:stretch;border-radius:2px;background:${orphan ? "var(--co-faint)" : "#f5b800"};"></div><div style="font-size:12.5px;color:var(--co-muted);line-height:1.45;max-height:3.9em;overflow:hidden;${orphan ? "text-decoration:line-through;" : ""}">${esc(c.quote)}</div></div>${orphan ? `<div style="font-size:11.5px;color:var(--co-faint);margin:-4px 0 10px 11px;">Đoạn văn được bình luận đã bị xoá</div>` : ""}` : `<div style="font-size:11.5px;color:var(--co-faint);margin-bottom:8px;">Bình luận chung</div>`}
+      ${scriptCommentBody(c, true)}
+      ${reps.length ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;padding-top:12px;border-top:1px solid var(--co-hairline);">${reps.map((r) => `<div>${scriptCommentBody(r, false)}</div>`).join("")}</div>` : ""}
+      ${c.resolved ? `<div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--co-faint);"><span style="color:var(--co-ok);">✓</span>Đã giải quyết${c.resolvedByName ? " bởi " + esc(c.resolvedByName) : ""}<div style="flex:1"></div><div data-act="reopenScriptThread" data-arg="${esc(c.id)}" class="co-act" style="cursor:pointer;color:var(--co-accent-text);">Mở lại</div></div>` : ""}
+      ${active && !c.resolved ? `<div data-stop="1" style="margin-top:12px;">
+        <textarea id="scriptReplyInput" rows="2" class="sc-input" placeholder="Trả lời… (Enter để gửi)">${esc(state.scriptReplyText || "")}</textarea>
+        ${(state.scriptReplyText || "").trim() ? `<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">${mBtn("text", { act: "cancelScriptReply", label: "Huỷ", sm: true })}${mBtn("filled", { act: "replyScriptComment", arg: c.id, label: "Trả lời", sm: true })}</div>` : ""}
+      </div>` : ""}
+    </div>`;
+  };
+  return `
+  <aside class="sc-panel">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:600;margin-right:6px;">Bình luận</div>
+      ${tab("open", "Đang mở", open.length)}${tab("resolved", "Đã giải quyết", done.length)}
+      <div style="flex:1"></div>
+      <div data-act="scriptCmd" data-arg="comment" data-keep-sel title="Thêm bình luận" class="sc-icon-btn" style="font-size:18px;">+</div>
+    </div>
+    ${draft ? `<div class="sc-card is-active" data-stop="1">
+      ${draft.quote ? `<div style="display:flex;gap:8px;margin-bottom:10px;"><div style="width:3px;border-radius:2px;background:#f5b800;"></div><div style="font-size:12.5px;color:var(--co-muted);line-height:1.45;max-height:3.9em;overflow:hidden;">${esc(draft.quote)}</div></div>` : `<div style="font-size:11.5px;color:var(--co-faint);margin-bottom:8px;">Bình luận chung cho cả kịch bản — bôi đen một đoạn trước để bình luận đúng chỗ.</div>`}
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;">${scriptAvatar(remote.me && remote.me.name, remote.me && remote.me.color, 28)}<div style="font-size:13px;font-weight:600;">${esc((remote.me && remote.me.name) || "")}</div></div>
+      <textarea id="scriptNewCommentInput" rows="3" class="sc-input" placeholder="Thêm bình luận… (Enter để gửi)">${esc(state.scriptNewCommentText || "")}</textarea>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px;">${mBtn("text", { act: "cancelScriptComment", label: "Huỷ", sm: true })}${mBtn("filled", { act: "submitScriptComment", label: "Bình luận", sm: true })}</div>
+    </div>` : ""}
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${list.map(card).join("") || (draft ? "" : `<div style="font-size:12.5px;color:var(--co-faint);line-height:1.6;padding:6px 2px;">${filter === "open" ? "Chưa có bình luận nào đang mở.<br>Bôi đen một đoạn văn rồi bấm <b>Bình luận</b> (" + KEY_MOD + "Alt+M) để góp ý đúng chỗ." : "Chưa có bình luận nào được giải quyết."}</div>`)}
+    </div>
+  </aside>`;
+}
+
+// ---- project link picker ----
+// Projects share one default palette, so tint by id instead: a stable colour
+// + initial per project makes the picker scannable at a glance.
+const PROJECT_TINTS = ["#9184d9", "#2da8e2", "#e072a8", "#f5a623", "#35c389", "#e5604d", "#5b8def", "#b07be0", "#26a69a", "#d4a017"];
+function projectTile(p, size) {
+  let h = 0;
+  for (const ch of String(p.id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const c = PROJECT_TINTS[h % PROJECT_TINTS.length];
+  const initial = String(p.name || "?").replace(/^[^\p{L}\p{N}]+/u, "").charAt(0).toUpperCase() || "?";
+  return `<span style="width:${size}px;height:${size}px;flex:0 0 ${size}px;border-radius:${Math.round(size / 3.2)}px;display:grid;place-items:center;font-size:${Math.round(size * 0.48)}px;font-weight:650;color:${c};background:color-mix(in srgb, ${c} 18%, transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb, ${c} 38%, transparent);">${esc(initial)}</span>`;
+}
+function scriptProjectPicker(s) {
+  const linked = s.projectId ? PROJECTS.find((p) => p.id === s.projectId) : null;
+  const swatch = (p, size) => projectTile(p, size);
+  const chip = linked
+    ? `<div data-act="toggleScriptProjMenu" class="sp-chip${state.scriptProjMenu ? " is-on" : ""}" title="Dự án của kịch bản">${swatch(linked, 20)}<span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(linked.name)}</span><span style="opacity:.6;display:flex;">${sIcon("chevron", 14)}</span></div>`
+    : `<div data-act="toggleScriptProjMenu" class="sp-chip sp-chip--empty${state.scriptProjMenu ? " is-on" : ""}"><span style="font-size:15px;line-height:1;">+</span>${s.projectId ? esc(s.projectName || "Dự án") : "Gắn vào dự án"}</div>`;
+  if (!state.scriptProjMenu) return `<div data-script-proj style="position:relative;">${chip}</div>`;
+  const q = (state.scriptProjQuery || "").trim().toLowerCase();
+  const list = PROJECTS.filter((p) => !p.archivedAt && (!q || String(p.name).toLowerCase().includes(q) || String(p.client || "").toLowerCase().includes(q)));
+  return `<div data-script-proj style="position:relative;">${chip}
+    <div class="sp-pop" data-stop="1">
+      <div style="padding:10px 10px 6px;">
+        <input id="scriptProjSearch" value="${esc(state.scriptProjQuery || "")}" placeholder="Tìm dự án…" autocomplete="off" class="sc-input" style="padding:8px 10px;" />
+      </div>
+      <div style="max-height:300px;overflow-y:auto;padding:4px 6px 6px;">
+        ${list.map((p, i) => {
+          const st = SM[p.status] || SM.progress;
+          const cur = p.id === s.projectId;
+          return `<div data-act="pickScriptProject" data-arg="${esc(p.id)}" class="sp-item${cur ? " is-on" : ""}${i === 0 && q ? " is-first" : ""}">
+            ${swatch(p, 32)}
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:13.5px;color:var(--co-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(p.name)}</div>
+              <div style="font-size:11.5px;color:var(--co-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.client ? esc(p.client) + " · " : ""}<span style="color:${st.color};">${st.label}</span></div>
+            </div>
+            ${cur ? `<span style="color:var(--co-accent-text);font-size:15px;">✓</span>` : ""}
+          </div>`;
+        }).join("") || `<div style="padding:14px 10px;font-size:12.5px;color:var(--co-faint);">Không có dự án khớp “${esc(state.scriptProjQuery)}”.</div>`}
+      </div>
+      ${s.projectId ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--co-hairline);font-size:12.5px;">
+        <div data-act="pickScriptProject" data-arg="" class="co-act" style="cursor:pointer;color:var(--co-bad);">Bỏ gắn</div>
+        <div style="flex:1"></div>
+        ${linked ? `<div data-act="openProject" data-arg="${esc(linked.id)}" class="co-act" style="cursor:pointer;color:var(--co-accent-text);">Mở dự án →</div>` : ""}
+      </div>` : ""}
+    </div>
+  </div>`;
+}
+function pickScriptProject(id) {
+  state.scriptProjMenu = false; state.scriptProjQuery = "";
+  const value = id || null;
+  if (state.script && state.script.projectId === value) return render();
+  setScriptField("projectId", value);
+}
+
+// "Kịch bản: A · B · + Viết kịch bản" under a project's header. The script list
+// is loaded lazily the first time a project page needs it.
+function projectScriptsLine(projectId) {
+  if (state.scripts === null && !state.scriptsLoading) { state.scriptsLoading = true; setTimeout(() => refreshScripts().catch(() => {}), 0); }
+  const linked = (state.scripts || []).filter((s) => s.projectId === projectId);
+  return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;color:var(--co-muted);margin-bottom:34px;">
+    <span>Kịch bản</span>
+    ${linked.map((s) => `<span data-act="openScript" data-arg="${esc(s.id)}" class="co-act" style="cursor:pointer;color:var(--co-text-2);display:inline-flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:${(SCRIPT_STATUS[s.status] || SCRIPT_STATUS.draft).color};"></span>${esc(s.title)}</span>`).join("")}
+    <span data-act="createScript" class="co-act" style="cursor:pointer;color:var(--co-accent-text);">+ Viết kịch bản</span>
+  </div>`;
+}
+
+function scriptStatusChip(status) {
+  const st = SCRIPT_STATUS[status] || SCRIPT_STATUS.draft;
+  return `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:${st.color};white-space:nowrap;"><span style="width:7px;height:7px;border-radius:50%;background:${st.color};"></span>${st.label}</span>`;
+}
+
+function scriptsView() {
+  const list = state.scripts || [];
+  return `
+  <main data-screen id="scriptsScroll" style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
+    <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:10px 16px;margin-bottom:44px;">
+      ${sectionSwitch("scripts")}
+      <div style="font-size:14px;color:var(--co-faint);">${list.length || ""}</div>
+      <div style="flex:1"></div>
+      ${mBtn("filled", { act: "createScript", label: "Kịch bản mới", sm: true })}
+    </div>
+    ${state.scriptsError ? `<div style="margin-bottom:18px;font-size:13px;color:var(--co-bad);">${esc(state.scriptsError)}</div>` : ""}
+    ${list.length === 0 ? (state.scriptsLoading || state.scripts === null ? `<div style="font-size:13.5px;color:var(--co-muted);">Đang tải…</div>` : `
+      <div style="padding:40px 0;">
+        <div style="font-size:19px;font-weight:500;letter-spacing:-0.01em;margin-bottom:8px;">Chưa có kịch bản nào</div>
+        <div style="font-size:13.5px;color:var(--co-muted);max-width:440px;line-height:1.6;">Viết kịch bản cho video, gắn vào dự án và gửi nhóm duyệt — mọi thay đổi được tự động lưu.</div>
+        <div style="margin-top:20px;">${mBtn("filled", { act: "createScript", label: "Viết kịch bản đầu tiên", sm: true })}</div>
+      </div>`) : list.map((s) => {
+        const p = s.projectId ? PROJECTS.find((x) => x.id === s.projectId) : null;
+        return `
+      <div data-act="openScript" data-arg="${esc(s.id)}" class="co-row" style="display:flex;align-items:center;gap:20px;padding:17px 0;border-bottom:1px solid var(--co-hairline);">
+        <div style="flex:1;min-width:0;">
+          <div class="co-row-title" style="font-size:17px;font-weight:500;letter-spacing:-0.01em;color:var(--co-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.title)}</div>
+          <div style="margin-top:4px;font-size:12.5px;color:var(--co-faint);display:flex;align-items:center;gap:7px;min-width:0;">
+            ${p ? `${projectTile(p, 16)}<span style="color:var(--co-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;">${esc(p.name)}</span><span>·</span>` : s.projectName ? `<span>${esc(s.projectName)}</span><span>·</span>` : ""}
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">sửa ${esc(fmtAgo(s.updatedAt))}${s.updatedByName ? " bởi " + esc(s.updatedByName) : ""}</span>
+          </div>
+        </div>
+        <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:110px;text-align:right;white-space:nowrap;">${s.commentCount ? s.commentCount + " bình luận mở" : ""}</div>
+        <div style="width:86px;text-align:right;">${scriptStatusChip(s.status)}</div>
+      </div>`;
+      }).join("")}
+  </main>`;
+}
+
+function scriptEditorView() {
+  const s = state.script;
+  if (!s) return `<main data-screen style="flex:1;padding:64px 36px;font-size:13.5px;color:var(--co-muted);">Đang mở kịch bản…</main>`;
+  const conflict = state.scriptConflict;
+  const { roots } = scriptThreads();
+  // Highlight only open threads; the active one stronger.
+  const openIds = roots.filter((c) => !c.resolved).map((c) => c.id);
+  const anchorCss = openIds.map((id) => `.script-doc .sc-comment[data-comment-id="${CSS.escape(id)}"]`).join(",");
+  const activeCss = state.scriptActiveThread ? `.script-doc .sc-comment[data-comment-id="${CSS.escape(state.scriptActiveThread)}"]` : "";
+  return `
+  <main data-screen id="scriptScroll" style="flex:1;min-height:0;overflow-y:auto;padding:28px 40px 72px 36px;">
+    <style>${anchorCss ? anchorCss + "{background:rgba(245,184,0,.18);border-bottom:2px solid rgba(245,184,0,.55);cursor:pointer;}" : ""}${activeCss ? activeCss + "{background:rgba(245,184,0,.42);}" : ""}</style>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+      <div data-act="goScripts" class="co-act" style="font-size:13px;color:var(--co-muted);cursor:pointer;">← Kịch bản</div>
+      <div style="flex:1"></div>
+      <div id="scriptSaveLabel" style="font-size:12.5px;color:${state.scriptSave === "error" || state.scriptSave === "conflict" ? "var(--co-bad)" : "var(--co-faint)"};">${scriptSaveLabel()}</div>
+      <div data-act="deleteScript" class="co-act" style="font-size:12.5px;cursor:pointer;color:var(--co-faint);">Xoá</div>
+    </div>
+    <input id="scriptTitle" value="${esc(s.title)}" placeholder="${SCRIPT_UNTITLED}" maxlength="200" style="display:block;width:100%;background:none;border:none;color:var(--co-text);font:inherit;font-size:28px;font-weight:600;letter-spacing:-0.03em;padding:0;margin-bottom:12px;" />
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin-bottom:16px;">
+      ${scriptProjectPicker(s)}
+      <div data-hide-sm style="width:1px;height:18px;background:var(--co-border-2);"></div>
+      <div style="display:flex;gap:4px;">${Object.entries(SCRIPT_STATUS).map(([k, st]) => `<div data-act="setScriptStatus" data-arg="${k}" class="co-hover" style="padding:5px 11px;border-radius:999px;cursor:pointer;font-size:12.5px;${s.status === k ? `background:var(--co-tonal-bg);box-shadow:inset 0 0 0 1px var(--co-tonal-line);color:${st.color};font-weight:600;` : "color:var(--co-muted);"}">${st.label}</div>`).join("")}</div>
+    </div>
+    ${conflict ? `
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;padding:12px 16px;margin-bottom:14px;border-radius:12px;background:var(--co-hover);box-shadow:inset 0 0 0 1px var(--co-bad);font-size:13px;color:var(--co-text-2);">
+      <div style="flex:1;min-width:220px;">${esc(conflict.updatedByName || "Ai đó")} vừa lưu một bản khác của kịch bản này. Thay đổi của bạn chưa được lưu.</div>
+      ${mBtn("tonal", { act: "scriptTakeTheirs", label: "Tải bản mới (bỏ thay đổi của tôi)", sm: true })}
+      ${mBtn("filled", { act: "scriptKeepMine", label: "Giữ bản của tôi", sm: true })}
+    </div>` : ""}
+    <div id="scriptToolbar" class="script-toolbar">${scriptToolbarInner()}</div>
+    <div class="script-layout">
+      <div class="script-page-col" style="position:relative;">
+        <div class="script-page"><div id="scriptEditorMount"></div></div>
+        <div id="scriptBubble" data-act="scriptCmd" data-arg="comment" data-keep-sel title="Bình luận về đoạn đã chọn" class="sc-bubble" style="display:none;">${sIcon("comment", 16)}<span>Bình luận</span></div>
+        <div id="scriptCount" style="margin:10px 4px 0;font-size:12px;color:var(--co-faint);text-align:right;"></div>
+      </div>
+      ${scriptCommentsPanel()}
+    </div>
+  </main>`;
 }
 
 function calChip(it) {
@@ -1910,7 +2872,7 @@ function calendarView(vals) {
   for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push(d); }
   return `
   <main data-screen id="calScroll" style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
-    <div style="display:flex;align-items:baseline;gap:20px;margin-bottom:30px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 20px;margin-bottom:30px;">
       ${sectionSwitch("calendar")}
       <div style="flex:1"></div>
       <div data-act="calToday" class="co-act" style="font-size:13px;color:var(--co-muted);cursor:pointer;">Hôm nay</div>
@@ -1951,7 +2913,7 @@ function projectsHub(vals) {
   const archived = vals.archivedCount || 0;
   return `
   <main data-screen id="hubScroll" style="flex:1;min-height:0;overflow-y:auto;padding:64px 88px 72px 36px;">
-    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:44px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 16px;margin-bottom:44px;">
       ${sectionSwitch("projects")}
       <div style="font-size:14px;color:var(--co-faint);">${projects.length}</div>
       <div style="flex:1"></div>
@@ -1995,15 +2957,17 @@ function projectDetail(vals) {
   return `
   <main data-screen id="projectDetailScroll" style="flex:1;min-height:0;overflow-y:auto;padding:56px 88px 72px 36px;">
     <div data-act="goProjects" class="co-act" style="font-size:13px;color:var(--co-muted);cursor:pointer;margin-bottom:18px;display:inline-block;">← Dự án</div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-      <div style="font-size:28px;font-weight:600;letter-spacing:-0.03em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.projectName)}</div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin-bottom:8px;">
+      <div style="font-size:28px;font-weight:600;letter-spacing:-0.03em;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(vals.projectName)}</div>
       <div style="flex:1"></div>
       ${vals.canManageProject ? mBtn("filled", { act: "openImport", label: "Thêm nguồn", sm: true }) : ""}
       ${mBtn("tonal", { act: "toggleMembers", label: "Chia sẻ", sm: true })}
+      ${sources.length ? mBtn("tonal", { act: "downloadAll", arg: state.selectedProjectId, html: ICON.download + "Tải tất cả", sm: true, title: "Tải bản gốc của toàn bộ video thành 1 file ZIP" }) : ""}
       ${vals.canManageProject ? `<div data-act="openDatePicker" data-arg="${esc(state.selectedProjectId)}" class="co-act" title="Ngày lên sóng của dự án" style="font-size:13.5px;color:${vals.projectAirDate ? "var(--co-accent-text)" : "var(--co-muted)"};cursor:pointer;white-space:nowrap;">${vals.projectAirDate ? "Lên sóng " + esc(vals.projectAirLabel) : "Đặt ngày lên sóng"}</div>` : ""}
       <div data-act="openProjectMenu" data-arg="${esc(state.selectedProjectId)}" data-hide-sm class="co-act" title="Tác vụ dự án" style="font-size:13.5px;color:var(--co-muted);cursor:pointer;white-space:nowrap;">Tác vụ</div>
     </div>
-    <div style="font-size:13.5px;color:var(--co-muted);margin-bottom:40px;">${esc(vals.detailMeta)}</div>
+    <div style="font-size:13.5px;color:var(--co-muted);margin-bottom:${remote.canUseScripts ? "10px" : "40px"};">${esc(vals.detailMeta)}</div>
+    ${remote.canUseScripts ? projectScriptsLine(state.selectedProjectId) : ""}
     ${sources.length === 0 ? `
       <div style="padding:20px 0;">
         <div style="font-size:17px;font-weight:500;letter-spacing:-0.01em;margin-bottom:8px;">Dự án chưa có nguồn</div>
@@ -2020,6 +2984,7 @@ function projectDetail(vals) {
         <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-accent-text);white-space:nowrap;">${a.transcoding ? esc(a.statusLabel) : ""}</div>
         <div data-row-col="sm-hide" style="font-size:13px;color:var(--co-muted);width:78px;text-align:right;white-space:nowrap;">${a.comments ? a.comments + " ghi chú" : ""}</div>
         <div style="font-variant-numeric:tabular-nums;font-size:13px;color:var(--co-muted);width:56px;text-align:right;">${esc(a.durLabel)}</div>
+        ${mBtn("neutral", { act: "downloadSource", arg: a.id, icon: true, sm: true, html: ICON.download, title: "Tải bản gốc" })}
       </div>
     `).join("")}
   </main>`;
@@ -3676,7 +4641,7 @@ function computeVals() {
 }
 
 let lastNasListMeta = [];
-const PERSIST_SCROLL_IDS = ["hubScroll", "projectDetailScroll", "importListScroll", "notesScroll", "settingsScroll"];
+const PERSIST_SCROLL_IDS = ["hubScroll", "projectDetailScroll", "importListScroll", "notesScroll", "settingsScroll", "scriptsScroll", "scriptScroll"];
 
 function capturePersistedScrollPositions() {
   const out = {};
@@ -3743,6 +4708,9 @@ function render() {
   // thrown away, and nothing resumes it. Detached media elements keep their
   // playback + buffer state, so we lift it out and swap it back in.
   const liveVideo = document.getElementById("reviewVideo");
+  // The script editor (TipTap) lives outside the rebuild: its host node is
+  // moved back into #scriptEditorMount below, keeping selection and undo.
+  const scriptEdFocused = !!(scriptEd && scriptEd.isFocused);
 
   document.documentElement.setAttribute("data-theme", state.theme);
   app.setAttribute("data-theme", state.theme);
@@ -3753,6 +4721,8 @@ function render() {
   const screen =
     state.view === "projects" ? projectsHub(vals)
     : state.view === "calendar" ? calendarView(vals)
+    : state.view === "scripts" && remote.canUseScripts ? scriptsView()
+    : state.view === "script" && remote.canUseScripts ? scriptEditorView()
     : state.view === "project" ? projectDetail(vals)
     : state.view === "review" ? review(vals)
     : state.view === "settings" ? settingsPage(vals)
@@ -3789,6 +4759,8 @@ function render() {
       try { liveVideo.pause(); } catch (_) {}
     }
   }
+  if (document.getElementById("scriptEditorMount")) mountScriptEditor(scriptEdFocused);
+  else if (scriptEd) destroyScriptEditor(); // left the editor: flush + tear down
   syncHashRoute();
   restorePersistedScrollPositions(savedScroll);
   restoreFocusedField(savedFocus);
@@ -3817,6 +4789,9 @@ document.addEventListener("pointerdown", (e) => {
 });
 
 document.addEventListener("click", (e) => {
+  const within = (sel) => !!(e.target && e.target.closest && e.target.closest(sel));
+  if (state.scriptMenu && !within("[data-script-menu]")) { state.scriptMenu = null; paintScriptChrome(); }
+  if (state.scriptProjMenu && !within("[data-script-proj]")) { state.scriptProjMenu = false; state.scriptProjQuery = ""; render(); }
   const inContextMenu = e.target && e.target.closest && e.target.closest("[data-context-menu]");
   if (!inContextMenu && (state.projectContextMenu || state.sourceContextMenu)) {
     state.projectContextMenu = null;
@@ -3862,6 +4837,38 @@ function handleAct(act, arg, e, node) {
   switch (act) {
     case "goProjects": return goProjects();
     case "goCalendar": return goCalendar();
+    case "goScripts": return goScripts();
+    case "openScript": return openScript(arg);
+    case "createScript": return createScript();
+    case "scriptCmd": return scriptCmd(arg);
+    case "scriptMenu": return scriptToggleMenu(arg);
+    case "toggleScriptProjMenu": {
+      setStateNow({ scriptProjMenu: !state.scriptProjMenu, scriptProjQuery: "" });
+      const i = document.getElementById("scriptProjSearch"); if (i) i.focus();
+      return;
+    }
+    case "pickScriptProject": return pickScriptProject(arg);
+    case "setScriptThreadFilter": return setStateNow({ scriptThreadFilter: arg, scriptActiveThread: null });
+    case "focusScriptThread": return state.scriptActiveThread === arg ? undefined : focusScriptThread(arg);
+    case "submitScriptComment": return submitScriptComment();
+    case "cancelScriptComment": return setStateNow({ scriptNewComment: null, scriptNewCommentText: "" });
+    case "replyScriptComment": return replyScriptComment(arg);
+    case "cancelScriptReply": return setStateNow({ scriptReplyText: "" });
+    case "resolveScriptThread": return resolveScriptThread(arg, true);
+    case "reopenScriptThread": return resolveScriptThread(arg, false);
+    case "editScriptComment": {
+      const c = ((state.script && state.script.comments) || []).find((x) => x.id === arg);
+      setStateNow({ scriptEditComment: arg, scriptEditCommentText: c ? c.content : "" });
+      const i = document.getElementById("scriptEditCommentInput"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+      return;
+    }
+    case "cancelScriptCommentEdit": return setStateNow({ scriptEditComment: null, scriptEditCommentText: "" });
+    case "saveScriptCommentEdit": return saveScriptCommentEdit();
+    case "setScriptStatus": return setScriptField("status", arg);
+    case "scriptTakeTheirs": return scriptTakeTheirs();
+    case "scriptKeepMine": return saveScript({ force: true });
+    case "deleteScript": return deleteScript();
+    case "deleteScriptComment": return deleteScriptComment(arg);
     case "calPrev": return calShiftMonth(-1);
     case "calNext": return calShiftMonth(1);
     case "calToday": return calGoToday();
@@ -3937,6 +4944,8 @@ function handleAct(act, arg, e, node) {
     case "openProject": return openProject(arg);
     case "openSelProject": return openProject(state.selectedProjectId);
     case "openSource": return openSource(arg);
+    case "downloadSource": return downloadSource(arg);
+    case "downloadAll": return downloadAllSources(arg);
     case "setStatusFilter": return setStatusFilter(arg);
     case "toggleTheme": return toggleTheme();
     case "toggleUpdateModal": return openUpdateModal();
@@ -4110,6 +5119,34 @@ document.addEventListener("input", (e) => {
   if (e.target && e.target.id === "editCommentInput") {
     state.editingCommentText = e.target.value;
   }
+  if (e.target && e.target.id === "scriptTitle" && state.script) {
+    state.script.title = e.target.value;
+    scriptEdited();
+  }
+  if (e.target && e.target.id === "scriptNewCommentInput") state.scriptNewCommentText = e.target.value;
+  if (e.target && e.target.id === "scriptEditCommentInput") state.scriptEditCommentText = e.target.value;
+  if (e.target && e.target.id === "scriptReplyInput") {
+    // the Huỷ/Trả lời buttons appear once there's text — render only on that flip
+    const had = !!(state.scriptReplyText || "").trim();
+    state.scriptReplyText = e.target.value;
+    if (had !== !!state.scriptReplyText.trim()) scheduleRender();
+  }
+  if (e.target && e.target.id === "scriptProjSearch") { state.scriptProjQuery = e.target.value; scheduleRender(); }
+});
+// Table size picker: light up the rows×cols rectangle under the pointer.
+document.addEventListener("mouseover", (e) => {
+  const cell = e.target && e.target.closest && e.target.closest("[data-tbl-r]");
+  if (!cell) return;
+  const r = +cell.dataset.tblR, c = +cell.dataset.tblC;
+  document.querySelectorAll("#tblPick [data-tbl-r]").forEach((n) => n.classList.toggle("is-on", +n.dataset.tblR <= r && +n.dataset.tblC <= c));
+  const label = document.getElementById("tblPickLabel"); if (label) label.textContent = r + " × " + c;
+});
+// Toolbar buttons must not steal focus/selection from the editor.
+document.addEventListener("mousedown", (e) => {
+  if (e.target && e.target.closest && e.target.closest("[data-keep-sel]")) e.preventDefault();
+});
+window.addEventListener("beforeunload", (e) => {
+  if (_scriptDirty || _scriptSaving) { e.preventDefault(); e.returnValue = ""; }
 });
 document.addEventListener("change", (e) => {
   if (e.target && e.target.id === "memberInviteUser") {
@@ -4134,12 +5171,18 @@ document.addEventListener("keydown", (e) => {
   // transient surface is on top, outermost-last.
   if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
     e.preventDefault();
+    // Inside the script editor ⌘K means "insert link", like Docs.
+    if (state.view === "script" && scriptEd && scriptEd.isFocused) return scriptToggleMenu("link");
     return handleAct(state.paletteOpen ? "closePalette" : "openPalette");
   }
   if (e.key === "Escape") {
     // Peel one layer per press, most transient first. The last rung leaves
     // review entirely — Escape on a full-bleed player should mean "get me out".
     if (state.projectContextMenu || state.sourceContextMenu) return setState({ projectContextMenu: null, sourceContextMenu: null });
+    if (state.scriptMenu) { state.scriptMenu = null; paintScriptChrome(); if (scriptEd) scriptEd.commands.focus(); return; }
+    if (state.scriptProjMenu) return setStateNow({ scriptProjMenu: false, scriptProjQuery: "" });
+    if (state.scriptNewComment) return setStateNow({ scriptNewComment: null, scriptNewCommentText: "" });
+    if (state.scriptEditComment) return setStateNow({ scriptEditComment: null, scriptEditCommentText: "" });
     if (state.datePickerFor) return setState({ datePickerFor: null });
     if (state.paletteOpen) return setState({ paletteOpen: false, paletteQuery: "" });
     if (state.showImport) return closeImport();
@@ -4173,6 +5216,31 @@ document.addEventListener("keydown", (e) => {
   if (e.target && e.target.id === "commentInput" && e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     postComment();
+    return;
+  }
+  if (e.target && e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    const id = e.target.id;
+    if (id === "scriptNewCommentInput") { e.preventDefault(); return submitScriptComment(); }
+    if (id === "scriptReplyInput") { e.preventDefault(); return replyScriptComment(state.scriptActiveThread); }
+    if (id === "scriptEditCommentInput") { e.preventDefault(); return saveScriptCommentEdit(); }
+    if (id === "scriptLinkInput") { e.preventDefault(); return scriptCmd("link-apply"); }
+    if (id === "scriptProjSearch") {
+      e.preventDefault();
+      const first = document.querySelector('.sp-pop [data-act="pickScriptProject"][data-arg]:not([data-arg=""])');
+      if (first) pickScriptProject(first.dataset.arg);
+      return;
+    }
+  }
+  if (state.view === "script" && (e.metaKey || e.ctrlKey) && e.altKey && (e.code === "KeyM")) { e.preventDefault(); return startScriptComment(); }
+  if (state.view === "script" && (e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
+    e.preventDefault();
+    if (state.scriptSave !== "conflict") saveScript();
+    return;
+  }
+  // Enter in the title jumps into the body instead of doing nothing.
+  if (e.target && e.target.id === "scriptTitle" && e.key === "Enter" && !e.isComposing) {
+    e.preventDefault();
+    if (scriptEd) scriptEd.commands.focus("start");
     return;
   }
   if (state.view !== "review" || state.paletteOpen) return;
@@ -4458,7 +5526,7 @@ async function bootstrap() {
   setHint("Xác thực phiên…");
   try {
     const r = await api("/me");
-    remote.connected = true; remote.me = r.user;
+    remote.connected = true; remote.me = r.user; remote.canUseScripts = !!r.canUseScripts;
     setHint("Tải dữ liệu…");
     await loadRemote();
     applyHashRoute();
@@ -4490,7 +5558,7 @@ async function tryBootProbe() {
     }
     try {
       const r = await api("/me");
-      remote.me = r.user;
+      remote.me = r.user; remote.canUseScripts = !!r.canUseScripts;
       await loadRemote();
       applyHashRoute();
     } catch (e) {
@@ -5269,7 +6337,7 @@ async function doLogin() {
     // Logged in. Dismiss the overlay BEFORE awaiting loadRemote — otherwise the
     // user stares at "Đang xác thực…" for a few seconds while projects/users load,
     // which feels like a hang.
-    remote.me = r.user; auth.busy = false; auth.needsOtp = false; auth.passwd = ""; auth.otp = "";
+    remote.me = r.user; remote.canUseScripts = !!r.canUseScripts; auth.busy = false; auth.needsOtp = false; auth.passwd = ""; auth.otp = "";
     render();
     loadRemote()
       .then(() => render())
