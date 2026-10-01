@@ -1528,6 +1528,28 @@ function settingsRow(label, value, action, act, arg) {
   </div>`;
 }
 
+// Settings → Cập nhật. Reads /admin/update-status (owners only): local.version
+// is what's installed, remote.version the newest published release.
+function settingsUpdateBody(vals) {
+  if (!vals.canManageUpdates) return settingsRow("Trạng thái", "Chỉ chủ dự án xem được trạng thái cập nhật");
+  const st = vals.updateStatus;
+  if (!st && !state.updateBusy && !state.updateError) setTimeout(() => fetchUpdateStatus(false), 0);
+  const local = st && st.local, rem = st && st.remote;
+  const err = state.updateError || (st && st.error) || "";
+  const latest = rem && rem.version ? rem.version : err ? "không kiểm tra được" : state.updateBusy || !st ? "đang kiểm tra…" : "—";
+  const status = err ? "Lỗi kiểm tra cập nhật: " + err
+    : !st ? "Đang kiểm tra…"
+    : st.updateAvailable ? "Có bản mới — mở DSM Package Center → Coopeditor → Cập nhật"
+    : rem ? "Đang là bản mới nhất" : "Chưa kiểm tra được";
+  const feed = location.origin + "/spkserver";
+  return `
+    ${settingsRow("Đang chạy", (local && local.version) || (st ? "không rõ" : "đang đọc…"))}
+    ${settingsRow("Mới nhất", latest, state.updateBusy ? "Đang kiểm tra…" : "Kiểm tra", "checkUpdateNow")}
+    ${settingsRow("Trạng thái", status, "Chi tiết", "toggleUpdateModal")}
+    ${settingsRow("Nguồn gói cho Package Center", feed)}
+    <div style="margin-top:16px;font-size:12.5px;color:var(--co-faint);line-height:1.65;max-width:620px;">Thêm một lần trong DSM: Package Center → Cài đặt → Nguồn gói → Thêm, dán địa chỉ trên. Sau đó mỗi bản mới hiện nút <b style="color:var(--co-text-2);">Cập nhật</b> ngay trong Package Center (bấm làm mới nếu chưa thấy).</div>`;
+}
+
 function settingsHeader(title, sub) {
   return `<div style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">${esc(title)}</div>
     <div style="font-size:13.5px;color:var(--co-muted);margin:6px 0 40px;">${esc(sub)}</div>`;
@@ -1595,10 +1617,8 @@ function settingsContent(sec, rc, me, vals) {
   }
   if (sec === "update") {
     return `
-      ${settingsHeader("Cập nhật", "Bản SPK cài trên NAS.")}
-      ${settingsRow("Đang chạy", (window.__BUILD_SHA || "?").slice(0, 12))}
-      ${settingsRow("Mới nhất", vals.updateStatus && vals.updateStatus.latestVersion ? vals.updateStatus.latestVersion : "—", "Kiểm tra", "checkUpdateNow")}
-      ${settingsRow("Trạng thái", vals.updateBadgeLabel === "Update" ? "Có bản mới" : "Đang là bản mới nhất", "Mở Update Center", "toggleUpdateModal")}`;
+      ${settingsHeader("Cập nhật", "Bản SPK cài trên NAS — cài bản mới bằng nút Cập nhật trong DSM Package Center.")}
+      ${settingsUpdateBody(vals)}`;
   }
   const raw = state.runtimeConfigFull || {};
   if (sec === "oidc") {

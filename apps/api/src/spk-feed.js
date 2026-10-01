@@ -11,7 +11,10 @@
 // (md5 + size, which DSM verifies after download).
 
 const REPO = process.env.SPK_FEED_REPO || "namct2610/coopeditor";
-const CACHE_TTL_MS = 15 * 60_000;
+// 5 min: a fresh release shows up in Package Center quickly, while the public
+// /spkserver can still only cost GitHub's unauthenticated API (60/h per IP)
+// ~2 requests per refresh (release + checksums) → ≤24/h.
+const CACHE_TTL_MS = 5 * 60_000;
 
 // Same DSM arch-codename lists as synology/build-spk.sh — keep in sync.
 const X86_64 = new Set("apollolake avoton braswell broadwell broadwellnk broadwellnkv2 broadwellntbap bromolow cedarview denverton epyc7002 geminilake geminilakenext grantley kvmx64 purley v1000 x86_64".split(" "));
@@ -39,8 +42,13 @@ async function fetchLatestRelease() {
   if (_cache && Date.now() - _cache.at < CACHE_TTL_MS) return _cache.data;
   const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
     headers: { accept: "application/vnd.github+json", "user-agent": "coopeditor-spk-feed" },
-  });
-  if (!res.ok) throw new Error("github_release_http_" + res.status);
+  }).catch(() => null);
+  // GitHub down / rate-limited: keep serving the last good catalog rather
+  // than an empty one (DSM would show "no update" until the next poll).
+  if (!res || !res.ok) {
+    if (_cache) return _cache.data;
+    throw new Error("github_release_http_" + (res ? res.status : "network"));
+  }
   const release = await res.json();
   let checksums = {};
   const checksumAsset = (release.assets || []).find((a) => a.name === "checksums.json");

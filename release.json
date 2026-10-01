@@ -1,12 +1,9 @@
 {
-  "version": "1.0.0-rc52",
-  "summary": "SPK RC 52 them muc Kich ban (soan thao kieu Google Docs, binh luan theo luong), tai video goc va tai ca du an thanh file ZIP.",
+  "version": "1.0.0-rc53",
+  "summary": "SPK RC 53 sua trang Cai dat > Cap nhat va giup Package Center thay ban moi nhanh hon.",
   "changes": [
-    "Muc Kich ban moi, nam canh Du an va Lich: soan thao kieu Google Docs voi tieu de, phong chu, co chu, mau chu, to nen, can le, danh sach, checklist, lien ket va bang (them/xoa hang cot, gop/tach o, hang tieu de, keo doi do rong cot). Tu dong luu; neu hai nguoi cung sua, nguoi luu sau duoc chon giu ban nao, khong bi ghi de am tham.",
-    "Binh luan kich ban kieu Google Docs: boi den mot doan de binh luan dung cho, tra loi theo luong, danh dau da giai quyet / mo lai, sua va xoa binh luan cua minh. Trang thai duyet: Nhap, Cho duyet, Da duyet.",
-    "Gan kich ban vao du an bang menu moi co o tim kiem; trang du an hien cac kich ban da gan va nut 'Viet kich ban'. Tai khoan khach khong thay muc Kich ban.",
-    "Tai video: nut tai ban goc o tung video, va nut 'Tai tat ca' dong goi ca du an thanh mot file ZIP (khong nen, khong tao file tam tren NAS, ho tro file tren 4GB, toi da 2 luot tai ZIP cung luc).",
-    "Sua loi: tai lai trang (F5) o Lich, mot du an hay bat ky trang nao khong con bi day ve trang Du an; header du an va cac tab tu xuong dong tren dien thoai."
+    "Trang Cai dat > Cap nhat hien dung phien ban dang chay va ban moi nhat (truoc day hien 'unknown' / '-' va luon bao 'Dang la ban moi nhat'). Khi co ban moi, trang huong dan cap nhat trong DSM Package Center va hien san dia chi nguon goi de them vao Package Center.",
+    "Nguon goi /spkserver giu ban tin tu GitHub toi da 5 phut thay vi 15 phut, nen ban moi hien trong Package Center nhanh hon; neu GitHub tam loi van tra ve ban tin gan nhat thay vi danh sach rong."
   ],
   "publishedAt": "2026-10-01T00:00:00.000Z"
 }
