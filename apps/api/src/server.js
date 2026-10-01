@@ -20,6 +20,7 @@ const MAX_COMMENT_CONTENT_CHARS = 4000;
 
 import * as store from "./store-index.js";
 import { db, initPg, initDb } from "./db.js";
+import { runMigrations } from "./migrate.js";
 import * as dsm from "./dsm.js";
 import { subscribe as sseSubscribe, subscriberCount, bindWsPublish } from "./events.js";
 import { attachWebSocket, publish as wsPublish, subscriberCount as wsCount } from "./ws.js";
@@ -1834,6 +1835,16 @@ const port = Number(process.env.PORT ?? 4000);
   // sqlite — store-pg queries then crashed with "Cannot read properties of
   // null (reading 'query')" because db() never opened a pool.
   if (store.backend === "pg" || store.backend === "sqlite" || store.backend === "postgres") await initDb();
+  // SPK upgrades never ran migrations (start-stop-status only migrates on
+  // first boot, pre/postupgrade are no-ops), so NAS installs were missing every
+  // table/column added since — "no such table: scripts". The single-process
+  // SQLite deployment now applies pending migrations on every boot (idempotent:
+  // applied files are recorded in schema_migrations). Postgres deployments keep
+  // running migrate.js as their own step — several API replicas could race here.
+  if (store.backend === "sqlite") {
+    await runMigrations({ log: (msg) => logger.info(msg) })
+      .catch((err) => logger.error({ err: err.message }, "sqlite migrations failed at boot"));
+  }
   bindWsPublish(wsPublish);
   await attachWebSocket(server).catch((e) => logger.error({ err: e.message }, "websocket bootstrap failed"));
   server.listen(port, host, () => {

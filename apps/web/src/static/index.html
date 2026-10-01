@@ -59,7 +59,10 @@
     --co-ok:#1d9c56; --co-warn:#b4802f; --co-bad:#d43a44;
   }
   body { background: var(--co-bg); color: var(--co-text); font-family: "Onest", -apple-system, system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-  #app { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+  /* Opaque background on the fixed root: a transparent fixed layer gets its own
+     compositor surface, and some Windows GPU drivers repaint invalidated
+     (hovered) regions of it as dark rectangles. */
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--co-bg); }
   a { color: var(--co-accent); text-decoration: none; }
   a:hover { color: var(--co-accent-ink); }
   ::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -87,12 +90,17 @@
     height: 38px; padding: 0 22px; border-radius: 999px; border: none; background: transparent;
     font-family: inherit; font-size: 13.5px; font-weight: 500; letter-spacing: 0.1px; line-height: 1;
     flex-shrink: 0; cursor: pointer; white-space: nowrap; user-select: none; -webkit-tap-highlight-color: transparent;
-    transition: box-shadow .18s ease, background .18s ease, border-color .18s ease, filter .18s ease; }
+    transition: box-shadow .18s ease, background .18s ease, border-color .18s ease; }
+  /* Hover = Material state layer (currentColor at 8%), not filter: brightness —
+     filter promotes the button to its own layer, another trigger for the
+     Windows "dark rectangle" repaint glitch. */
+  .m-btn::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: currentColor; opacity: 0; transition: opacity .18s ease; pointer-events: none; }
+  .m-btn--filled:hover::before { opacity: .1; }
   .m-btn:disabled, .m-btn[aria-disabled="true"] { opacity: .55; pointer-events: none; }
   .m-btn--filled { background: var(--co-accent); color: var(--co-on-accent); box-shadow: var(--co-btn-shadow); }
-  .m-btn--filled:hover { box-shadow: 0 2px 6px rgba(22,24,38,.18), 0 6px 18px rgba(145,132,217,.42); filter: brightness(1.04); }
+  .m-btn--filled:hover { box-shadow: 0 2px 6px rgba(22,24,38,.18), 0 6px 18px rgba(145,132,217,.42); }
   .m-btn--tonal { background: var(--co-tonal-bg); color: var(--co-accent-text); border: 1px solid var(--co-tonal-line); }
-  .m-btn--tonal:hover { filter: brightness(1.12); }
+  .m-btn--tonal:hover::before { opacity: .12; }
   .m-btn--outlined { border: 1px solid var(--co-btn-outline); color: var(--co-accent-text); }
   .m-btn--outlined:hover { border-color: var(--co-accent-line); background: var(--co-accent-soft); }
   .m-btn--text { color: var(--co-accent-text); padding: 0 14px; }
@@ -108,8 +116,7 @@
   .co-hover:hover { background: var(--co-hover) !important; }
   .co-border-hover:hover { border-color: var(--co-accent-line) !important; }
   .co-border-hover-strong:hover { border-color: var(--co-accent-line) !important; }
-  .co-card-hover:hover { filter: brightness(1.08); }
-  .co-btn-blue:hover { filter: brightness(1.08); }
+  .co-card-hover:hover, .co-btn-blue:hover { box-shadow: inset 0 0 0 999px rgba(255,255,255,.06); }
   .co-text-hover:hover { color: var(--co-text) !important; }
   .co-blue-hover:hover { color: var(--co-accent-ink) !important; }
   .co-attach-hover:hover { background: rgba(255,255,255,0.12) !important; }

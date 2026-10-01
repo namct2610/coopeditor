@@ -2,9 +2,9 @@
 // or ../migrations-sqlite (SQLite) in order, recording version in
 // schema_migrations. Idempotent.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { db, initDb, close, activeDriver } from "./db.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,12 +49,9 @@ async function applyOne(file, sql) {
   } finally { client.release(); }
 }
 
-async function main() {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL must be set (e.g. postgres://frame:frame@localhost:5432/coopeditor, or sqlite:/data/coopeditor.db)");
-    process.exit(1);
-  }
-  await initDb();
+// Applies every pending migration on the already-initialised db(). Returns the
+// number applied; throws on the first failure (that file is rolled back).
+export async function runMigrations({ log = console.log } = {}) {
   const dir = migrationsDir();
   const handle = db();
   // bootstrap migrations table itself — same DDL works on both dialects
@@ -72,18 +69,35 @@ async function main() {
   let n = 0;
   for (const f of files) {
     if (applied.has(f)) continue;
-    const sql = readFileSync(join(dir, f), "utf8");
-    console.log("[migrate] applying " + f);
+    log("[migrate] applying " + f);
     try {
-      await applyOne(f, sql);
-      n++;
+      await applyOne(f, readFileSync(join(dir, f), "utf8"));
     } catch (err) {
-      console.error("[migrate] failed " + f + ": " + err.message);
-      process.exit(1);
+      throw new Error("[migrate] failed " + f + ": " + err.message);
     }
+    n++;
   }
-  console.log("[migrate] " + (n ? n + " new migration(s) applied" : "nothing to do"));
+  log("[migrate] " + (n ? n + " new migration(s) applied" : "nothing to do"));
+  return n;
+}
+
+async function main() {
+  if (!process.env.DATABASE_URL) {
+    console.error("DATABASE_URL must be set (e.g. postgres://frame:frame@localhost:5432/coopeditor, or sqlite:/data/coopeditor.db)");
+    process.exit(1);
+  }
+  await initDb();
+  try { await runMigrations(); }
+  catch (err) { console.error(err.message); process.exit(1); }
   await close();
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// CLI entry (`node migrate.js`); importing the module (server boot) must not run it.
+// realpath: on DSM the package dir is a symlink and import.meta.url is the real path.
+function isCliEntry() {
+  try { return !!process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)); }
+  catch (_) { return false; }
+}
+if (isCliEntry()) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}

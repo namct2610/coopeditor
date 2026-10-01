@@ -1,10 +1,9 @@
 {
-  "version": "1.0.0-rc54",
-  "summary": "SPK RC 54 sua loi Package Center ket o '1% Downloading' khi cap nhat, va cap nhat mo ta phan mem.",
+  "version": "1.0.0-rc55",
+  "summary": "SPK RC 55 sua loi 'no such table: scripts' sau khi nang cap va loi o vuong toi tren Chrome Windows.",
   "changes": [
-    "Cap nhat qua Package Center khong con tai thang tu GitHub: Coopeditor tu tai truoc ban moi ve NAS, kiem tra md5, roi Package Center tai ban do ngay trong mang LAN tu chinh NAS. Neu may chu GitHub dung im qua 45 giay thi tu huy va tai lai. Nut Cap nhat chi hien khi goi da san sang tren NAS.",
-    "Muc 'What's new' trong Package Center hien dung tom tat va danh sach thay doi cua tung ban thay cho doan huong dan cai dat chung chung.",
-    "Mo ta moi trong Package Center: Coopeditor la cong cu giao tiep cho nguoi sang tao, giao dien va tinh nang duoc phat trien rieng (khong con nhac toi Frame.io)."
+    "Sua loi 'no such table: scripts': truoc day goi SPK chi tao cau truc DB o lan cai dau tien, cac lan nang cap khong tao bang/cot moi. Gio moi lan khoi dong Coopeditor tu ap cac thay doi DB con thieu (bang Kich ban, cot ngay len song...), du lieu cu giu nguyen.",
+    "Giam loi o vuong toi tren Chrome Windows: khung chinh cua app co nen dac thay vi trong suot, hieu ung hover cua nut doi tu filter sang lop phu mau kieu Material 3."
   ],
   "publishedAt": "2026-10-01T00:00:00.000Z"
 }
