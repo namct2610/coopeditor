@@ -1,9 +1,10 @@
 {
-  "version": "1.0.0-rc53",
-  "summary": "SPK RC 53 sua trang Cai dat > Cap nhat va giup Package Center thay ban moi nhanh hon.",
+  "version": "1.0.0-rc54",
+  "summary": "SPK RC 54 sua loi Package Center ket o '1% Downloading' khi cap nhat, va cap nhat mo ta phan mem.",
   "changes": [
-    "Trang Cai dat > Cap nhat hien dung phien ban dang chay va ban moi nhat (truoc day hien 'unknown' / '-' va luon bao 'Dang la ban moi nhat'). Khi co ban moi, trang huong dan cap nhat trong DSM Package Center va hien san dia chi nguon goi de them vao Package Center.",
-    "Nguon goi /spkserver giu ban tin tu GitHub toi da 5 phut thay vi 15 phut, nen ban moi hien trong Package Center nhanh hon; neu GitHub tam loi van tra ve ban tin gan nhat thay vi danh sach rong."
+    "Cap nhat qua Package Center khong con tai thang tu GitHub: Coopeditor tu tai truoc ban moi ve NAS, kiem tra md5, roi Package Center tai ban do ngay trong mang LAN tu chinh NAS. Neu may chu GitHub dung im qua 45 giay thi tu huy va tai lai. Nut Cap nhat chi hien khi goi da san sang tren NAS.",
+    "Muc 'What's new' trong Package Center hien dung tom tat va danh sach thay doi cua tung ban thay cho doan huong dan cai dat chung chung.",
+    "Mo ta moi trong Package Center: Coopeditor la cong cu giao tiep cho nguoi sang tao, giao dien va tinh nang duoc phat trien rieng (khong con nhac toi Frame.io)."
   ],
   "publishedAt": "2026-10-01T00:00:00.000Z"
 }

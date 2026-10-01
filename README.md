@@ -1,6 +1,6 @@
 # Coopeditor
 
-Nen tang review video noi bo theo huong Frame.io, toi uu cho workflow dung source 4K tren NAS nhung review/comment tren proxy bitrate thap.
+Cong cu giao tiep cho nguoi sang tao, chay ngay tren Synology NAS: review video voi binh luan va ve ghi chu chinh xac tung khung hinh tren proxy HLS bitrate thap (source 4K van nam nguyen tren NAS), lich len song theo du an va soan kich ban cung ca nhom. Giao dien va tinh nang duoc phat trien rieng cho Coopeditor.
 
 ## Muc tieu MVP
 

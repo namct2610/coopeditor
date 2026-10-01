@@ -1,7 +1,7 @@
 package="coopeditor"
 version="@VERSION@"
 displayname="Coopeditor"
-description="Frame.io-style review studio for video editors. Imports footage from your NAS, transcodes HLS proxies on the box, and plays back inside DSM with frame-accurate comments and annotation."
+description="Coopeditor — công cụ giao tiếp cho người sáng tạo. Review video ngay trên NAS với bình luận và vẽ ghi chú chính xác tới từng khung hình, proxy HLS tự tạo để xem mượt qua mạng, lịch lên sóng theo dự án và soạn kịch bản cùng cả nhóm."
 maintainer="namct2610"
 maintainer_url="https://github.com/namct2610/coopeditor"
 distributor="namct2610"

@@ -1101,7 +1101,7 @@ function timelineMsFromClientX(clientX, bar) {
 }
 
 // Hover = tooltip only. The video keeps playing and the playhead stays put;
-// only a click actually seeks (Frame.io behavior). The previous hover-scrub
+// only a click actually seeks. The previous hover-scrub
 // (pause + fastSeek per mousemove) is what made "trỏ chuột vào là video dừng".
 function updateTimelineHoverUi(clientX, bar) {
   const rect = bar.getBoundingClientRect();

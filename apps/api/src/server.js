@@ -9,6 +9,9 @@ import { join } from "node:path";
 // enough that the per-chunk write overhead doesn't dominate at gigabit speeds.
 const SPEEDTEST_NOISE = randomBytes(256 * 1024);
 const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
+// Local .spk mirror for Package Center updates — only in the SPK runtime
+// (COOPEDITOR_LIB_DIR is exported by its start script), never in dev/tests.
+const SPK_MIRROR_DIR = process.env.COOPEDITOR_LIB_DIR ? join(APP_DATA_DIR, "spk-mirror") : null;
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
 const PROXY_STORAGE_SNAPSHOT_PATH = join(APP_DATA_DIR, "system", "proxy-storage-cache.json");
 const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
@@ -39,7 +42,7 @@ import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
-import { buildSpkCatalog } from "./spk-feed.js";
+import { buildSpkCatalog, mirrorPath, warmSpkMirror } from "./spk-feed.js";
 import { validateAnnotation } from "./annotation.js";
 import { writeZip, zipLength } from "./zip-stream.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
@@ -566,8 +569,20 @@ async function handle(req, res, url) {
       });
       arch = new URLSearchParams(raw).get("arch") || arch;
     }
-    try { return send(res, 200, await buildSpkCatalog(arch)); }
+    // Link DSM back to this same origin (and /api prefix) it just reached.
+    const baseUrl = (isSecureRequest(req) ? "https" : "http") + "://" + String(req.headers.host || "") + (url.pathname.startsWith("/api/") ? "/api" : "");
+    try { return send(res, 200, await buildSpkCatalog(arch, { mirrorDir: SPK_MIRROR_DIR, baseUrl })); }
     catch (err) { return send(res, 200, { packages: [], error: String(err && err.message || err) }); }
+  }
+  // The mirrored .spk (see spk-feed.js). Public like the GitHub asset it copies;
+  // the name is allowlisted and must already be a verified file in the mirror.
+  const spkMatch = p.match(/^\/spkserver\/spk\/([^/]+)$/);
+  if (spkMatch && (m === "GET" || m === "HEAD")) {
+    let name = "";
+    try { name = decodeURIComponent(spkMatch[1]); } catch (_) {}
+    const file = await mirrorPath(SPK_MIRROR_DIR, name);
+    if (!file) return bad(res, "Not found", 404);
+    return streamLocalMedia(req, res, file, "application/octet-stream");
   }
   if (p === "/metrics" && m === "GET") return sendMetrics(res);
   if (p === "/auth/dsm/login" && m === "POST") return handleLogin(req, res);
@@ -1832,5 +1847,9 @@ const port = Number(process.env.PORT ?? 4000);
   });
   startWorker();
   startRetention();
+  if (SPK_MIRROR_DIR) {
+    warmSpkMirror(SPK_MIRROR_DIR);
+    setInterval(() => warmSpkMirror(SPK_MIRROR_DIR), 30 * 60_000).unref();
+  }
   await startEventBus().catch((e) => logger.error({ err: e.message }, "event bus bootstrap failed"));
 })();
