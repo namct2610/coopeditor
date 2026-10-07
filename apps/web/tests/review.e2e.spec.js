@@ -5,31 +5,46 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 test.describe("review flow", () => {
   test.skip(process.env.PLAYWRIGHT_E2E !== "1", "Set PLAYWRIGHT_E2E=1 with running API/web services to execute the end-to-end review flow.");
 
-  test("login -> import -> request proxy manually -> post comment -> resolve", async ({ page }) => {
+  test("login -> import -> request proxy -> comment -> resolve -> status", async ({ page }) => {
     await page.goto(BASE_URL);
 
-    await page.getByLabel("Tài khoản").fill("minh");
-    await page.getByLabel("Mật khẩu").fill("x");
+    await page.getByPlaceholder("Tài khoản DSM").fill("minh");
+    await page.getByPlaceholder("Mật khẩu").fill("x");
     await page.getByRole("button", { name: "Đăng nhập" }).click();
 
-    await expect(page.getByText("Dự án")).toBeVisible();
-    await page.getByText("TVC Q3 2026 — Karofi Hero").click();
-    await page.getByText("Thêm nguồn").click();
-    await page.getByText("Hero_take7.mov").click();
-    await page.getByText("Thêm vào dự án").click();
+    await expect(page.locator("[data-screen-label='Hub dự án']")).toBeVisible();
+    await page.getByText("TVC Q3 2026 — Karofi Hero").first().click();
+    await expect(page.locator("[data-screen-label='Chi tiết dự án']")).toBeVisible();
 
-    await page.getByText("Opening_Wide_Kitchen").click();
-    await page.getByText(/1080p/).first().click();
-    await page.getByText(/Tạo proxy/).first().click();
+    await page.getByRole("button", { name: "Thêm nguồn" }).click();
+    await page.locator(".file-row", { hasText: "Footage" }).click();
+    await page.locator(".file-row", { hasText: "TVC Q3 2026" }).click();
+    await page.locator(".file-row", { hasText: "Hero" }).first().click();
+    await page.locator(".file-row", { hasText: "Hero_take7.mov" }).click();
+    await page.getByRole("button", { name: /Thêm vào/ }).click();
+    await expect(page.locator(".grid-assets .card", { hasText: "Hero_take7" })).toBeVisible();
 
-    await expect.poll(async () => page.locator("text=1080p").first().textContent()).not.toContain("Tạo proxy");
+    await page.locator(".grid-assets .card", { hasText: "Opening_Wide_Kitchen" }).click();
+    await expect(page.locator("[data-screen-label='Review video']")).toBeVisible();
 
-    const commentBox = page.locator("#commentInput");
-    await commentBox.fill("playwright smoke comment");
-    await page.locator('[data-act="postComment"]').click();
-    await expect(page.getByText("playwright smoke comment")).toBeVisible();
+    // Proxy quality menu: ask for 1080p, the memory backend simulates the encode.
+    await page.locator(".ctl.ring").nth(1).click();
+    await page.locator(".menu-item", { hasText: "1080p" }).click();
+    await expect(page.getByText(/Đã gửi yêu cầu tạo proxy 1080p|Proxy 1080p đang tạo/)).toBeVisible();
 
-    await page.locator('[data-act="toggleResolve"]').first().click();
-    await expect(page.getByText("playwright smoke comment")).toBeVisible();
+    await page.locator("#noteComposer").fill("playwright smoke comment");
+    await page.keyboard.press("Enter");
+    const thread = page.locator(".thread", { hasText: "playwright smoke comment" });
+    await expect(thread).toBeVisible();
+
+    // Resolving under the "Mở" filter moves the thread to "Xong".
+    await thread.locator(".check").click();
+    await expect(thread).toBeHidden();
+    await page.locator(".notes .seg-opt", { hasText: "Xong" }).click();
+    await expect(thread.locator(".check.done")).toBeVisible();
+
+    await page.locator(".status-btn").click();
+    await page.locator(".menu-item", { hasText: "Đã duyệt" }).click();
+    await expect(page.locator(".status-btn")).toContainText("Đã duyệt");
   });
 });

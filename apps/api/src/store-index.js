@@ -99,6 +99,7 @@ export const restoreComment         = USE_PG ? impl.restoreComment         : A(i
 
 export const listUsers          = USE_PG ? impl.listUsers          : async () => [...mem.users.values()];
 export const getUser            = USE_PG ? impl.getUser            : async (id) => mem.users.get(id) || null;
+export const setUserPrefs       = USE_PG ? impl.setUserPrefs       : A(impl.setUserPrefs);
 export const upsertUserFromDsm  = USE_PG ? impl.upsertUserFromDsm  : A(impl.upsertUserFromDsm);
 export const upsertUserFromOidc = USE_PG ? impl.upsertUserFromOidc : A(impl.upsertUserFromOidc);
 

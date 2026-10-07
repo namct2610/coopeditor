@@ -78,6 +78,7 @@ seedProjectMembers();
 
 // --- assets ---
 export const assets = new Map();
+const DEMO_REVIEW = ["wait", "edit", "fix", "ok", "edit", "ok", "air"];
 function mkAsset(pid, rows) {
   rows.forEach((x, i) => {
     const id = pid + "s" + (i + 1);
@@ -89,6 +90,7 @@ function mkAsset(pid, rows) {
       width: 3840, height: 2160, resolutionLabel: "4K", mimeType: "video/quicktime",
       status: status || "ready", progress: progress || 0,
       commentsCount: commentsCount || 0, versionsCount: versionsCount || 1,
+      reviewStatus: DEMO_REVIEW[(pid.length + i) % DEMO_REVIEW.length], reviewStatusBy: "u_lan", reviewStatusAt: now(),
       paletteA, paletteB, createdAt: now(),
     });
   });
@@ -381,6 +383,8 @@ export function listAssetsByProject(pid) {
     .map((asset) => {
       const latestVersion = (versionsByAsset.get(asset.id) || []).slice(-1)[0];
       const renditionList = latestVersion ? (renditionsByVersion.get(latestVersion.id) || []) : [];
+      asset.openCommentsCount = (versionsByAsset.get(asset.id) || []).reduce((n, v) => n + [...comments.values()]
+        .filter((c) => c.assetVersionId === v.id && !c.parentId && !c.deletedAt && !c.resolved).length, 0);
       if (!renditionList.length) return asset;
       const processing = renditionList.filter((r) => r.status === "processing");
       const ready = renditionList.filter((r) => r.status === "ready");
@@ -420,7 +424,18 @@ export function patchAsset(id, patch) {
   if (typeof patch.resolutionLabel === "string") asset.resolutionLabel = patch.resolutionLabel;
   if (typeof patch.codec === "string" && patch.codec.trim()) asset.codec = patch.codec.trim();
   if ("airDate" in patch) asset.airDate = patch.airDate || null;
+  if (typeof patch.reviewStatus === "string") {
+    asset.reviewStatus = patch.reviewStatus;
+    asset.reviewStatusBy = patch.reviewStatusBy || null;
+    asset.reviewStatusAt = now();
+  }
   return asset;
+}
+export function setUserPrefs(id, prefs) {
+  const u = users.get(id);
+  if (!u) return null;
+  u.prefs = { ...(prefs || {}) };
+  return u;
 }
 export function deleteAsset(id) {
   const asset = assets.get(id);
@@ -576,7 +591,7 @@ export function addAssetFromImport({ projectId, title, codec, sizeLabel, duratio
   const a = {
     id, projectId, title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: Math.round(frameRate || 24),
     width: width || 0, height: height || 0, resolutionLabel: resolutionLabel || "", mimeType: mimeType || "application/octet-stream",
-    status: "pending", progress: 0,
+    status: "pending", progress: 0, reviewStatus: "edit", reviewStatusBy: null, reviewStatusAt: null,
     commentsCount: 0, versionsCount: 1, paletteA, paletteB, createdAt: now(),
   };
   assets.set(id, a);
@@ -599,7 +614,7 @@ export function setRenditionStatus(rid, patch) { const r = renditions.get(rid); 
 // ---- Kịch bản (scripts) — same contract as store-pg.js ----
 const scripts = new Map();
 const scriptComments = new Map();
-const scriptMeta = ({ body, ...s }) => ({ ...s, commentCount: [...scriptComments.values()].filter((c) => c.scriptId === s.id && !c.parentId && !c.resolved).length });
+const scriptMeta = ({ body, ...s }) => ({ ...s, excerpt: String(body || "").slice(0, 2000), commentCount: [...scriptComments.values()].filter((c) => c.scriptId === s.id && !c.parentId && !c.resolved).length });
 export function listScripts() { return [...scripts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(scriptMeta); }
 export function getScript(id) { const s = scripts.get(id); return s ? { ...s } : null; }
 export function createScript({ title, projectId = null, userId }) {

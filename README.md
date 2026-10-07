@@ -11,7 +11,7 @@ Cong cu giao tiep cho nguoi sang tao, chay ngay tren Synology NAS: review video 
 
 ## Kien truc de xuat
 
-- `apps/web`: giao dien review video.
+- `apps/web`: giao dien web (v2). Khong co buoc build: `src/static/index.html` nap `app/main.mjs` (ES module, Preact + htm dong kem trong `vendor/`), CSS trong `app/app.css`. Moi man hinh nam o `app/screens/*.mjs`, goi API qua `app/store.mjs`. Thiet ke goc: Claude Design "Coopeditor v2".
 - `apps/api`: REST API cho auth, projects, assets, comments, playback manifests.
 - `apps/worker`: worker transcode va thumbnail/waveform generation.
 - `packages/contracts`: type dung chung giua web/api/worker.

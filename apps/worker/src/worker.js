@@ -58,6 +58,9 @@ if (!ffmpegRuntime.usable) {
 let HW = (process.env.FFMPEG_HWACCEL || "").toLowerCase();
 // "h264" (default) — all rungs use h264. "h265" — all rungs h265. "mixed" — 720p h264, 1080p h265.
 const CODEC_LADDER = (process.env.FFMPEG_CODEC_LADDER || "h264").toLowerCase();
+// Read per job (not at load) so a change in Cài đặt → Proxy applies to the
+// next transcode without restarting the worker.
+function hlsSegmentSeconds() { return Number(process.env.HLS_SEGMENT_SECONDS) === 6 ? 6 : 4; }
 function codecForHeight(h) {
   if (CODEC_LADDER === "h265") return "h265";
   if (CODEC_LADDER === "mixed") return h >= 1080 ? "h265" : "h264";
@@ -491,7 +494,7 @@ async function runFfmpeg(rendition) {
     "-y", ...pre, "-i", localSourcePath,
     ...videoArgs,
     "-c:a", "aac", "-b:a", "128k",
-    "-hls_time", "4", "-hls_playlist_type", "vod",
+    "-hls_time", String(hlsSegmentSeconds()), "-hls_playlist_type", "vod",
     "-hls_segment_filename", join(outDir, "seg_%04d.ts"),
     join(outDir, "master.m3u8"),
   ];

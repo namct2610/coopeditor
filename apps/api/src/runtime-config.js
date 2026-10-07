@@ -106,6 +106,8 @@ export function publicRuntimeSummary() {
       hwaccel: (cfg.transcode && cfg.transcode.hwaccel) || "",
       codecLadder: (cfg.transcode && cfg.transcode.codecLadder) || "h264",
       workerConcurrency: (cfg.transcode && cfg.transcode.workerConcurrency) || 2,
+      hlsSegmentSeconds: (cfg.transcode && cfg.transcode.hlsSegmentSeconds) || Number(process.env.HLS_SEGMENT_SECONDS) || 4,
+      autoRungs: (cfg.transcode && Array.isArray(cfg.transcode.autoRungs)) ? cfg.transcode.autoRungs : [],
     },
     updater: updaterSummary,
   };
@@ -164,6 +166,13 @@ export function normalizeRuntimeConfig(input) {
       autoscaleThreshold: clampInt(transcode.autoscaleThreshold, 5, 1, 1000),
       autoscaleStep: clampInt(transcode.autoscaleStep, 1, 1, 16),
       maxConcurrency: clampInt(transcode.maxConcurrency, 3, 1, 32),
+      // HLS segment length for new proxies (shorter = smoother scrubbing, more files).
+      hlsSegmentSeconds: [4, 6].includes(Number(transcode.hlsSegmentSeconds)) ? Number(transcode.hlsSegmentSeconds) : 4,
+      // Proxy rungs queued automatically when a source is imported. Empty =
+      // proxies are only made on demand from the review quality menu.
+      autoRungs: Array.isArray(transcode.autoRungs)
+        ? [...new Set(transcode.autoRungs.map(Number).filter((h) => h === 720 || h === 1080))].sort((a, b) => a - b)
+        : [],
     },
     retention: {
       auditDays: clampInt(retention.auditDays, 365, 1, 36500),
@@ -232,6 +241,8 @@ export function applyRuntimeEnvFromConfig(config = readRuntimeConfig()) {
   process.env.WORKER_AUTOSCALE_THRESHOLD = String(config.transcode && config.transcode.autoscaleThreshold || 5);
   process.env.WORKER_AUTOSCALE_STEP = String(config.transcode && config.transcode.autoscaleStep || 1);
   process.env.WORKER_MAX_CONCURRENCY = String(config.transcode && config.transcode.maxConcurrency || 3);
+  process.env.HLS_SEGMENT_SECONDS = String(config.transcode && config.transcode.hlsSegmentSeconds || 4);
+  process.env.PROXY_AUTO_RUNGS = ((config.transcode && config.transcode.autoRungs) || []).join(",");
 
   process.env.AUDIT_RETENTION_DAYS = String(config.retention && config.retention.auditDays || 365);
   process.env.PROJECT_PURGE_DAYS = String(config.retention && config.retention.projectPurgeDays || 90);

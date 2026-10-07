@@ -42,8 +42,9 @@ const assetRow = (r) => r && ({
   width: r.width_px || 0, height: r.height_px || 0, resolutionLabel: r.resolution_label || "",
   mimeType: r.mime_type || "application/octet-stream",
   airDate: r.air_date || null,
+  reviewStatus: r.review_status || "edit", reviewStatusBy: r.review_status_by || null, reviewStatusAt: r.review_status_at || null,
   status: r.derived_status || r.status, progress: r.derived_progress ?? r.progress, paletteA: r.palette_a, paletteB: r.palette_b,
-  commentsCount: Number(r.comments_count || 0), versionsCount: Number(r.versions_count || 0),
+  commentsCount: Number(r.comments_count || 0), openCommentsCount: Number(r.open_comments_count || 0), versionsCount: Number(r.versions_count || 0),
   createdAt: r.created_at,
 });
 const versionRow = (r) => r && ({
@@ -57,19 +58,29 @@ const renditionRow = (r) => r && ({
   lastJobStatus: r.last_job_status || "",
   lastJobAt: r.last_job_at || null,
 });
+// Postgres returns JSONB as an object; SQLite stores the same column as TEXT.
+function parseAnnotation(raw) {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
 const commentRow = (r) => r && ({
   id: r.id, assetVersionId: r.asset_version_id, authorUserId: r.author_user_id, content: r.content,
-  timestampMs: r.timestamp_ms, frameNumber: r.frame_number, resolved: r.resolved,
+  timestampMs: r.timestamp_ms, frameNumber: r.frame_number, resolved: !!r.resolved,
   parentId: r.parent_id, deletedAt: r.deleted_at || null,
-  annotation: r.annotation || null,
+  annotation: parseAnnotation(r.annotation),
   guestLabel: r.guest_label || null,
   guestInitial: r.guest_initial || null,
   guestColor: r.guest_color || null,
   createdAt: r.created_at,
 });
+function parsePrefs(raw) {
+  if (raw && typeof raw === "object") return raw;
+  try { const v = JSON.parse(raw || "{}"); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; } catch (_) { return {}; }
+}
 const userRow = (r) => r && ({
   id: r.id, name: r.name, initial: r.initial, color: r.color, role: r.role,
-  dsmUid: r.dsm_uid, email: r.email,
+  dsmUid: r.dsm_uid, email: r.email, prefs: parsePrefs(r.prefs),
 });
 const projectMemberRow = (r) => r && ({
   projectId: r.project_id,
@@ -273,6 +284,7 @@ export async function listAssetsByProject(pid) {
             AND v.version_number = (SELECT MAX(version_number) FROM asset_versions WHERE asset_id = a.id)
         ), a.progress) AS derived_progress,
         (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL) AS comments_count,
+        (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL AND c.deleted_at IS NULL AND NOT c.resolved) AS open_comments_count,
         (SELECT COUNT(*) FROM asset_versions v WHERE v.asset_id = a.id) AS versions_count
       FROM assets a
       WHERE a.project_id = $1
@@ -285,6 +297,7 @@ export async function listAssetsByProject(pid) {
       proxy.derived_status,
       proxy.derived_progress,
       (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL) AS comments_count,
+        (SELECT COUNT(*) FROM comments c JOIN asset_versions v ON v.id = c.asset_version_id WHERE v.asset_id = a.id AND c.parent_id IS NULL AND c.deleted_at IS NULL AND NOT c.resolved) AS open_comments_count,
       (SELECT COUNT(*) FROM asset_versions v WHERE v.asset_id = a.id) AS versions_count
     FROM assets a
     LEFT JOIN LATERAL (
@@ -325,6 +338,11 @@ export async function patchAsset(id, patch) {
   if (typeof patch.resolutionLabel === "string") { sets.push("resolution_label = $" + i++); vals.push(patch.resolutionLabel); }
   if (typeof patch.codec === "string" && patch.codec.trim()) { sets.push("codec = $" + i++); vals.push(patch.codec.trim()); }
   if ("airDate" in patch) { sets.push("air_date = $" + i++); vals.push(patch.airDate || null); }
+  if (typeof patch.reviewStatus === "string") {
+    sets.push("review_status = $" + i++); vals.push(patch.reviewStatus);
+    sets.push("review_status_by = $" + i++); vals.push(patch.reviewStatusBy || null);
+    sets.push("review_status_at = $" + i++); vals.push(new Date().toISOString());
+  }
   if (!sets.length) return getAsset(id);
   vals.push(id);
   return assetRow(await one(`UPDATE assets SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`, vals));
@@ -624,6 +642,9 @@ export async function restoreComment(id) {
 
 export async function listUsers() { return (await q(`SELECT * FROM users ORDER BY created_at`)).map(userRow); }
 export async function getUser(id) { return userRow(await one(`SELECT * FROM users WHERE id = $1`, [id])); }
+export async function setUserPrefs(id, prefs) {
+  return userRow(await one(`UPDATE users SET prefs = $1 WHERE id = $2 RETURNING *`, [JSON.stringify(prefs || {}), id]));
+}
 
 export async function upsertUserFromDsm({ uid, name, email }) {
   const aliasId = aliasUserId(name || email || "");
@@ -727,7 +748,7 @@ const scriptRow = (r, withBody = true) => r && ({
   id: r.id, title: r.title, status: r.status, projectId: r.project_id || null,
   version: num(r.version, 1), createdBy: r.created_by || null, updatedBy: r.updated_by || null,
   createdAt: r.created_at, updatedAt: r.updated_at,
-  ...(withBody ? { body: r.body || "" } : { commentCount: num(r.comment_count) }),
+  ...(withBody ? { body: r.body || "" } : { commentCount: num(r.comment_count), excerpt: r.excerpt || "" }),
 });
 const scriptCommentRow = (r) => r && ({
   id: r.id, scriptId: r.script_id, parentId: r.parent_id || null, authorUserId: r.author_user_id, content: r.content,
@@ -736,6 +757,7 @@ const scriptCommentRow = (r) => r && ({
 
 export async function listScripts() {
   return (await q(`SELECT s.id, s.title, s.status, s.project_id, s.version, s.created_by, s.updated_by, s.created_at, s.updated_at,
+      SUBSTR(s.body, 1, 2000) AS excerpt,
       (SELECT COUNT(*) FROM script_comments c WHERE c.script_id = s.id AND c.parent_id IS NULL AND c.resolved = 0) AS comment_count
     FROM scripts s ORDER BY s.updated_at DESC`, [])).map((r) => scriptRow(r, false));
 }

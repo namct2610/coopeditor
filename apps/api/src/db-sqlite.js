@@ -62,7 +62,15 @@ function isWrite(sql) {
     || t.startsWith("REPLACE");
 }
 
-function runOne(stmt, params) {
+// better-sqlite3 refuses JS booleans ("can only bind numbers, strings…"), but
+// store-pg.js passes them for BOOLEAN columns (e.g. comments.resolved). SQLite
+// stores those as INTEGER 0/1, so map them here once for every query.
+function bindable(params) {
+  return (params || []).map((v) => (v === true ? 1 : v === false ? 0 : v));
+}
+
+function runOne(stmt, rawParams) {
+  const params = bindable(rawParams);
   // .all() works for SELECT + RETURNING; .run() for plain writes. Try .all()
   // first since RETURNING is now common — fall back to .run() when no result
   // columns (pure write).

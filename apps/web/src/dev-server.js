@@ -21,14 +21,16 @@ function renderHtml() {
 }
 const HTML = renderHtml();
 
-// Vendored libs (vendor/*.js) are real files — same as web-spa.js on the NAS.
-// Everything else gets the SPA shell.
+// App modules (app/*), vendored libs (vendor/*) and brand images are real
+// files — same as web-spa.js on the NAS. Everything else gets the SPA shell.
+const TYPES = { ".mjs": "text/javascript; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
 const server = createServer((req, res) => {
   const path = decodeURIComponent((req.url || "/").split("?")[0]);
-  if (path.startsWith("/vendor/") && !path.includes("..")) {
+  if (/^\/(app|vendor|brand)\//.test(path) && !path.includes("..")) {
     try {
       const body = readFileSync(join(__dirname, "static", path));
-      res.setHeader("content-type", "text/javascript; charset=utf-8");
+      res.setHeader("content-type", TYPES[path.slice(path.lastIndexOf("."))] || "application/octet-stream");
+      res.setHeader("cache-control", "no-cache");
       return res.end(body);
     } catch (_) { res.statusCode = 404; return res.end(); }
   }

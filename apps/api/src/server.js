@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat, mkdir, writeFile, unlink } from "node:fs/promises";
+import { readFile, stat, statfs, mkdir, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 // Reusable random buffer for /speedtest/segment — generated once at startup and
@@ -328,13 +328,71 @@ async function canUseScripts(userId) {
 }
 
 const SCRIPT_STATUSES = ["draft", "review", "approved"];
+// Editorial workflow of a video (v2 UI): Đang dựng → Chờ review → Cần sửa →
+// Đã duyệt → Đã lên sóng. Independent from the proxy transcode `status`.
+const REVIEW_STATUSES = ["edit", "wait", "fix", "ok", "air"];
+const PREF_THEMES = ["dark", "light", "system"];
+const PREF_VIEWS = ["grid", "list"];
+
+// A project's headline status is the most urgent state among its videos:
+// anything needing fixes wins, then waiting for review, then still editing.
+// Only when every video is approved/aired does the project read as such.
+function projectReviewStatus(mix) {
+  for (const k of ["fix", "wait", "edit"]) if (mix[k]) return k;
+  if (mix.ok) return "ok";
+  if (mix.air) return "air";
+  return "edit";
+}
+
+// "48.2 GB" / "910 MB" → bytes, for the project's total size on the NAS.
+function parseSizeLabel(label) {
+  const m = String(label || "").trim().match(/^([\d.,]+)\s*(TB|GB|MB|KB|B)$/i);
+  if (!m) return 0;
+  const n = Number(m[1].replace(",", "."));
+  const mult = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }[m[2].toUpperCase()];
+  return Number.isFinite(n) ? n * mult : 0;
+}
+function formatBytesLabel(bytes) {
+  if (!bytes) return "0 GB";
+  if (bytes >= 1024 ** 4) return (bytes / 1024 ** 4).toFixed(1) + " TB";
+  if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(1) + " GB";
+  return Math.max(1, Math.round(bytes / 1024 ** 2)) + " MB";
+}
+
+function sanitizePrefs(current, body) {
+  const next = { ...(current || {}) };
+  if ("theme" in body && PREF_THEMES.includes(body.theme)) next.theme = body.theme;
+  if ("hue" in body) {
+    const h = Number(body.hue);
+    if (Number.isFinite(h) && h >= 0 && h < 360) next.hue = Math.round(h);
+  }
+  if ("defaultView" in body && PREF_VIEWS.includes(body.defaultView)) next.defaultView = body.defaultView;
+  return next;
+}
 const MAX_SCRIPT_BODY = 512 * 1024;
 
 async function decorateScripts(list) {
   const [projects, users] = await Promise.all([store.listProjects(), store.listUsers()]);
   const pName = new Map(projects.map((p) => [p.id, p.name]));
   const uName = new Map(users.map((u) => [u.id, u.name]));
-  return list.map((s) => ({ ...s, projectName: s.projectId ? pName.get(s.projectId) || null : null, updatedByName: uName.get(s.updatedBy) || null }));
+  return list.map(({ excerpt, ...s }) => ({
+    ...s,
+    projectName: s.projectId ? pName.get(s.projectId) || null : null,
+    updatedByName: uName.get(s.updatedBy) || null,
+    ...(excerpt !== undefined ? { previewLines: scriptPreviewLines(excerpt) } : {}),
+  }));
+}
+
+// First few text lines of a script's HTML body, for the "page" thumbnail in
+// the Kịch bản list. Block ends become line breaks; tags and entities go.
+function scriptPreviewLines(htmlBody, max = 6) {
+  const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+  return String(htmlBody || "")
+    .replace(/<\/(p|h[1-6]|li|blockquote|pre|tr)>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, k) => ENT[k])
+    .split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean)
+    .slice(0, max).map((l) => l.slice(0, 160));
 }
 
 async function decorateScriptComments(list) {
@@ -365,6 +423,17 @@ async function requireCommentWriteAccess(res, commentId, projectId, userId) {
   if (["owner", "editor"].includes(member.role) || comment.authorUserId === userId) return comment;
   bad(res, "Forbidden", 403);
   return null;
+}
+
+// Size of the volume holding filesystem proxies (SPK: the package's var dir
+// on the NAS), for the Cài đặt → Proxy cache meter. Absent for MinIO/sim.
+async function proxyDiskUsage() {
+  const info = hlsBackendInfo();
+  if (info.backend !== "filesystem" || !info.outputDir) return {};
+  try {
+    const st = await statfs(info.outputDir);
+    return { diskTotalBytes: st.blocks * st.bsize, diskFreeBytes: st.bavail * st.bsize };
+  } catch (_) { return {}; }
 }
 
 async function buildProxyStoragePayload() {
@@ -648,7 +717,21 @@ async function handle(req, res, url) {
 
   if (p === "/me" && m === "GET") {
     const user = await store.getUser(sess.userId);
-    return send(res, 200, { user, canUseScripts: await canUseScripts(sess.userId) });
+    return send(res, 200, {
+      user: user && { ...user, prefs: user.prefs || {} },
+      canUseScripts: await canUseScripts(sess.userId),
+      canManageWorkspace: await canManageUpdates(sess.userId),
+      canBrowseNas: await canBrowseNasLibrary(sess.userId),
+    });
+  }
+  // Cài đặt → Giao diện: theme / accent hue / default list view, per account.
+  if (p === "/me/prefs" && m === "PATCH") {
+    const body = await readJson(req).catch(() => null);
+    if (!body || typeof body !== "object") return bad(res, "Invalid body");
+    const user = await store.getUser(sess.userId);
+    if (!user) return bad(res, "User not found", 404);
+    const updated = await store.setUserPrefs(sess.userId, sanitizePrefs(user.prefs, body));
+    return send(res, 200, { prefs: (updated && updated.prefs) || {} });
   }
   if (p === "/scripts" || p.startsWith("/scripts/") || p.startsWith("/script-comments/")) {
     if (!(await canUseScripts(sess.userId))) return bad(res, "Forbidden", 403);
@@ -813,6 +896,111 @@ async function handle(req, res, url) {
     items.sort((x, y) => x.airDate.localeCompare(y.airDate) || x.projectName.localeCompare(y.projectName));
     return send(res, 200, items);
   }
+  // "Chờ bạn review": every video in the caller's active projects that an
+  // editor has moved to Chờ review, newest first.
+  if (p === "/review-queue" && m === "GET") {
+    const projects = await store.listProjectsForUser(sess.userId, { includeArchived: false });
+    const items = [];
+    const names = new Map();
+    const userName = async (id) => {
+      if (!id) return "";
+      if (!names.has(id)) { const u = await store.getUser(id); names.set(id, u ? u.name : ""); }
+      return names.get(id);
+    };
+    for (const project of projects) {
+      if (project.archivedAt) continue;
+      for (const a of await store.listAssetsByProject(project.id)) {
+        if (a.reviewStatus !== "wait") continue;
+        items.push({
+          projectId: project.id, projectName: project.name, client: project.client || "",
+          assetId: a.id, title: a.title, durationMs: a.durationMs || 0, versionsCount: a.versionsCount || 1,
+          openCommentsCount: a.openCommentsCount || 0, paletteA: a.paletteA, paletteB: a.paletteB,
+          posterUrl: "/assets/" + a.id + "/poster",
+          sentBy: await userName(a.reviewStatusBy), sentAt: a.reviewStatusAt || null,
+        });
+      }
+    }
+    items.sort((x, y) => String(y.sentAt || "").localeCompare(String(x.sentAt || "")));
+    return send(res, 200, items);
+  }
+  // Cài đặt → Thành viên & quyền. Roles are per project; this view lists the
+  // people the caller can see and their role across the projects the caller
+  // owns. Setting a role applies it to every such project they belong to.
+  if (p === "/workspace/members" && m === "GET") {
+    const users = await listVisibleUsersForUser(sess.userId);
+    const mine = (await store.listProjectMembersForUser(sess.userId)).filter((x) => x.role === "owner").map((x) => x.projectId);
+    const out = [];
+    for (const u of users) {
+      const roles = {};
+      let projects = 0;
+      for (const pid of mine) {
+        const mem = await store.getProjectMember(pid, u.id);
+        if (!mem) continue;
+        projects++;
+        roles[mem.role] = (roles[mem.role] || 0) + 1;
+      }
+      const top = Object.entries(roles).sort((a, b) => b[1] - a[1])[0];
+      out.push({ user: u, isMe: u.id === sess.userId, projects, role: top ? top[0] : null, mixed: Object.keys(roles).length > 1, roles });
+    }
+    return send(res, 200, { ownedProjects: mine.length, members: out });
+  }
+  if ((mat = p.match(/^\/workspace\/members\/([^/]+)$/)) && m === "PATCH") {
+    if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+    const targetUserId = decodeURIComponent(mat[1]);
+    if (targetUserId === sess.userId) return bad(res, "Không đổi quyền của chính bạn", 409);
+    const body = await readJson(req).catch(() => null);
+    if (!body || !["editor", "reviewer", "client"].includes(body.role)) return bad(res, "valid role required");
+    const mine = (await store.listProjectMembersForUser(sess.userId)).filter((x) => x.role === "owner").map((x) => x.projectId);
+    let changed = 0;
+    for (const pid of mine) {
+      const mem = await store.getProjectMember(pid, targetUserId);
+      if (!mem || mem.role === body.role) continue;
+      if (mem.role === "owner" && !(await ensureProjectHasAnotherOwner(pid, targetUserId))) continue;
+      await store.setProjectMemberRole(pid, targetUserId, body.role);
+      await audit.record({ actorUserId: sess.userId, action: "project.member_role_changed", resourceType: "project_member", resourceId: targetUserId, projectId: pid, payload: { role: body.role, via: "workspace" } });
+      changed++;
+    }
+    return send(res, 200, { ok: true, changed });
+  }
+  // Cài đặt → Proxy: renditions the worker is encoding right now.
+  if (p === "/transcode-queue" && m === "GET") {
+    const running = await store.listProcessingRenditions();
+    const meta = running.length ? await store.listRenditionProxyMeta(running.map((r) => r.id)) : [];
+    const byId = new Map(meta.map((x) => [x.renditionId, x]));
+    return send(res, 200, running.map((r) => {
+      const x = byId.get(r.id) || {};
+      return { renditionId: r.id, label: r.label, height: r.height, progress: r.progress || 0, assetId: x.assetId || null, assetTitle: x.assetTitle || "", projectName: x.projectName || "" };
+    }));
+  }
+  // Cài đặt → Proxy: HLS segment length + rungs queued on import. Persisted to
+  // runtime-config.json when the box was set up through it (SPK); otherwise
+  // (env-configured dev/Docker) applied to this process only.
+  if (p === "/admin/proxy-settings" && (m === "GET" || m === "PATCH")) {
+    if (m === "PATCH") {
+      if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
+      const body = await readJson(req).catch(() => null);
+      if (!body || typeof body !== "object") return bad(res, "Invalid body");
+      const cfg = readRuntimeConfig();
+      const cur = currentProxySettings();
+      const next = {
+        hlsSegmentSeconds: "hlsSegmentSeconds" in body ? body.hlsSegmentSeconds : cur.hlsSegmentSeconds,
+        autoRungs: "autoRungs" in body ? body.autoRungs : cur.autoRungs,
+      };
+      try {
+        if (cfg) {
+          const written = writeRuntimeConfig({ ...cfg, transcode: { ...(cfg.transcode || {}), ...next } });
+          applyRuntimeEnvFromConfig(written);
+        } else {
+          process.env.HLS_SEGMENT_SECONDS = String(Number(next.hlsSegmentSeconds) === 6 ? 6 : 4);
+          process.env.PROXY_AUTO_RUNGS = (Array.isArray(next.autoRungs) ? next.autoRungs : []).map(Number).filter((h) => h === 720 || h === 1080).join(",");
+        }
+      } catch (err) {
+        return bad(res, "Không lưu được cấu hình proxy: " + ((err && err.message) || "lỗi"), 400);
+      }
+      await audit.record({ actorUserId: sess.userId, action: "runtime.proxy_settings_updated", resourceType: "runtime_config", resourceId: "proxy", payload: currentProxySettings() });
+    }
+    return send(res, 200, { ...currentProxySettings(), persisted: !!readRuntimeConfig() });
+  }
   if (p === "/project-templates" && m === "GET") {
     return send(res, 200, await store.listProjectTemplates());
   }
@@ -917,6 +1105,8 @@ async function handle(req, res, url) {
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
       req.log.warn({ err: String(err && err.message || err), projectId, assetId: firstAsset.id }, "project thumb fallback placeholder");
+      // ?fallback=none: the v2 UI paints its own gradient instead of the SVG.
+      if (url.searchParams.get("fallback") === "none") return bad(res, "Thumb unavailable", 404);
       return sendThumbPlaceholder(res, firstAsset.title || "Project");
     }
   }
@@ -1119,6 +1309,11 @@ async function handle(req, res, url) {
       if ("airDate" in body && body.airDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.airDate))) {
         return bad(res, "airDate must be YYYY-MM-DD or null");
       }
+      delete body.reviewStatusBy;
+      if ("reviewStatus" in body) {
+        if (!REVIEW_STATUSES.includes(body.reviewStatus)) return bad(res, "reviewStatus must be one of " + REVIEW_STATUSES.join("|"));
+        body.reviewStatusBy = sess.userId;
+      }
       const updated = await store.patchAsset(assetId, body);
       if (!updated) return bad(res, "Asset not found", 404);
       await audit.record({ actorUserId: sess.userId, action: "asset.updated", resourceType: "asset", resourceId: assetId, projectId, payload: body });
@@ -1149,7 +1344,31 @@ async function handle(req, res, url) {
       return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
     } catch (err) {
       req.log.warn({ err: String(err && err.message || err), assetId, nasPath: asset.nasPath }, "asset poster fallback placeholder");
+      if (url.searchParams.get("fallback") === "none") return bad(res, "Poster unavailable", 404);
       return sendThumbPlaceholder(res, asset.title || "Video");
+    }
+  }
+  // Review filmstrip: frame i of n evenly spaced through the video, small JPEG.
+  // Cached on disk per (asset, slot, duration) like posters; at most
+  // FRAME_CONCURRENCY ffmpeg runs at once so opening a long 4K source doesn't
+  // flood the NAS CPU.
+  if ((mat = p.match(/^\/assets\/([^/]+)\/frame$/)) && m === "GET") {
+    const assetId = mat[1];
+    const projectId = await store.findProjectIdForAsset(assetId);
+    if (!projectId) return bad(res, "Asset not found", 404);
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    const asset = await store.getAsset(assetId);
+    if (!asset || !asset.nasPath) return bad(res, "Asset not found", 404);
+    const n = Math.min(48, Math.max(1, parseInt(url.searchParams.get("n") || "18", 10) || 18));
+    const i = Math.min(n - 1, Math.max(0, parseInt(url.searchParams.get("i") || "0", 10) || 0));
+    const dur = Number(asset.durationMs) || 0;
+    const seekMs = dur > 0 ? Math.round((dur * (i + 0.5)) / n) : 1000;
+    try {
+      const thumbPath = await withFrameSlot(() => dsm.ensureVideoThumbnail(asset.nasPath, "frame:" + asset.id + ":" + n + ":" + i + ":" + dur, { seekMs, width: 240 }));
+      res.setHeader("cache-control", "private, max-age=86400");
+      return sendBinary(res, 200, await readFile(thumbPath), "image/jpeg");
+    } catch (err) {
+      return bad(res, "Frame unavailable", 404);
     }
   }
   if ((mat = p.match(/^\/assets\/([^/]+)\/source$/)) && m === "GET") {
@@ -1191,6 +1410,7 @@ async function handle(req, res, url) {
       });
       created.push(a);
       const versions = await store.listVersionsForAsset(a.id);
+      await autoQueueProxies(versions, req.log);
       await audit.record({
         actorUserId: sess.userId,
         action: "asset.imported",
@@ -1422,6 +1642,7 @@ async function handle(req, res, url) {
         renditionCount: payload.renditionCount || 0,
         renditions: [],
         note: payload.note || "",
+        ...(await proxyDiskUsage()),
       });
     } catch (err) {
       req.log.error({ err: err.message }, "proxy-storage summary failed");
@@ -1514,6 +1735,36 @@ async function handle(req, res, url) {
   return bad(res, "Not found", 404);
 }
 
+const FRAME_CONCURRENCY = 2;
+let framesRunning = 0;
+const frameWaiters = [];
+async function withFrameSlot(fn) {
+  if (framesRunning >= FRAME_CONCURRENCY) await new Promise((resolve) => frameWaiters.push(resolve));
+  framesRunning++;
+  try { return await fn(); }
+  finally { framesRunning--; const next = frameWaiters.shift(); if (next) next(); }
+}
+
+function currentProxySettings() {
+  const seg = Number(process.env.HLS_SEGMENT_SECONDS) === 6 ? 6 : 4;
+  const rungs = String(process.env.PROXY_AUTO_RUNGS || "").split(",").map(Number).filter((h) => h === 720 || h === 1080);
+  return { hlsSegmentSeconds: seg, autoRungs: [...new Set(rungs)].sort((a, b) => a - b), availableRungs: [720, 1080] };
+}
+
+// Queue the rungs picked in Cài đặt → Proxy for a freshly imported source.
+// Best effort: a worker that isn't ready just leaves them pending, exactly as
+// before this setting existed.
+async function autoQueueProxies(versions, log) {
+  const { autoRungs } = currentProxySettings();
+  const current = (versions || []).slice(-1)[0];
+  if (!autoRungs.length || !current) return;
+  try { await ensureTranscodeRuntimeReady(); } catch (_) { return; }
+  for (const r of await store.listRenditionsForVersion(current.id)) {
+    if (!autoRungs.includes(r.height) || r.status === "ready" || r.status === "processing") continue;
+    try { await requestTranscode(r.id); } catch (err) { log && log.warn({ err: String(err && err.message || err), renditionId: r.id }, "auto proxy enqueue failed"); }
+  }
+}
+
 async function decorateProject(p, userId) {
   const assets = await store.listAssetsByProject(p.id);
   const ready = assets.filter((a) => a.status === "ready").length;
@@ -1525,7 +1776,17 @@ async function decorateProject(p, userId) {
   try {
     if ((await loadProjectThumb(p.id)) || pickProjectThumbAsset(p.id, assets)) thumbUrl = "/projects/" + p.id + "/thumb";
   } catch (_) {}
-  return { ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl };
+  const statusMix = { edit: 0, wait: 0, fix: 0, ok: 0, air: 0 };
+  for (const a of assets) statusMix[REVIEW_STATUSES.includes(a.reviewStatus) ? a.reviewStatus : "edit"]++;
+  const openCommentsCount = assets.reduce((n, a) => n + (a.openCommentsCount || 0), 0);
+  // Every scheduled airing for the timeline: the project's own date plus any
+  // per-video dates, de-duplicated and sorted.
+  const airDates = [...new Set([p.airDate, ...assets.map((a) => a.airDate)].filter(Boolean))].sort();
+  const totalSizeLabel = formatBytesLabel(assets.reduce((n, a) => n + parseSizeLabel(a.sizeLabel), 0));
+  return {
+    ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl,
+    statusMix, reviewStatus: projectReviewStatus(statusMix), openCommentsCount, airDates, totalSizeLabel,
+  };
 }
 
 async function handleLogin(req, res) {

@@ -90,7 +90,8 @@ function staticContentType(pathname) {
   if (pathname.endsWith(".png")) return "image/png";
   if (pathname.endsWith(".ico")) return "image/x-icon";
   if (pathname.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
-  if (pathname.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (pathname.endsWith(".js") || pathname.endsWith(".mjs")) return "text/javascript; charset=utf-8";
+  if (pathname.endsWith(".css")) return "text/css; charset=utf-8";
   return "application/octet-stream";
 }
 
@@ -98,7 +99,7 @@ async function serveStaticAsset(res, pathname) {
   let filePath = "";
   if (pathname === "/favicon.ico") {
     filePath = resolve(SPA_STATIC_DIR, "brand", "favicon-32.png");
-  } else if (pathname.startsWith("/brand/") || pathname.startsWith("/vendor/")) {
+  } else if (pathname.startsWith("/brand/") || pathname.startsWith("/vendor/") || pathname.startsWith("/app/")) {
     filePath = resolve(SPA_STATIC_DIR, "." + pathname);
     const staticRoot = SPA_STATIC_DIR.endsWith(sep) ? SPA_STATIC_DIR : SPA_STATIC_DIR + sep;
     if (!filePath.startsWith(staticRoot)) return false;
@@ -109,7 +110,9 @@ async function serveStaticAsset(res, pathname) {
     const body = await readFile(filePath);
     res.statusCode = 200;
     res.setHeader("content-type", staticContentType(pathname));
-    res.setHeader("cache-control", "public, max-age=3600");
+    // The app modules change with every release and carry no hash in their
+    // name, so make the browser revalidate them; brand/vendor files are stable.
+    res.setHeader("cache-control", pathname.startsWith("/app/") ? "no-cache" : "public, max-age=3600");
     res.end(body);
     return true;
   } catch (_) {
@@ -126,7 +129,7 @@ export async function tryServeSpa(req, res, url) {
   const p = url.pathname;
   if (await serveStaticAsset(res, p)) return true;
   // Only serve the shell for the root + index.html. Other static assets are
-  // inlined inside the shell, except the package icon assets above.
+  // the /app, /brand and /vendor files above.
   if (p !== "/" && p !== "/index.html") return false;
   if (!(await spaExists())) return false;
   await serveSpaIndex(res);

@@ -207,3 +207,35 @@ test("SPK sqlite store runs the scripts lifecycle (versioned save, comments, pro
   assert.equal(await store.deleteScript(s.id), true);
   assert.equal((await store.listScriptComments(s.id)).length, 0, "comments cascade");
 });
+
+test("SPK sqlite store tracks video review status, open notes and user prefs", async () => {
+  let [a] = await store.listAssetsByProject(projectId);
+  assert.equal(a.reviewStatus, "edit", "new imports start as Đang dựng");
+  assert.equal(a.openCommentsCount, 0);
+
+  const patched = await store.patchAsset(assetId, { reviewStatus: "wait", reviewStatusBy: userId });
+  assert.equal(patched.reviewStatus, "wait");
+  assert.equal(patched.reviewStatusBy, userId);
+  assert.ok(patched.reviewStatusAt);
+
+  const c1 = await store.addComment({ assetVersionId: versionId, authorUserId: userId, content: "cắt sớm 4 frame", timestampMs: 1000 });
+  const c2 = await store.addComment({ assetVersionId: versionId, authorUserId: userId, content: "ok", timestampMs: 2000 });
+  await store.addComment({ assetVersionId: versionId, authorUserId: userId, content: "reply", timestampMs: 1000, parentId: c1.id });
+  await store.setCommentResolved(c2.id, true);
+  [a] = await store.listAssetsByProject(projectId);
+  assert.equal(a.openCommentsCount, 1, "only unresolved, undeleted thread roots count");
+
+  assert.deepEqual((await store.getUser(userId)).prefs, {});
+  const u = await store.setUserPrefs(userId, { theme: "light", hue: 160 });
+  assert.deepEqual(u.prefs, { theme: "light", hue: 160 });
+  assert.deepEqual((await store.getUser(userId)).prefs, { theme: "light", hue: 160 });
+});
+
+test("SPK sqlite store returns comment annotations as objects", async () => {
+  const annotation = { strokes: [{ tool: "rect", color: "#f0644f", width: 3, points: [[0.1, 0.1], [0.4, 0.5]] }], texts: [] };
+  const c = await store.addComment({ assetVersionId: versionId, authorUserId: userId, content: "khung logo", timestampMs: 3000, annotation });
+  assert.deepEqual(c.annotation, annotation);
+  const listed = (await store.listCommentsForVersion(versionId)).find((x) => x.id === c.id);
+  assert.deepEqual(listed.annotation, annotation);
+  assert.equal(listed.resolved, false);
+});
