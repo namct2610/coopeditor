@@ -4,14 +4,15 @@
 // calendar bars, review header).
 export const ST = {
   edit: { label: "Đang dựng", c: "var(--s-edit)" },
-  wait: { label: "Chờ review", c: "var(--s-wait)" },
+  wait: { label: "Chờ duyệt", c: "var(--s-wait)" },
   fix: { label: "Cần sửa", c: "var(--s-fix)" },
   ok: { label: "Đã duyệt", c: "var(--s-ok)" },
   air: { label: "Đã lên sóng", c: "var(--s-air)" },
 };
 export const ORDER = ["edit", "wait", "fix", "ok", "air"];
-// A final delivery waits on the owner's approval rather than a review.
-export const FST = { ...ST, wait: { ...ST.wait, label: "Chờ duyệt" } };
+// Status lives on the project and follows its final video (see server.js
+// projectStatus); FST is the same map, kept for the Final screens.
+export const FST = ST;
 
 export const SST = {
   draft: { label: "Nháp", c: "var(--s-edit)" },

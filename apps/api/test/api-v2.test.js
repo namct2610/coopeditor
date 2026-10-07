@@ -59,39 +59,25 @@ test("/me carries prefs and capability flags; prefs are validated and merged", a
   assert.equal((await http("/me")).json.user.prefs.defaultView, "grid");
 });
 
-test("projects carry review status mix, open notes, air dates and size", async () => {
+test("projects carry their status, open notes, air dates and size", async () => {
   const list = (await http("/projects")).json;
   const p1 = list.find((p) => p.id === "p1");
   assert.ok(p1);
-  const mixTotal = Object.values(p1.statusMix).reduce((a, b) => a + b, 0);
-  assert.equal(mixTotal, p1.sourcesCount);
-  assert.ok(["edit", "wait", "fix", "ok", "air"].includes(p1.reviewStatus));
+  assert.equal(p1.statusMix, undefined, "no per-video status any more");
+  assert.equal(p1.reviewStatus, "edit", "no final yet → Đang dựng");
+  assert.equal(p1.final, null);
   assert.ok(p1.openCommentsCount >= 1, "p1s1 has seeded unresolved comments");
   assert.ok(Array.isArray(p1.airDates));
   assert.match(p1.totalSizeLabel, /GB|TB|MB/);
 });
 
-test("video review status: validated, recorded with author, feeds the review queue", async () => {
-  let r = await http("/assets/p1s2", { method: "PATCH", body: { reviewStatus: "nope" } });
+test("source videos have no status of their own; the review queue holds finals only", async () => {
+  const r = await http("/assets/p1s2", { method: "PATCH", body: { reviewStatus: "wait" } });
   assert.equal(r.status, 400);
-
-  r = await http("/assets/p1s2", { method: "PATCH", body: { reviewStatus: "wait", reviewStatusBy: "u_khach" } });
-  assert.equal(r.status, 200);
-  assert.equal(r.json.reviewStatus, "wait");
-  assert.notEqual(r.json.reviewStatusBy, "u_khach", "author comes from the session, not the body");
-  assert.ok(r.json.reviewStatusAt);
-
-  const q = await http("/review-queue");
-  assert.equal(q.status, 200);
-  const item = q.json.find((x) => x.assetId === "p1s2");
-  assert.ok(item, "queued video appears");
-  assert.equal(item.projectId, "p1");
-  assert.equal(item.sentBy, "minh");
-  assert.equal(q.json[0].assetId, "p1s2", "most recently sent first");
-
-  r = await http("/assets/p1s2", { method: "PATCH", body: { reviewStatus: "ok" } });
-  assert.equal(r.status, 200);
-  assert.ok(!(await http("/review-queue")).json.some((x) => x.assetId === "p1s2"));
+  assert.match(r.json.error, /dự án/);
+  assert.equal((await http("/assets/p1s2", { method: "PATCH", body: { reviewStatus: "nope" } })).status, 400);
+  assert.ok((await http("/review-queue")).json.every((x) => x.kind === "final"), "seeded per-video 'wait' sources stay out of the queue");
+  assert.equal((await http("/assets/p1s2", { method: "PATCH", body: { title: "Glass_Filling_CU" } })).status, 200, "other edits still work");
 });
 
 test("workspace members: roles across owned projects, bulk role change", async () => {
@@ -186,7 +172,7 @@ test("final from NAS: waits for the owner, approval confirms the air date, a new
   let p1 = (await http("/projects/p1")).json;
   assert.equal(p1.final.assetId, finalId);
   assert.equal(p1.final.round, 1);
-  assert.equal(p1.reviewStatus, "wait", "the project now waits on its final");
+  assert.equal(p1.reviewStatus, "wait", "the project now waits on its final (Chờ duyệt)");
   assert.equal(p1.airConfirmed, false);
   assert.ok((await http("/review-queue")).json.some((x) => x.assetId === finalId && x.kind === "final"));
   const cal0 = (await http("/projects/p1")).json;
@@ -200,6 +186,10 @@ test("final from NAS: waits for the owner, approval confirms the air date, a new
   assert.equal(r.json.final.reviewStatus, "ok");
   assert.equal(r.json.airDate, "2026-11-20");
   assert.equal(r.json.airConfirmed, true);
+  assert.equal(r.json.reviewStatus, "ok", "future confirmed date → Đã duyệt");
+  const past = await http("/projects/p1/final/approve", { method: "POST", body: { airDate: "2026-01-02" } });
+  assert.equal(past.json.reviewStatus, "air", "approved and the confirmed date has come → Đã lên sóng");
+  await http("/projects/p1/final/approve", { method: "POST", body: { airDate: "2026-11-20" } });
   const cal = (await http("/calendar?from=2026-11-01&to=2026-11-30")).json.find((x) => x.projectId === "p1");
   assert.equal(cal.confirmed, true);
   assert.equal(cal.finalStatus, "ok");

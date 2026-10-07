@@ -1,13 +1,10 @@
 {
-  "version": "1.0.0-rc58",
-  "summary": "Video Final: nop ban ghep cuoi cung, chu du an duyet va chot ngay len song. Sua loi Package Center khong thay ban cap nhat.",
+  "version": "1.0.0-rc59",
+  "summary": "Bo trang thai tren tung video: chi con trang thai cua du an, di theo video Final.",
   "changes": [
-    "Moi du an co khu Video Final: nop tu may tinh (upload chia nho, mat mang van tai tiep) hoac chon file da xuat tren NAS. File upload duoc luu vao thu muc 'Coopeditor Final/<ten du an>' tren NAS.",
-    "Final vua nop o trang thai Cho duyet va hien o muc 'Cho ban review'. Chi chu du an duoc Duyet hoac tra ve Can sua.",
-    "Duyet Final = chon ngay len song va chot lich. Ngay dat truoc do la 'du kien'; nop ban Final moi thi lich tro lai du kien cho toi khi duyet lai.",
-    "Moi lan nop la mot vong (Final v1, v2...) co ghi chu, phac thao va proxy 720p rieng; cac vong truoc van xem lai duoc.",
-    "Lich len song phan biet ngay da chot va ngay du kien.",
-    "Sua loi Package Center khong nhan ban moi: nguon goi /spkserver khong con phu thuoc GitHub API (gioi han 60 lan/gio moi IP, het luot thi tra danh sach rong). Cai dat -> Cap nhat hien Package Center dang thay ban nao va vi sao."
+    "Video nguon khong con trang thai rieng (bo nhan trang thai tren the video, bo cac o dem theo trang thai, bo menu 'Chuyen sang').",
+    "Trang thai du an: chua nop Final = Dang dung; da nop = Cho duyet; tra ve = Can sua; duyet = Da duyet; da duyet va toi ngay len song da chot = Da len song.",
+    "Hub: muc 'Final cho duyet' thay cho 'Cho ban review'; the du an ghi vong Final hien tai va lich da chot hay chua."
   ],
-  "publishedAt": "2026-10-07T15:00:00.000Z"
+  "publishedAt": "2026-10-07T18:00:00.000Z"
 }

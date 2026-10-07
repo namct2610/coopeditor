@@ -5,7 +5,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 test.describe("review flow", () => {
   test.skip(process.env.PLAYWRIGHT_E2E !== "1", "Set PLAYWRIGHT_E2E=1 with running API/web services to execute the end-to-end review flow.");
 
-  test("login -> import -> request proxy -> comment -> resolve -> status", async ({ page }) => {
+  test("login -> import -> request proxy -> comment -> resolve", async ({ page }) => {
     await page.goto(BASE_URL);
 
     await page.getByPlaceholder("Tài khoản DSM").fill("minh");
@@ -43,8 +43,7 @@ test.describe("review flow", () => {
     await page.locator(".notes .seg-opt", { hasText: "Xong" }).click();
     await expect(thread.locator(".check.done")).toBeVisible();
 
-    await page.locator(".status-btn").click();
-    await page.locator(".menu-item", { hasText: "Đã duyệt" }).click();
-    await expect(page.locator(".status-btn")).toContainText("Đã duyệt");
+    // Source videos carry no status; it lives on the project (via its final).
+    await expect(page.locator(".status-btn")).toHaveCount(0);
   });
 });

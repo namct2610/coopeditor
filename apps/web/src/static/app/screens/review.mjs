@@ -385,20 +385,20 @@ export function Review() {
           <div class="row" style="padding-right:6px">${presence.slice(0, 4).map((u) => html`<${Avatar} user=${userById(u.id) || u} name=${u.name} size=${24} style="margin-right:-6px;box-shadow:0 0 0 2px var(--bg)" />`)}</div>
           đang xem
         </div>`}</div>
-        <div style="position:relative">
-          <button type="button" ref=${statusBtn} class="status-btn" disabled=${!manage} title=${manage ? "Đổi trạng thái video" : "Chỉ người quản lý đổi được trạng thái"}
+        ${final && html`<div style="position:relative">
+          <button type="button" ref=${statusBtn} class="status-btn" disabled=${!manage} title="Trạng thái dự án đi theo video Final"
             style=${`background:color-mix(in oklch, ${SM[curStatus].c} 16%, transparent);color:${SM[curStatus].c}`}
             onClick=${(e) => { e.stopPropagation(); if (manage) setStatusMenu(!statusMenu); }}>
             <span class="dot" style=${`background:${SM[curStatus].c}`}></span>${SM[curStatus].label}${manage && html`<span style="font-size:10px;opacity:0.8">▾</span>`}
           </button>
           <${Menu} open=${statusMenu} onClose=${() => setStatusMenu(false)} anchorRef=${statusBtn} style="right:0;top:42px;width:240px">
-            <div class="menu-title">${final ? "Trạng thái Final" : "Trạng thái video"}</div>
+            <div class="menu-title">Trạng thái dự án (theo Final)</div>
             ${statusOpts.map((k) => html`<${MenuItem} check=${k === curStatus} onClick=${() => pickStatus(k)}>
               <span class="dot dot8" style=${`background:${SM[k].c}`}></span><span class="grow">${final && k === "ok" && curStatus !== "ok" ? "Duyệt & chốt lịch…" : SM[k].label}</span>
             </${MenuItem}>`)}
             ${final && !isOwner(pid) && html`<div class="muted" style="padding:8px 10px 4px;font-size:12px;line-height:1.5">Chỉ chủ dự án duyệt hoặc trả về Final.</div>`}
           </${Menu}>
-        </div>
+        </div>`}
         <button type="button" class="btn btn-outline btn-sm" onClick=${() => openOverlay("share", { pid })}>Chia sẻ</button>
       </div>
       ${drawing && html`<${SketchToolbar} ed=${ed} title=${sketchFor ? "Sửa phác thảo" : ""} doneLabel=${sketchFor ? "Lưu phác thảo" : "Xong"}

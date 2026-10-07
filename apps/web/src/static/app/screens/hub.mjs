@@ -1,4 +1,4 @@
-// Hub dự án: "Chờ bạn review" queue on top, then every project filtered by
+// Hub dự án: "Final chờ duyệt" queue on top, then every project filtered by
 // status, as a grid or a list.
 
 import { html } from "../lib.mjs";
@@ -11,12 +11,17 @@ export function nextAir(p) {
   const t = today();
   return (p.airDates || (p.airDate ? [p.airDate] : [])).map(dayFromIso).filter((d) => d >= t).sort((a, b) => a - b)[0] || null;
 }
-const mixTotal = (p) => ORDER.reduce((n, k) => n + ((p.statusMix && p.statusMix[k]) || 0), 0);
+const mixTotal = (p) => p.sourcesCount || 0;
 export const projectStatus = (p) => p.reviewStatus || "edit";
 
-export function MixBar({ p }) {
-  const mix = p.statusMix || {};
-  return html`<div class="mix">${ORDER.filter((k) => mix[k]).map((k) => html`<div style=${`flex:${mix[k]};background:${ST[k].c}`}></div>`)}</div>`;
+// Where the project stands, in words: the final round and its verdict.
+export function FinalLine({ p }) {
+  const f = p.final;
+  const st = projectStatus(p);
+  return html`<div class="row gap8" style="font-size:12.5px;color:var(--tx-3);min-width:0">
+    <span class="dot dot6" style=${`background:${ST[st].c}`}></span>
+    <span class="ell">${f ? "Final v" + f.round + " · " + ST[st].label + (p.airConfirmed ? " · lịch đã chốt" : "") : "Chưa nộp Final"}</span>
+  </div>`;
 }
 
 function projectMenu(p) {
@@ -63,7 +68,7 @@ function ProjectCard({ p }) {
       <div style="font-size:18px;font-weight:500;letter-spacing:-0.02em;line-height:1.3;text-wrap:pretty">${p.name}</div>
       <div class="card-meta" style="margin-top:5px">${[p.client, total + " video", "cập nhật " + fmtAgo(p.updatedAt)].filter(Boolean).join(" · ")}</div>
     </div>
-    <${MixBar} p=${p} />
+    <${FinalLine} p=${p} />
     <div class="row gap12">
       <${AvStack} users=${p.team || []} size=${26} />
       <div class="grow"></div>
@@ -86,7 +91,7 @@ function ProjectRow({ p }) {
         <span class="ell">${[p.client, mixTotal(p) + " video", "cập nhật " + fmtAgo(p.updatedAt)].filter(Boolean).join(" · ")}</span>
       </div>
     </div>
-    <${MixBar} p=${p} />
+    <${FinalLine} p=${p} />
     <div style=${`font-size:13px;color:${p.openCommentsCount ? "var(--tx)" : "var(--tx-3)"}`}>${p.openCommentsCount ? p.openCommentsCount + " ghi chú mở" : "—"}</div>
     <div style="font-size:13px;color:var(--tx-2);text-align:right;white-space:nowrap">${na ? "Lên sóng " + dm(na) : "Chưa đặt lịch"}</div>
   </div>`;
@@ -128,14 +133,14 @@ export function Hub() {
       <div class="head-main">
         <div class="eyebrow">${todayLabel()}</div>
         <h1 class="display" style="margin:0">Dự án</h1>
-        <div class="lede">${projects.length} dự án · ${queue.length} video chờ bạn review · ${airWeek} lịch lên sóng trong 7 ngày</div>
+        <div class="lede">${projects.length} dự án · ${queue.length} Final chờ duyệt · ${airWeek} lịch lên sóng trong 7 ngày</div>
       </div>
       <button type="button" class="search-pill" onClick=${() => openOverlay("palette")}><span>Tìm dự án, video, ghi chú</span><span class="kbd">${mod}</span></button>
       <button type="button" class="btn btn-primary" onClick=${() => openOverlay("newProject")}>Dự án mới</button>
     </div>
 
     ${queue.length > 0 && html`
-      <div class="row gap12" style="align-items:baseline;margin-bottom:20px"><div class="sec-title">Chờ bạn review</div><div class="sec-count">${queue.length}</div></div>
+      <div class="row gap12" style="align-items:baseline;margin-bottom:20px"><div class="sec-title">Final chờ duyệt</div><div class="sec-count">${queue.length}</div></div>
       <div class="grid-queue">${queue.slice(0, 6).map((q) => html`<${QueueCard} key=${q.assetId} q=${q} />`)}</div>`}
 
     <div class="row gap12" style="flex-wrap:wrap;margin-bottom:28px">

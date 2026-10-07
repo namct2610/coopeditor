@@ -8,7 +8,7 @@ import { ST, FST, ORDER, WD, WD_LONG, dm, daysBetween, today, todayLabel, dayFro
 import { Thumb, StatusPill, projectThumbUrl } from "../ui.mjs";
 import { projectStatus } from "./hub.mjs";
 
-const total = (p) => ORDER.reduce((n, k) => n + ((p.statusMix && p.statusMix[k]) || 0), 0);
+const total = (p) => p.sourcesCount || 0;
 
 export function Calendar() {
   const t = today();

@@ -342,21 +342,12 @@ async function canUseScripts(userId) {
 }
 
 const SCRIPT_STATUSES = ["draft", "review", "approved"];
-// Editorial workflow of a video (v2 UI): Đang dựng → Chờ review → Cần sửa →
-// Đã duyệt → Đã lên sóng. Independent from the proxy transcode `status`.
+// Project status (v2 UI): Đang dựng → Chờ duyệt → Cần sửa → Đã duyệt → Đã
+// lên sóng, stored on the project's final video (see projectStatusOf).
+// Independent from the proxy transcode `status`.
 const REVIEW_STATUSES = ["edit", "wait", "fix", "ok", "air"];
 const PREF_THEMES = ["dark", "light", "system"];
 const PREF_VIEWS = ["grid", "list"];
-
-// A project's headline status is the most urgent state among its videos:
-// anything needing fixes wins, then waiting for review, then still editing.
-// Only when every video is approved/aired does the project read as such.
-function projectReviewStatus(mix) {
-  for (const k of ["fix", "wait", "edit"]) if (mix[k]) return k;
-  if (mix.ok) return "ok";
-  if (mix.air) return "air";
-  return "edit";
-}
 
 // "48.2 GB" / "910 MB" → bytes, for the project's total size on the NAS.
 function parseSizeLabel(label) {
@@ -930,7 +921,7 @@ async function handle(req, res, url) {
     for (const project of projects) {
       if (project.archivedAt) continue;
       for (const a of await store.listAssetsByProject(project.id)) {
-        if (a.reviewStatus !== "wait") continue;
+        if (!isFinal(a) || a.reviewStatus !== "wait") continue;
         items.push({
           projectId: project.id, projectName: project.name, client: project.client || "",
           assetId: a.id, kind: a.kind || "source", title: a.title, durationMs: a.durationMs || 0, versionsCount: a.versionsCount || 1,
@@ -1341,7 +1332,9 @@ async function handle(req, res, url) {
       if ("reviewStatus" in body) {
         if (!REVIEW_STATUSES.includes(body.reviewStatus)) return bad(res, "reviewStatus must be one of " + REVIEW_STATUSES.join("|"));
         const current = await store.getAsset(assetId);
-        if (isFinal(current) && ["ok", "fix", "air"].includes(body.reviewStatus)) {
+        // Status belongs to the project and follows its final; source videos have none.
+        if (!isFinal(current)) return bad(res, "Video nguồn không có trạng thái riêng — trạng thái nằm ở dự án, theo video Final");
+        if (["ok", "fix", "air"].includes(body.reviewStatus)) {
           if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
         }
         body.reviewStatusBy = sess.userId;
@@ -2017,6 +2010,19 @@ function appendChunk(req, file, offset, maxBytes) {
   });
 }
 
+// The project's one status, from its final: none yet → Đang dựng; otherwise
+// the final's verdict, and an approved final whose confirmed air date has
+// come counts as Đã lên sóng.
+function localIsoDay(d = new Date()) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function projectStatusOf(p, final) {
+  if (!final) return "edit";
+  const st = REVIEW_STATUSES.includes(final.reviewStatus) ? final.reviewStatus : "wait";
+  if (st === "ok" && p.airConfirmedAt && p.airDate && p.airDate <= localIsoDay()) return "air";
+  return st;
+}
+
 async function decorateProject(p, userId) {
   const everything = await store.listAssetsByProject(p.id);
   const assets = everything.filter((a) => !isFinal(a));
@@ -2031,8 +2037,6 @@ async function decorateProject(p, userId) {
   try {
     if ((await loadProjectThumb(p.id)) || pickProjectThumbAsset(p.id, assets)) thumbUrl = "/projects/" + p.id + "/thumb";
   } catch (_) {}
-  const statusMix = { edit: 0, wait: 0, fix: 0, ok: 0, air: 0 };
-  for (const a of assets) statusMix[REVIEW_STATUSES.includes(a.reviewStatus) ? a.reviewStatus : "edit"]++;
   const openCommentsCount = assets.reduce((n, a) => n + (a.openCommentsCount || 0), 0);
   // Every scheduled airing for the timeline: the project's own date plus any
   // per-video dates, de-duplicated and sorted.
@@ -2046,8 +2050,7 @@ async function decorateProject(p, userId) {
   } : null;
   return {
     ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl,
-    // Once a final exists it is what the project is waiting on.
-    statusMix, reviewStatus: final ? final.reviewStatus : projectReviewStatus(statusMix), openCommentsCount: openCommentsCount + (final ? final.openCommentsCount : 0),
+    reviewStatus: projectStatusOf(p, final), openCommentsCount: openCommentsCount + (final ? final.openCommentsCount : 0),
     airDates, totalSizeLabel, final, airConfirmed: !!p.airConfirmedAt,
   };
 }

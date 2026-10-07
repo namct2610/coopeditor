@@ -4,9 +4,9 @@
 import { html, useState, useRef, useEffect } from "../lib.mjs";
 import {
   S, set, go, viewMode, projectById, canManage, isOwner, isFinal, guard, toast, errMsg, loadSources,
-  setReviewStatus, patchProject, patchAsset, deleteAsset, reorderAssets, archiveProject, deleteProject,
+  patchProject, patchAsset, deleteAsset, reorderAssets, archiveProject, deleteProject,
 } from "../store.mjs";
-import { ST, ORDER, SST, dm, daysBetween, today, fmtAgo, fmtDur, paletteOf, resLabel, isAudio, p2, dayFromIso } from "../format.mjs";
+import { SST, dm, daysBetween, today, fmtAgo, fmtDur, paletteOf, resLabel, isAudio, p2, dayFromIso } from "../format.mjs";
 import { Thumb, AvStack, StatusPill, Seg, MoreMenu, DatePicker, posterUrl } from "../ui.mjs";
 import { nextAir } from "./hub.mjs";
 import { openOverlay } from "../overlays.mjs";
@@ -30,8 +30,6 @@ function assetMeta(a) {
 function assetMenu(pid, a, setDateFor) {
   if (!canManage(pid)) return [{ label: "Tải bản gốc", onClick: () => downloadSource(a.id) }];
   return [
-    ...ORDER.filter((k) => k !== a.reviewStatus).map((k) => ({ label: "Chuyển sang: " + ST[k].label, onClick: () => setReviewStatus(a.id, k) })),
-    "-",
     { label: a.airDate ? "Đổi ngày lên sóng (" + dm(dayFromIso(a.airDate)) + ")" : "Đặt ngày lên sóng", onClick: () => setDateFor(a.id) },
     { label: "Đổi tên", onClick: () => openOverlay("renameAsset", { pid, aid: a.id }) },
     { label: "Tải bản gốc", onClick: () => downloadSource(a.id) },
@@ -61,7 +59,6 @@ function AssetCard({ pid, a, dateFor, setDateFor }) {
       <div class="ell" style="margin-top:4px;font-size:12.5px;color:var(--tx-3)">${assetMeta(a)}</div>
     </div>
     <div class="row gap10" style="position:relative">
-      <${StatusPill} k=${a.reviewStatus || "edit"} />
       ${a.airDate && html`<span class="mono" style="font-size:11.5px;color:var(--acc-tx)">◆ ${dm(dayFromIso(a.airDate))}</span>`}
       <div class="grow"></div>
       <div style="font-size:12.5px;color:var(--tx-2)">${a.openCommentsCount ? a.openCommentsCount + " ghi chú" : ""}</div>
@@ -71,7 +68,7 @@ function AssetCard({ pid, a, dateFor, setDateFor }) {
   </div>`;
 }
 
-const ROW_COLS = "28px 128px minmax(0,1fr) 140px 90px 60px";
+const ROW_COLS = "28px 128px minmax(0,1fr) 90px 60px";
 function AssetRow({ pid, a, i, drag, dateFor, setDateFor }) {
   const processing = a.status === "processing";
   const open = () => go({ name: "review", pid, aid: a.id });
@@ -87,7 +84,6 @@ function AssetRow({ pid, a, i, drag, dateFor, setDateFor }) {
       <div class="ell" style="font-size:15.5px;font-weight:500;letter-spacing:-0.01em">${a.title} <span class="mono" style="font-size:11.5px;font-weight:400;color:var(--tx-3);margin-left:6px">v${a.versionsCount || 1}</span></div>
       <div class="ell" style="margin-top:3px;font-size:12.5px;color:var(--tx-3)">${assetMeta(a)}${processing ? " · proxy " + (a.progress || 0) + "%" : ""}${a.airDate ? " · lên sóng " + dm(dayFromIso(a.airDate)) : ""}</div>
     </div>
-    <div><${StatusPill} k=${a.reviewStatus || "edit"} /></div>
     <div style="font-size:12.5px;color:var(--tx-2);text-align:right;white-space:nowrap">${a.openCommentsCount ? a.openCommentsCount + " ghi chú" : ""}</div>
     <div class="mono" style="font-size:12px;color:var(--tx-2);text-align:right">${fmtDur(a.durationMs)}</div>
     <${MoreMenu} items=${assetMenu(pid, a, setDateFor)} cls="icon-btn flat" style="right:-44px;top:50%;margin-top:-18px" />
@@ -121,10 +117,10 @@ export function Project() {
   const [airOpen, setAirOpen] = useState(false);
   const all = S.sources[pid];
   const list = (all || []).filter((a) => !isFinal(a)).sort((a, b) => a.position - b.position);
-  const shown = list.filter((a) => S.projFilter === "all" || (a.reviewStatus || "edit") === S.projFilter);
+  const shown = list;
   const isGrid = viewMode() === "grid";
   const manage = canManage(pid);
-  const drag = useDrag(pid, list, manage && S.projFilter === "all" && !isGrid);
+  const drag = useDrag(pid, list, manage && !isGrid);
   // Proxy progress on the cards: poll while anything is encoding.
   const encoding = (all || []).some((a) => a.status === "processing");
   useEffect(() => {
@@ -141,8 +137,6 @@ export function Project() {
   const na = nextAir(p);
   const t = today();
   const script = (S.scripts || []).find((s) => s.projectId === pid);
-  const counts = { all: list.length };
-  ORDER.forEach((k) => { counts[k] = list.filter((a) => (a.reviewStatus || "edit") === k).length; });
   const menu = [
     manage && { label: "Sửa tên / khách hàng", onClick: () => openOverlay("editProject", { pid }) },
     { label: "Tải toàn bộ file gốc (.zip)", onClick: () => downloadZip(p) },
@@ -157,7 +151,7 @@ export function Project() {
     <button type="button" class="back" onClick=${() => go({ name: "hub" })}>← Dự án</button>
     <div class="head" style="margin-bottom:22px">
       <div class="head-main" style="min-width:320px">
-        <div class="eyebrow" style="letter-spacing:0.08em;margin-bottom:12px">${p.client || "—"}</div>
+        <div class="row gap10" style="margin-bottom:12px"><div class="eyebrow" style="letter-spacing:0.08em">${p.client || "—"}</div><${StatusPill} k=${p.reviewStatus || "edit"} sm /></div>
         <h1 class="display md" style="margin:0">${p.name}</h1>
         <div style="margin-top:14px;font-size:14.5px;color:var(--tx-2)">${list.length} video · ${p.openCommentsCount || 0} ghi chú mở · ${p.totalSizeLabel || "0 GB"} trên NAS · cập nhật ${fmtAgo(p.updatedAt)}</div>
       </div>
@@ -180,13 +174,6 @@ export function Project() {
     ${all !== undefined && html`<${FinalPanel} p=${p} assets=${all} />`}
     ${all === undefined && html`<div class="empty">Đang tải video…</div>`}
     ${all && list.length > 0 && html`
-      <div class="pipeline">
-        ${[["all", "Tất cả", "var(--tx)"], ...ORDER.map((k) => [k, ST[k].label, ST[k].c])].map(([k, label, c]) => html`
-          <button type="button" class=${"pipe" + (S.projFilter === k ? " on" : "")} onClick=${() => set({ projFilter: k })}>
-            <div class="lbl"><span class="dot" style=${`background:${c}`}></span>${label}</div>
-            <div class="num" style=${`color:${counts[k] ? "var(--tx)" : "var(--tx-3)"}`}>${counts[k]}</div>
-          </button>`)}
-      </div>
       <div class="row gap12" style="margin-bottom:24px">
         <div class="sec-title">Nguồn</div>
         <div class="sec-count">${shown.length} video</div>
@@ -196,7 +183,6 @@ export function Project() {
       </div>
       ${isGrid && html`<div class="grid-assets">${shown.map((a) => html`<${AssetCard} key=${a.id} pid=${pid} a=${a} dateFor=${dateFor} setDateFor=${setDateFor} />`)}</div>`}
       ${!isGrid && html`<div style="display:flex;flex-direction:column;padding-right:44px">${shown.map((a, i) => html`<${AssetRow} key=${a.id} pid=${pid} a=${a} i=${list.indexOf(a)} drag=${drag} dateFor=${dateFor} setDateFor=${setDateFor} />`)}</div>`}
-      ${shown.length === 0 && html`<div class="empty" style="padding:40px 0">Không có video nào ở trạng thái này.</div>`}
     `}
     ${all && list.length === 0 && html`<div class="empty-box">
       <div class="t">Dự án chưa có nguồn</div>
