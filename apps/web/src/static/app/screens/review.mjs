@@ -5,10 +5,10 @@
 
 import { html, useState, useEffect, useRef, useMemo, useCallback, useReducer } from "../lib.mjs";
 import {
-  S, set, go, projectById, assetById, canManage, guard, toast, errMsg, userById,
+  S, set, go, projectById, assetById, canManage, isOwner, isFinal, rejectFinal, guard, toast, errMsg, userById,
   setReviewStatus, loadVersion, loadRenditions, loadComments, requestRendition, renditionBusy, postComment, resolveComment, editComment, editCommentSketch, deleteComment,
 } from "../store.mjs";
-import { ST, ORDER, fmtTc, fmtShort, fmtAgo, paletteOf, flatBg, resLabel, clamp, isAudio } from "../format.mjs";
+import { ST, FST, ORDER, fmtTc, fmtShort, fmtAgo, paletteOf, flatBg, resLabel, clamp, isAudio } from "../format.mjs";
 import { Avatar, Seg, Menu, MenuItem, IcPlay, IcPause, Spinner, personOf } from "../ui.mjs";
 import { mediaUrl, enc } from "../api.mjs";
 import { openOverlay } from "../overlays.mjs";
@@ -356,6 +356,16 @@ export function Review() {
   }
 
   const curStatus = asset.reviewStatus || "edit";
+  // Finals: only the owner passes a verdict; approving also confirms the air date.
+  const final = isFinal(asset);
+  const SM = final ? FST : ST;
+  const statusOpts = final && !isOwner(pid) ? ["edit", "wait"] : ORDER;
+  const pickStatus = (k) => {
+    setStatusMenu(false);
+    if (final && k === "ok") return openOverlay("approveFinal", { pid });
+    if (final && k === "fix") return guard(() => rejectFinal(pid));
+    setReviewStatus(aid, k);
+  };
   const presence = (S.presence || []).filter((u) => u && u.id !== (S.me && S.me.id) && u.focus && u.focus.kind === "source" && u.focus.id === aid);
   const verOpts = versions.slice(-4).map((v) => [v.id, "v" + v.versionNumber]);
   const dirtyAnn = !sketchFor && ed.items.length;
@@ -368,23 +378,25 @@ export function Review() {
       <div class="rv-top">
         <button type="button" class="rv-crumb" onClick=${() => go({ name: "project", pid })}>← ${project.name.split(" — ")[0]}</button>
         <div class="sep-v"></div>
+        ${final && html`<span class="mono" style="font-size:11px;letter-spacing:0.08em;padding:3px 8px;border-radius:6px;background:var(--acc-soft);color:var(--acc-tx)">FINAL</span>`}
         <div class="rv-title" title=${asset.title}>${asset.title.replace(/_v\d+$/, "")}</div>
-        ${verOpts.length > 0 && html`<${Seg} cls="sm mono" opts=${verOpts} value=${versionId} onPick=${(v) => setVid(v)} />`}
+        ${verOpts.length > (final ? 1 : 0) && html`<${Seg} cls="sm mono" opts=${verOpts} value=${versionId} onPick=${(v) => setVid(v)} />`}
         <div class="rv-presence">${presence.length > 0 && html`<div>
           <div class="row" style="padding-right:6px">${presence.slice(0, 4).map((u) => html`<${Avatar} user=${userById(u.id) || u} name=${u.name} size=${24} style="margin-right:-6px;box-shadow:0 0 0 2px var(--bg)" />`)}</div>
           đang xem
         </div>`}</div>
         <div style="position:relative">
           <button type="button" ref=${statusBtn} class="status-btn" disabled=${!manage} title=${manage ? "Đổi trạng thái video" : "Chỉ người quản lý đổi được trạng thái"}
-            style=${`background:color-mix(in oklch, ${ST[curStatus].c} 16%, transparent);color:${ST[curStatus].c}`}
+            style=${`background:color-mix(in oklch, ${SM[curStatus].c} 16%, transparent);color:${SM[curStatus].c}`}
             onClick=${(e) => { e.stopPropagation(); if (manage) setStatusMenu(!statusMenu); }}>
-            <span class="dot" style=${`background:${ST[curStatus].c}`}></span>${ST[curStatus].label}${manage && html`<span style="font-size:10px;opacity:0.8">▾</span>`}
+            <span class="dot" style=${`background:${SM[curStatus].c}`}></span>${SM[curStatus].label}${manage && html`<span style="font-size:10px;opacity:0.8">▾</span>`}
           </button>
-          <${Menu} open=${statusMenu} onClose=${() => setStatusMenu(false)} anchorRef=${statusBtn} style="right:0;top:42px;width:220px">
-            <div class="menu-title">Trạng thái video</div>
-            ${ORDER.map((k) => html`<${MenuItem} check=${k === curStatus} onClick=${() => { setStatusMenu(false); setReviewStatus(aid, k); }}>
-              <span class="dot dot8" style=${`background:${ST[k].c}`}></span><span class="grow">${ST[k].label}</span>
+          <${Menu} open=${statusMenu} onClose=${() => setStatusMenu(false)} anchorRef=${statusBtn} style="right:0;top:42px;width:240px">
+            <div class="menu-title">${final ? "Trạng thái Final" : "Trạng thái video"}</div>
+            ${statusOpts.map((k) => html`<${MenuItem} check=${k === curStatus} onClick=${() => pickStatus(k)}>
+              <span class="dot dot8" style=${`background:${SM[k].c}`}></span><span class="grow">${final && k === "ok" && curStatus !== "ok" ? "Duyệt & chốt lịch…" : SM[k].label}</span>
             </${MenuItem}>`)}
+            ${final && !isOwner(pid) && html`<div class="muted" style="padding:8px 10px 4px;font-size:12px;line-height:1.5">Chỉ chủ dự án duyệt hoặc trả về Final.</div>`}
           </${Menu}>
         </div>
         <button type="button" class="btn btn-outline btn-sm" onClick=${() => openOverlay("share", { pid })}>Chia sẻ</button>

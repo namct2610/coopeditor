@@ -10,10 +10,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const PORT = 4398;
 const BASE = "http://localhost:" + PORT;
 let proc;
+let appDataDir = "";
 
 let cookie = "";
 async function http(path, opts = {}) {
@@ -27,7 +30,7 @@ async function http(path, opts = {}) {
 const login = (account) => http("/auth/dsm/login", { method: "POST", body: { account, passwd: "x" } });
 
 before(async () => {
-  const appDataDir = await mkdtemp(join(tmpdir(), "coopeditor-api-v2-"));
+  appDataDir = await mkdtemp(join(tmpdir(), "coopeditor-api-v2-"));
   proc = spawn(process.execPath, [fileURLToPath(new URL("../src/server.js", import.meta.url))], {
     env: { ...process.env, PORT: String(PORT), APP_DATA_DIR: appDataDir, DSM_DEV_LOGIN: "1", ALLOWED_ORIGINS: "http://localhost:3000" },
     stdio: ["ignore", "pipe", "pipe"],
@@ -169,6 +172,85 @@ test("sketch: images upload + serve with sniffed type, comment sketch can be edi
   assert.equal((await http("/comments/" + c.id, { method: "PATCH", body: { annotation: { items: [{ type: "nope" }] } } })).status, 400);
   r = await http("/comments/" + c.id, { method: "PATCH", body: { annotation: null } });
   assert.equal(r.json.annotation, null);
+});
+
+test("final from NAS: waits for the owner, approval confirms the air date, a new round un-confirms it", async () => {
+  assert.equal((await login("minh")).status, 200);
+  let r = await http("/projects/p2/final", { method: "POST", body: { nasPath: "/Footage/TVC Q3 2026/Hero/Hero_take7.mov" } });
+  assert.equal(r.status, 403, "minh is not a manager of p2");
+  r = await http("/projects/p1/final", { method: "POST", body: { nasPath: "/Footage/TVC Q3 2026/Hero/Hero_take7.mov" } });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.kind, "final");
+  assert.equal(r.json.reviewStatus, "wait");
+  const finalId = r.json.id;
+  let p1 = (await http("/projects/p1")).json;
+  assert.equal(p1.final.assetId, finalId);
+  assert.equal(p1.final.round, 1);
+  assert.equal(p1.reviewStatus, "wait", "the project now waits on its final");
+  assert.equal(p1.airConfirmed, false);
+  assert.ok((await http("/review-queue")).json.some((x) => x.assetId === finalId && x.kind === "final"));
+  const cal0 = (await http("/projects/p1")).json;
+  assert.equal(cal0.sourcesCount, (await http("/projects/p1/sources")).json.filter((a) => a.kind !== "final").length);
+
+  // approve needs a date when none is planned … and only the owner may give it
+  await http("/projects/p1", { method: "PATCH", body: { airDate: null } });
+  assert.equal((await http("/projects/p1/final/approve", { method: "POST", body: {} })).status, 400);
+  r = await http("/projects/p1/final/approve", { method: "POST", body: { airDate: "2026-11-20" } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.final.reviewStatus, "ok");
+  assert.equal(r.json.airDate, "2026-11-20");
+  assert.equal(r.json.airConfirmed, true);
+  const cal = (await http("/calendar?from=2026-11-01&to=2026-11-30")).json.find((x) => x.projectId === "p1");
+  assert.equal(cal.confirmed, true);
+  assert.equal(cal.finalStatus, "ok");
+
+  r = await http("/projects/p1/final", { method: "POST", body: { nasPath: "/Footage/TVC Q3 2026/Hero/Hero_take8.mov" } });
+  assert.equal(r.json.title, "Final v2");
+  p1 = (await http("/projects/p1")).json;
+  assert.equal(p1.final.round, 2);
+  assert.equal(p1.airConfirmed, false, "a new delivery needs approving again");
+  assert.equal(p1.airDate, "2026-11-20", "the planned date stays");
+  r = await http("/projects/p1/final/reject", { method: "POST" });
+  assert.equal(r.json.final.reviewStatus, "fix");
+
+  // editors can't pass a verdict on a final through the generic status patch
+  assert.equal((await login("lan")).status, 200);
+  assert.equal((await http("/assets/" + p1.final.assetId, { method: "PATCH", body: { reviewStatus: "ok" } })).status, 403);
+  assert.equal((await http("/projects/p1/final/approve", { method: "POST", body: { airDate: "2026-11-21" } })).status, 403);
+  assert.equal((await http("/assets/" + p1.final.assetId, { method: "PATCH", body: { reviewStatus: "wait" } })).status, 200);
+  assert.equal((await login("minh")).status, 200);
+});
+
+test("final upload: chunked, resumable, rejects wrong offsets and non-video files", async () => {
+  const clip = join(appDataDir, "clip.mp4");
+  try {
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=25", "-t", "2", "-pix_fmt", "yuv420p", clip]);
+  } catch (_) { return; } // no ffmpeg on this machine
+  const bytes = readFileSync(clip);
+  assert.equal((await http("/projects/p1/final-uploads", { method: "POST", body: { name: "notes.txt", size: 10 } })).status, 400);
+  const init = await http("/projects/p1/final-uploads", { method: "POST", body: { name: "Karofi_Final.mp4", size: bytes.length } });
+  assert.equal(init.status, 201);
+  const id = init.json.id;
+  const chunk = (offset, buf) => fetch(BASE + "/final-uploads/" + id + "/chunk?offset=" + offset, { method: "POST", headers: { cookie, "content-type": "application/octet-stream" }, body: buf });
+  const half = Math.floor(bytes.length / 2);
+  assert.equal((await chunk(0, bytes.subarray(0, half))).status, 200);
+  const stale = await chunk(0, bytes.subarray(0, half));
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).offset, half, "server tells the client where to resume");
+  assert.equal((await http("/final-uploads/" + id)).json.offset, half);
+  assert.equal((await http("/final-uploads/" + id + "/complete", { method: "POST" })).status, 409, "incomplete");
+  assert.equal((await chunk(half, Buffer.concat([bytes.subarray(half), Buffer.alloc(10)]))).status, 400, "past the declared size");
+  assert.equal((await http("/final-uploads/" + id)).json.offset, half, "rolled back");
+  assert.equal((await chunk(half, bytes.subarray(half))).status, 200);
+  const done = await http("/final-uploads/" + id + "/complete", { method: "POST" });
+  assert.equal(done.status, 201);
+  assert.equal(done.json.asset.kind, "final");
+  assert.equal(done.json.asset.reviewStatus, "wait");
+  assert.ok(done.json.asset.durationMs >= 1900, "probed from the uploaded bytes");
+  assert.equal((await http("/final-uploads/" + id)).status, 404, "session is gone");
+  const src = await fetch(BASE + "/assets/" + done.json.asset.id + "/source", { headers: { cookie } });
+  assert.equal(src.status, 200);
+  assert.equal(Buffer.from(await src.arrayBuffer()).length, bytes.length);
 });
 
 test("non-owners cannot change workspace roles or proxy settings", async () => {

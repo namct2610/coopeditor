@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { readFile, stat, statfs, mkdir, writeFile, unlink } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { readFile, stat, statfs, mkdir, writeFile, unlink, rename, truncate, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 // Reusable random buffer for /speedtest/segment — generated once at startup and
@@ -897,12 +897,18 @@ async function handle(req, res, url) {
       if (project.archivedAt) continue;
       const d = project.airDate;
       if (!d || d < from || d > to) continue;
-      const assets = await store.listAssetsByProject(project.id);
+      const all = await store.listAssetsByProject(project.id);
+      const assets = all.filter((a) => !isFinal(a));
+      const finals = finalsOf(all);
+      const cur = finals[finals.length - 1];
       items.push({
         projectId: project.id,
         projectName: project.name,
         airDate: d,
         videoCount: assets.length,
+        confirmed: !!project.airConfirmedAt,
+        finalStatus: cur ? cur.reviewStatus : null,
+        finalRound: finals.length,
         paletteA: project.paletteA || (assets[0] && assets[0].paletteA) || "#15171c",
         paletteB: project.paletteB || (assets[0] && assets[0].paletteB) || "#3a4453",
       });
@@ -927,7 +933,7 @@ async function handle(req, res, url) {
         if (a.reviewStatus !== "wait") continue;
         items.push({
           projectId: project.id, projectName: project.name, client: project.client || "",
-          assetId: a.id, title: a.title, durationMs: a.durationMs || 0, versionsCount: a.versionsCount || 1,
+          assetId: a.id, kind: a.kind || "source", title: a.title, durationMs: a.durationMs || 0, versionsCount: a.versionsCount || 1,
           openCommentsCount: a.openCommentsCount || 0, paletteA: a.paletteA, paletteB: a.paletteB,
           posterUrl: "/assets/" + a.id + "/poster",
           sentBy: await userName(a.reviewStatusBy), sentAt: a.reviewStatusAt || null,
@@ -1090,6 +1096,14 @@ async function handle(req, res, url) {
       }
       const patch = { ...body };
       delete patch.thumbDataUrl;
+      // The confirmation only comes from approving the final; a manager who
+      // isn't the owner moving the date turns it back into a plan.
+      delete patch.airConfirmedAt; delete patch.airConfirmedBy;
+      if ("airDate" in patch) {
+        const member = await store.getProjectMember(projectId, sess.userId);
+        const before = await store.getProject(projectId);
+        if (before && before.airConfirmedAt && patch.airDate !== before.airDate && (!member || member.role !== "owner")) patch.airConfirmedAt = null;
+      }
       const updated = await store.patchProject(projectId, patch);
       if (!updated) return bad(res, "Project not found", 404);
       await audit.record({ actorUserId: sess.userId, action: "project.update", resourceType: "project", resourceId: projectId, projectId, payload: body });
@@ -1326,6 +1340,10 @@ async function handle(req, res, url) {
       delete body.reviewStatusBy;
       if ("reviewStatus" in body) {
         if (!REVIEW_STATUSES.includes(body.reviewStatus)) return bad(res, "reviewStatus must be one of " + REVIEW_STATUSES.join("|"));
+        const current = await store.getAsset(assetId);
+        if (isFinal(current) && ["ok", "fix", "air"].includes(body.reviewStatus)) {
+          if (!(await requireProjectAccess(res, projectId, sess.userId, ["owner"]))) return;
+        }
         body.reviewStatusBy = sess.userId;
       }
       const updated = await store.patchAsset(assetId, body);
@@ -1400,6 +1418,97 @@ async function handle(req, res, url) {
     } catch (err) {
       return bad(res, "Khong mo duoc source video: " + (err && err.message), 404);
     }
+  }
+  // ---- Final: deliver from NAS, upload from the browser, approve / send back
+  if ((mat = p.match(/^\/projects\/([^/]+)\/final$/)) && m === "POST") {
+    const pid = mat[1];
+    if (!(await requireProjectAccess(res, pid, sess.userId, ["owner", "editor"]))) return;
+    if (!(await store.getProject(pid))) return bad(res, "Project not found", 404);
+    const body = await readJson(req).catch(() => null);
+    if (!body || typeof body.nasPath !== "string") return bad(res, "nasPath required");
+    const file = await dsm.getFileMeta(sess.dsmSid, body.nasPath);
+    if (!file || file.type !== "file" || !file.isVideo) return bad(res, "Chỉ chọn được file video");
+    const a = await addFinalRound({ projectId: pid, entry: file, nasPath: file.path || body.nasPath, userId: sess.userId, log: req.log });
+    return send(res, 201, a);
+  }
+  if ((mat = p.match(/^\/projects\/([^/]+)\/final\/(approve|reject)$/)) && m === "POST") {
+    const pid = mat[1], verdict = mat[2];
+    if (!(await requireProjectAccess(res, pid, sess.userId, ["owner"]))) return;
+    const project = await store.getProject(pid);
+    if (!project) return bad(res, "Project not found", 404);
+    const finals = finalsOf(await store.listAssetsByProject(pid));
+    const cur = finals[finals.length - 1];
+    if (!cur) return bad(res, "Dự án chưa có video Final", 404);
+    const body = await readJson(req).catch(() => null) || {};
+    if (verdict === "approve") {
+      const airDate = body.airDate === undefined ? project.airDate : body.airDate;
+      if (!airDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(airDate))) return bad(res, "Chọn ngày lên sóng (YYYY-MM-DD) để chốt lịch");
+      await store.patchAsset(cur.id, { reviewStatus: "ok", reviewStatusBy: sess.userId });
+      await store.patchProject(pid, { airDate, airConfirmedAt: new Date().toISOString(), airConfirmedBy: sess.userId });
+    } else {
+      await store.patchAsset(cur.id, { reviewStatus: "fix", reviewStatusBy: sess.userId });
+      await store.patchProject(pid, { airConfirmedAt: null });
+    }
+    await audit.record({ actorUserId: sess.userId, action: "final." + (verdict === "approve" ? "approved" : "rejected"), resourceType: "asset", resourceId: cur.id, projectId: pid, payload: { round: finals.length, airDate: body.airDate || null } });
+    await publishProjectEvent(pid, { type: "asset", action: "updated", assetId: cur.id });
+    return send(res, 200, await decorateProject(await store.getProject(pid), sess.userId));
+  }
+  if ((mat = p.match(/^\/projects\/([^/]+)\/final-uploads$/)) && m === "POST") {
+    const pid = mat[1];
+    if (!(await requireProjectAccess(res, pid, sess.userId, ["owner", "editor"]))) return;
+    const project = await store.getProject(pid);
+    if (!project) return bad(res, "Project not found", 404);
+    const body = await readJson(req).catch(() => null);
+    const name = body && typeof body.name === "string" ? dsm.safeFolderName(body.name.split(/[\\/]/).pop(), "") : "";
+    const size = body ? Number(body.size) : 0;
+    if (!name || !dsm.isVideoFileName(name)) return bad(res, "Chỉ upload được file video (mp4, mov, mxf…)");
+    if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FINAL_BYTES) return bad(res, "Kích thước file không hợp lệ");
+    let dest;
+    try { dest = await dsm.finalUploadDir(project.name); } catch (err) { return bad(res, "Không tạo được thư mục lưu Final: " + (err && err.message), 500); }
+    if ((await freeBytes(dest.localDir)) < size + 512 * 1024 * 1024) return bad(res, "NAS không đủ dung lượng trống cho file này", 507);
+    const id = randomBytes(12).toString("hex");
+    const u = { id, projectId: pid, userId: sess.userId, name, size, localDir: dest.localDir, storedDir: dest.storedDir, onShare: dest.onShare, part: join(dest.localDir, ".coopeditor-" + id + ".part"), createdAt: new Date().toISOString() };
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(uploadMetaPath(id), JSON.stringify(u));
+    await writeFile(u.part, "");
+    return send(res, 201, { id, offset: 0, size, chunkSize: UPLOAD_CHUNK_BYTES, folder: dest.onShare ? dest.storedDir : null });
+  }
+  if ((mat = p.match(/^\/final-uploads\/([^/]+)(?:\/(chunk|complete))?$/))) {
+    const u = await readUpload(mat[1]);
+    const action = mat[2] || "";
+    if (!u || u.userId !== sess.userId) return bad(res, "Upload not found", 404);
+    if (!(await requireProjectAccess(res, u.projectId, sess.userId, ["owner", "editor"]))) return;
+    const offset = await uploadOffset(u);
+    if (!action && m === "GET") return send(res, 200, { id: u.id, offset, size: u.size, name: u.name, chunkSize: UPLOAD_CHUNK_BYTES });
+    if (!action && m === "DELETE") {
+      await unlink(u.part).catch(() => {});
+      await unlink(uploadMetaPath(u.id)).catch(() => {});
+      return send(res, 200, { ok: true });
+    }
+    if (action === "chunk" && m === "POST") {
+      const at = Number(url.searchParams.get("offset"));
+      if (at !== offset) return send(res, 409, { error: "offset mismatch", offset });
+      try {
+        await appendChunk(req, u.part, offset, Math.min(MAX_UPLOAD_CHUNK_BYTES, u.size - offset));
+      } catch (err) {
+        return send(res, 400, { error: String(err && err.message || err), offset: await uploadOffset(u) });
+      }
+      return send(res, 200, { offset: await uploadOffset(u), size: u.size });
+    }
+    if (action === "complete" && m === "POST") {
+      if (offset !== u.size) return send(res, 409, { error: "upload incomplete", offset });
+      const fileName = await uniqueFileName(u.localDir, u.name);
+      const finalPath = join(u.localDir, fileName);
+      await rename(u.part, finalPath);
+      await unlink(uploadMetaPath(u.id)).catch(() => {});
+      const nasPath = u.onShare ? u.storedDir + "/" + fileName : finalPath;
+      let entry = null;
+      try { entry = await dsm.probeLocalVideo(fileName, nasPath, finalPath); } catch (_) {}
+      if (!entry) return bad(res, "File đã lên NAS nhưng không đọc được hình — kiểm tra lại file video");
+      const a = await addFinalRound({ projectId: u.projectId, entry, nasPath, userId: sess.userId, log: req.log });
+      return send(res, 201, { asset: a, path: u.onShare ? nasPath : null });
+    }
+    return bad(res, "Method not allowed", 405);
   }
   if ((mat = p.match(/^\/projects\/([^/]+)\/import$/)) && m === "POST") {
     const pid = mat[1];
@@ -1819,8 +1928,98 @@ async function autoQueueProxies(versions, log) {
   }
 }
 
+// ---- Final video ------------------------------------------------------------
+// Every delivery of the assembled cut is its own asset (kind "final", titled
+// "Final vN"); the newest one is the project's current final. Delivering one
+// puts it in Chờ duyệt and un-confirms the air date; the project owner then
+// approves it (confirming the air date) or sends it back (Cần sửa).
+const isFinal = (a) => a && a.kind === "final";
+const finalsOf = (assets) => assets.filter(isFinal).sort((a, b) => a.position - b.position || String(a.createdAt).localeCompare(String(b.createdAt)));
+
+async function addFinalRound({ projectId, entry, nasPath, userId, log }) {
+  const finals = finalsOf(await store.listAssetsByProject(projectId));
+  const round = finals.length + 1;
+  const a = await store.addAssetFromImport({
+    projectId, kind: "final", title: "Final v" + round, codec: entry.codec || "unknown",
+    sizeLabel: entry.sizeLabel || "—", durationMs: entry.durationMs || 0, nasPath,
+    width: entry.width || 0, height: entry.height || 0, frameRate: entry.frameRate || 0,
+    resolutionLabel: entry.resolutionLabel || "", mimeType: entry.mimeType || mimeFromPath(entry.name),
+  });
+  const updated = await store.patchAsset(a.id, { reviewStatus: "wait", reviewStatusBy: userId });
+  await store.patchProject(projectId, { airConfirmedAt: null });
+  // A final is watched start to end in the browser: always queue its 720p proxy.
+  try {
+    await ensureTranscodeRuntimeReady();
+    const versions = await store.listVersionsForAsset(a.id);
+    const r720 = versions.length ? (await store.listRenditionsForVersion(versions[versions.length - 1].id)).find((r) => r.height === 720) : null;
+    if (r720) await requestTranscode(r720.id);
+  } catch (err) { log && log.warn({ err: String(err && err.message || err), assetId: a.id }, "final proxy enqueue failed"); }
+  await audit.record({ actorUserId: userId, action: "final.delivered", resourceType: "asset", resourceId: a.id, projectId, payload: { round, sourcePath: nasPath } });
+  await publishProjectEvent(projectId, { type: "asset", action: "created", assetId: a.id });
+  return updated || a;
+}
+
+// Resumable browser upload of a final: the file is written in chunks straight
+// into its destination folder as a hidden .part, then renamed and probed.
+const UPLOAD_DIR = join(APP_DATA_DIR, "system", "final-uploads");
+const UPLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
+const MAX_UPLOAD_CHUNK_BYTES = 64 * 1024 * 1024;
+const MAX_FINAL_BYTES = 1024 ** 4; // 1 TB
+const uploadMetaPath = (id) => join(UPLOAD_DIR, id + ".json");
+async function readUpload(id) {
+  if (!/^[a-f0-9]{24}$/.test(String(id || ""))) return null;
+  try { return JSON.parse(await readFile(uploadMetaPath(id), "utf8")); } catch (_) { return null; }
+}
+async function uploadOffset(u) { try { return (await stat(u.part)).size; } catch (_) { return 0; } }
+async function freeBytes(dir) { try { const st = await statfs(dir); return Number(st.bavail) * Number(st.bsize); } catch (_) { return Infinity; } }
+async function uniqueFileName(dir, name) {
+  const taken = new Set(await readdir(dir).catch(() => []));
+  if (!taken.has(name)) return name;
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : "";
+  for (let i = 2; i < 1000; i++) if (!taken.has(`${base} (${i})${ext}`)) return `${base} (${i})${ext}`;
+  return base + "-" + Date.now() + ext;
+}
+// Append the request body at `offset`. Anything past the declared size or
+// the chunk cap aborts and rolls the file back to where it was.
+function appendChunk(req, file, offset, maxBytes) {
+  return new Promise((resolve, reject) => {
+    let n = 0, failed = null, settled = false;
+    const out = createWriteStream(file, { flags: offset === 0 ? "w" : "r+", start: offset });
+    const done = (err) => {
+      if (settled) return;
+      settled = true;
+      if (err) truncate(file, offset).catch(() => {}).finally(() => reject(err));
+      else resolve(n);
+    };
+    // Over the limit: stop writing but keep draining the body so the client
+    // still gets an answer (with the offset to resume from) instead of a reset.
+    const fail = (err) => {
+      if (failed) return;
+      failed = err;
+      req.unpipe(out);
+      out.destroy();
+      req.resume();
+    };
+    req.on("data", (c) => {
+      n += c.length;
+      if (n > maxBytes) fail(new Error("chunk past the declared file size"));
+      if (n > maxBytes + MAX_UPLOAD_CHUNK_BYTES) req.destroy();
+    });
+    req.on("end", () => { if (failed) done(failed); });
+    req.on("error", (err) => done(err));
+    req.on("aborted", () => done(new Error("upload aborted")));
+    out.on("error", (err) => { if (!failed) { fail(err); } });
+    out.on("finish", () => { if (!failed) done(null); });
+    req.pipe(out);
+  });
+}
+
 async function decorateProject(p, userId) {
-  const assets = await store.listAssetsByProject(p.id);
+  const everything = await store.listAssetsByProject(p.id);
+  const assets = everything.filter((a) => !isFinal(a));
+  const finals = finalsOf(everything);
+  const cur = finals[finals.length - 1] || null;
   const ready = assets.filter((a) => a.status === "ready").length;
   const commentsCount = assets.reduce((a, x) => a + (x.commentsCount || 0), 0);
   const team = [];
@@ -1836,10 +2035,18 @@ async function decorateProject(p, userId) {
   // Every scheduled airing for the timeline: the project's own date plus any
   // per-video dates, de-duplicated and sorted.
   const airDates = [...new Set([p.airDate, ...assets.map((a) => a.airDate)].filter(Boolean))].sort();
-  const totalSizeLabel = formatBytesLabel(assets.reduce((n, a) => n + parseSizeLabel(a.sizeLabel), 0));
+  const totalSizeLabel = formatBytesLabel(everything.reduce((n, a) => n + parseSizeLabel(a.sizeLabel), 0));
+  const final = cur ? {
+    assetId: cur.id, round: finals.length, title: cur.title, reviewStatus: cur.reviewStatus || "wait",
+    reviewStatusBy: cur.reviewStatusBy || null, reviewStatusAt: cur.reviewStatusAt || null, createdAt: cur.createdAt,
+    durationMs: cur.durationMs || 0, sizeLabel: cur.sizeLabel, status: cur.status, progress: cur.progress,
+    openCommentsCount: cur.openCommentsCount || 0, paletteA: cur.paletteA, paletteB: cur.paletteB,
+  } : null;
   return {
     ...p, myRole: p.myRole || (member && member.role) || undefined, sourcesCount: assets.length, readyCount: ready, commentsCount, team, thumbUrl,
-    statusMix, reviewStatus: projectReviewStatus(statusMix), openCommentsCount, airDates, totalSizeLabel,
+    // Once a final exists it is what the project is waiting on.
+    statusMix, reviewStatus: final ? final.reviewStatus : projectReviewStatus(statusMix), openCommentsCount: openCommentsCount + (final ? final.openCommentsCount : 0),
+    airDates, totalSizeLabel, final, airConfirmed: !!p.airConfirmedAt,
   };
 }
 

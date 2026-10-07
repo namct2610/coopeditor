@@ -5,7 +5,7 @@
 // read S directly; the root component is the only subscriber.
 
 import { useEffect, useReducer } from "./lib.mjs";
-import { api, get, post, patch, del, enc, ApiError, setUnauthorizedHandler } from "./api.mjs";
+import { api, get, post, patch, del, enc, ApiError, setUnauthorizedHandler, API_BASE } from "./api.mjs";
 
 export const S = {
   boot: "loading",          // loading | setup | login | ready | offline
@@ -22,7 +22,8 @@ export const S = {
   users: {},                // id → user
   queue: [],
   presence: [],
-  sources: {},              // projectId → assets
+  sources: {},              // projectId → assets (sources and final deliveries; see isFinal)
+  uploads: {},              // projectId → final upload in progress { name, size, sent, state, error, rate }
   members: {},              // projectId → members (with .user)
   versions: {},             // assetId → versions
   comments: {},             // versionId → comments (flat, replies have parentId)
@@ -278,6 +279,7 @@ export function assetById(aid) {
 }
 export function myRole(pid) { const p = projectById(pid); return (p && p.myRole) || null; }
 export const canManage = (pid) => ["owner", "editor"].includes(myRole(pid));
+export const isFinal = (a) => !!a && a.kind === "final";
 export const isOwner = (pid) => myRole(pid) === "owner";
 
 // ---------- projects ----------
@@ -500,3 +502,108 @@ export async function deleteScript(id) {
 // ---------- settings ----------
 export const fetchUpdateStatus = (force) => get("/admin/update-status" + (force ? "?refresh=1" : ""));
 export const fetchVersion = () => get("/version");
+
+// ---------- Final video ----------
+// Each delivery is its own asset (kind "final"). Owner approves it with an
+// air date (which confirms the schedule) or sends it back (Cần sửa).
+async function afterFinalChange(pid, project) {
+  if (project) set({ projects: S.projects.map((x) => (x.id === pid ? project : x)) });
+  loadSources(pid);
+  refreshProjects(300);
+  refreshQueue();
+}
+export async function deliverFinalFromNas(pid, nasPath) {
+  const a = await post("/projects/" + enc(pid) + "/final", { nasPath }, { timeout: 120000 });
+  await afterFinalChange(pid);
+  return a;
+}
+export async function approveFinal(pid, airDate) {
+  await afterFinalChange(pid, await post("/projects/" + enc(pid) + "/final/approve", { airDate }));
+}
+export async function rejectFinal(pid) {
+  await afterFinalChange(pid, await post("/projects/" + enc(pid) + "/final/reject", {}));
+}
+
+// Upload from the computer in 16 MB chunks. The server remembers how far it
+// got, so a dropped connection retries from there, and picking the same file
+// again after a reload resumes instead of starting over.
+const uploadAborts = {};
+const uploadKey = (pid, f) => "coop.finalUpload:" + pid + ":" + f.name + ":" + f.size + ":" + (f.lastModified || 0);
+function setUpload(pid, fields) {
+  const cur = S.uploads[pid];
+  set({ uploads: { ...S.uploads, [pid]: fields === null ? undefined : { ...(cur || {}), ...fields } } });
+}
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (_) {} };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function sendChunk(id, offset, blob, signal) {
+  const res = await fetch(API_BASE + "/final-uploads/" + enc(id) + "/chunk?offset=" + offset, {
+    method: "POST", credentials: "include", headers: { "content-type": "application/octet-stream" }, body: blob, signal,
+  });
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  if (res.ok || res.status === 409) return body && typeof body.offset === "number" ? body.offset : offset;
+  throw new ApiError((body && body.error) || "Lỗi " + res.status, res.status, body);
+}
+
+export async function uploadFinal(pid, file) {
+  if (S.uploads[pid] && ["uploading", "processing"].includes(S.uploads[pid].state)) return;
+  const ctl = new AbortController();
+  uploadAborts[pid] = ctl;
+  const key = uploadKey(pid, file);
+  setUpload(pid, { name: file.name, size: file.size, sent: 0, state: "uploading", error: "", rate: 0, folder: null });
+  try {
+    let id = lsGet(key), offset = 0, chunkSize = 16 * 1024 * 1024;
+    if (id) {
+      try { const st = await get("/final-uploads/" + enc(id)); offset = st.offset; chunkSize = st.chunkSize || chunkSize; }
+      catch (_) { id = null; }
+    }
+    if (!id) {
+      const init = await post("/projects/" + enc(pid) + "/final-uploads", { name: file.name, size: file.size });
+      id = init.id; chunkSize = init.chunkSize || chunkSize;
+      setUpload(pid, { folder: init.folder || null });
+      lsSet(key, id);
+    }
+    setUpload(pid, { id, sent: offset, resumed: offset > 0 });
+    let fails = 0, t0 = Date.now(), b0 = offset;
+    while (offset < file.size) {
+      if (ctl.signal.aborted) throw new DOMException("aborted", "AbortError");
+      try {
+        offset = await sendChunk(id, offset, file.slice(offset, Math.min(file.size, offset + chunkSize)), ctl.signal);
+        fails = 0;
+        const dt = (Date.now() - t0) / 1000;
+        setUpload(pid, { sent: offset, rate: dt > 1 ? (offset - b0) / dt : 0, state: "uploading", error: "" });
+      } catch (e) {
+        if (e && e.name === "AbortError") throw e;
+        if (e instanceof ApiError && e.status && e.status !== 0 && e.status < 500 && e.status !== 408) throw e;
+        if (++fails > 12) throw new ApiError("Mất kết nối quá lâu — chọn lại file để tải tiếp", 0);
+        setUpload(pid, { state: "retrying", error: "Mất kết nối, thử lại…" });
+        await sleep(Math.min(30000, 1000 * 2 ** fails));
+        try { offset = (await get("/final-uploads/" + enc(id))).offset; } catch (_) {}
+      }
+    }
+    setUpload(pid, { state: "processing", sent: file.size });
+    const r = await post("/final-uploads/" + enc(id) + "/complete", {}, { timeout: 180000 });
+    lsSet(key, null);
+    setUpload(pid, null);
+    toast("Đã nộp " + ((r.asset && r.asset.title) || "Final") + " — chờ chủ dự án duyệt");
+    await afterFinalChange(pid);
+    return r.asset;
+  } catch (e) {
+    if (e && e.name === "AbortError") { setUpload(pid, null); return null; }
+    setUpload(pid, { state: "error", error: errMsg(e, "Không upload được file") });
+    return null;
+  } finally {
+    delete uploadAborts[pid];
+  }
+}
+export async function cancelUpload(pid) {
+  const u = S.uploads[pid];
+  if (uploadAborts[pid]) uploadAborts[pid].abort();
+  if (u && u.id) { try { await del("/final-uploads/" + enc(u.id)); } catch (_) {} }
+  try { Object.keys(localStorage).filter((k) => k.startsWith("coop.finalUpload:" + pid + ":")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+  setUpload(pid, null);
+}
+export const uploadBusy = () => Object.values(S.uploads).some((u) => u && ["uploading", "retrying", "processing"].includes(u.state));
+window.addEventListener("beforeunload", (e) => { if (uploadBusy()) { e.preventDefault(); e.returnValue = ""; } });

@@ -1,12 +1,12 @@
 {
-  "version": "1.0.0-rc57",
-  "summary": "Phac thao tren khung hinh: chen chu, khung, anh, o giu cho, khung crop va vung che mo ngay tren video khi review.",
+  "version": "1.0.0-rc58",
+  "summary": "Video Final: nop ban ghep cuoi cung cua du an, chu du an duyet va chot ngay len song.",
   "changes": [
-    "Cong cu ve trong trang review thanh trinh phac thao: chu (phu de, tieu de, lower third) voi co chu / dam / bong / nen, khung chu nhat va elip co nen, mui ten, duong thang, but va but da quang.",
-    "Chen anh (logo, anh tham khao) bang nut, dan Ctrl/Cmd V hoac keo tha vao khung hinh; anh duoc thu nho truoc khi tai len NAS.",
-    "O giu cho B-roll / logo / PiP, khung crop 9:16, 1:1, 4:5 lam toi phan bi cat, vung che mo; menu Mau nhanh chen san cac bo cuc hay dung.",
-    "Chon, keo, doi kich thuoc, nhan ban, doi lop, hoan tac / lam lai va phim tat nhu trinh editor; bam dup de sua chu.",
-    "Ghi chu hien anh thu nho cua phac thao; nguoi viet hoac quan ly co the sua lai phac thao sau khi gui. Hinh ve cu van hien dung."
+    "Moi du an co khu Video Final: nop tu may tinh (upload chia nho, mat mang van tai tiep) hoac chon file da xuat tren NAS. File upload duoc luu vao thu muc 'Coopeditor Final/<ten du an>' tren NAS.",
+    "Final vua nop o trang thai Cho duyet va hien o muc 'Cho ban review'. Chi chu du an duoc Duyet hoac tra ve Can sua.",
+    "Duyet Final = chon ngay len song va chot lich. Ngay dat truoc do la 'du kien'; nop ban Final moi thi lich tro lai du kien cho toi khi duyet lai.",
+    "Moi lan nop la mot vong (Final v1, v2...) co ghi chu, phac thao va proxy 720p rieng; cac vong truoc van xem lai duoc.",
+    "Lich len song phan biet ngay da chot va ngay du kien."
   ],
-  "publishedAt": "2026-10-07T12:00:00.000Z"
+  "publishedAt": "2026-10-07T15:00:00.000Z"
 }

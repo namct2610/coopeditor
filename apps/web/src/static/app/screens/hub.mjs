@@ -34,13 +34,13 @@ function QueueCard({ q }) {
     onClick=${(e) => { e.preventDefault(); go({ name: "review", pid: q.projectId, aid: q.assetId, t: 0 }); }} style="color:inherit">
     <${Thumb} src=${posterUrl(q.assetId)} pal=${pal} radius=${16}>
       <div class="shade"></div>
-      <div class="glass" style="left:14px;top:14px"><span class="dot" style="background:oklch(0.82 0.13 80)"></span>Chờ review</div>
+      <div class="glass" style="left:14px;top:14px"><span class="dot" style="background:oklch(0.82 0.13 80)"></span>${q.kind === "final" ? "Final · chờ duyệt" : "Chờ review"}</div>
       <div class="on-thumb" style="left:14px;bottom:12px">v${q.versionsCount || 1} · ${fmtDur(q.durationMs)}</div>
       <div style="position:absolute;right:14px;bottom:12px;font-size:12px;color:rgba(255,255,255,0.85)">${notes}</div>
       <div class="play-dot"><${IcPlay} size=${16} color="#141413" style="margin-left:3px" /></div>
     </${Thumb}>
     <div style="min-width:0">
-      <div class="card-title ell">${q.title}</div>
+      <div class="card-title ell">${q.kind === "final" ? q.projectName + " — " + q.title : q.title}</div>
       <div class="card-meta ell">${[q.client || q.projectName, q.sentBy && "gửi bởi " + q.sentBy, q.sentAt && fmtAgo(q.sentAt)].filter(Boolean).join(" · ")}</div>
     </div>
   </a>`;

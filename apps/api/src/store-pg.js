@@ -35,9 +35,10 @@ const projectRow = (r) => r && ({
   updatedAt: r.updated_at, teamUserIds: _teamIds(r.team_user_ids), myRole: r.my_role || undefined,
   archivedAt: r.archived_at || null, createdAt: r.created_at,
   airDate: r.air_date || null,
+  airConfirmedAt: r.air_confirmed_at || null, airConfirmedBy: r.air_confirmed_by || null,
 });
 const assetRow = (r) => r && ({
-  id: r.id, projectId: r.project_id, title: r.title, position: r.position, nasPath: r.nas_path,
+  id: r.id, projectId: r.project_id, kind: r.kind || "source", title: r.title, position: r.position, nasPath: r.nas_path,
   codec: r.codec, sizeLabel: r.size_label, durationMs: r.duration_ms, frameRate: r.frame_rate,
   width: r.width_px || 0, height: r.height_px || 0, resolutionLabel: r.resolution_label || "",
   mimeType: r.mime_type || "application/octet-stream",
@@ -245,6 +246,10 @@ export async function patchProject(id, patch) {
   if (patch.name) { sets.push("name = $" + i++); vals.push(patch.name); }
   if (typeof patch.client === "string") { sets.push("client = $" + i++); vals.push(patch.client); }
   if ("airDate" in patch) { sets.push("air_date = $" + i++); vals.push(patch.airDate || null); }
+  if ("airConfirmedAt" in patch) {
+    sets.push("air_confirmed_at = $" + i++); vals.push(patch.airConfirmedAt || null);
+    sets.push("air_confirmed_by = $" + i++); vals.push(patch.airConfirmedAt ? patch.airConfirmedBy || null : null);
+  }
   sets.push("updated_at = 'vừa xong'");
   vals.push(id);
   await q(`UPDATE projects SET ${sets.join(", ")} WHERE id = $${i}`, vals);
@@ -727,14 +732,14 @@ export async function enqueueTranscode(renditionId) {
   await q(`SELECT pg_notify('coopeditor_jobs', $1)`, [renditionId]).catch(() => {});
 }
 
-export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream" }) {
+export async function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream", kind = "source" }) {
   const id = "imp_" + randomUUID().slice(0, 8);
   const PAL = [["#0c2436","#1c5876"],["#2a1d0c","#7a521d"],["#0c1c33","#234a78"],["#15171c","#3a4453"],["#291230","#6e2a55"],["#241a0e","#7a5524"],["#102b2b","#1f5a52"],["#1a1430","#3a2f6e"]];
   const existing = num((await one(`SELECT COUNT(*) AS n FROM assets WHERE project_id = $1`, [projectId]))?.n);
   const [a, b] = PAL[existing % PAL.length];
-  const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, width_px, height_px, resolution_label, mime_type, status, progress, palette_a, palette_b)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',0,$14,$15) RETURNING *`,
-    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", a, b]);
+  const aRow = await one(`INSERT INTO assets (id, project_id, title, position, nas_path, codec, size_label, duration_ms, frame_rate, width_px, height_px, resolution_label, mime_type, status, progress, palette_a, palette_b, kind)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',0,$14,$15,$16) RETURNING *`,
+    [id, projectId, title, existing, nasPath, codec, sizeLabel, durationMs, Math.round(frameRate || 24), width || 0, height || 0, resolutionLabel || "", mimeType || "application/octet-stream", a, b, kind === "final" ? "final" : "source"]);
 
   // seed V1 + 2 renditions (pending; worker runs only on manual request)
   const vid = id + "_v1";

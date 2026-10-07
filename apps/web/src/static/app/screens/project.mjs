@@ -3,13 +3,14 @@
 
 import { html, useState, useRef, useEffect } from "../lib.mjs";
 import {
-  S, set, go, viewMode, projectById, canManage, isOwner, guard, toast, errMsg, loadSources,
+  S, set, go, viewMode, projectById, canManage, isOwner, isFinal, guard, toast, errMsg, loadSources,
   setReviewStatus, patchProject, patchAsset, deleteAsset, reorderAssets, archiveProject, deleteProject,
 } from "../store.mjs";
 import { ST, ORDER, SST, dm, daysBetween, today, fmtAgo, fmtDur, paletteOf, resLabel, isAudio, p2, dayFromIso } from "../format.mjs";
 import { Thumb, AvStack, StatusPill, Seg, MoreMenu, DatePicker, posterUrl } from "../ui.mjs";
 import { nextAir } from "./hub.mjs";
 import { openOverlay } from "../overlays.mjs";
+import { FinalPanel } from "./final.mjs";
 import { api, mediaUrl, enc } from "../api.mjs";
 
 export async function downloadZip(p) {
@@ -119,13 +120,13 @@ export function Project() {
   const [dateFor, setDateFor] = useState(null);
   const [airOpen, setAirOpen] = useState(false);
   const all = S.sources[pid];
-  const list = (all || []).slice().sort((a, b) => a.position - b.position);
+  const list = (all || []).filter((a) => !isFinal(a)).sort((a, b) => a.position - b.position);
   const shown = list.filter((a) => S.projFilter === "all" || (a.reviewStatus || "edit") === S.projFilter);
   const isGrid = viewMode() === "grid";
   const manage = canManage(pid);
   const drag = useDrag(pid, list, manage && S.projFilter === "all" && !isGrid);
   // Proxy progress on the cards: poll while anything is encoding.
-  const encoding = list.some((a) => a.status === "processing");
+  const encoding = (all || []).some((a) => a.status === "processing");
   useEffect(() => {
     if (!encoding) return undefined;
     const t = setInterval(() => loadSources(pid), 4000);
@@ -169,13 +170,14 @@ export function Project() {
     </div>
     <div class="row gap10" style="flex-wrap:wrap;margin-bottom:44px;position:relative">
       <button type="button" class="acc-chip" style=${manage ? "" : "cursor:default"} onClick=${() => manage && setAirOpen(!airOpen)}>
-        <span class="diamond"></span>${na ? "Lên sóng " + dm(na) + " · " + (daysBetween(t, na) === 0 ? "hôm nay" : "còn " + daysBetween(t, na) + " ngày") : "Chưa đặt ngày lên sóng"}
+        <span class="diamond"></span>${na ? (p.airConfirmed ? "Lên sóng " : "Dự kiến lên sóng ") + dm(na) + " · " + (daysBetween(t, na) === 0 ? "hôm nay" : "còn " + daysBetween(t, na) + " ngày") + (p.airConfirmed ? " · đã chốt" : "") : "Chưa đặt ngày lên sóng"}
       </button>
       ${airOpen && html`<${DatePicker} value=${p.airDate} style="left:0;top:38px" onClose=${() => setAirOpen(false)}
         onPick=${(d) => { setAirOpen(false); guard(() => patchProject(pid, { airDate: d })); }} />`}
       ${script && html`<button type="button" class="ring-chip" onClick=${() => go({ name: "script", sid: script.id })}>Kịch bản: ${script.title} <span class="muted">· ${(SST[script.status] || SST.draft).label}</span></button>`}
     </div>
 
+    ${all !== undefined && html`<${FinalPanel} p=${p} assets=${all} />`}
     ${all === undefined && html`<div class="empty">Đang tải video…</div>`}
     ${all && list.length > 0 && html`
       <div class="pipeline">
@@ -186,7 +188,7 @@ export function Project() {
           </button>`)}
       </div>
       <div class="row gap12" style="margin-bottom:24px">
-        <div class="sec-title">Video</div>
+        <div class="sec-title">Nguồn</div>
         <div class="sec-count">${shown.length} video</div>
         ${drag.enabled && html`<div class="muted" style="font-size:12px">· kéo để sắp xếp</div>`}
         <div class="grow"></div>

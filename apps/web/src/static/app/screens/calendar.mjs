@@ -4,7 +4,7 @@
 
 import { html } from "../lib.mjs";
 import { S, set, go } from "../store.mjs";
-import { ST, ORDER, WD, WD_LONG, dm, daysBetween, today, todayLabel, dayFromIso, parseIso, paletteOf, tint } from "../format.mjs";
+import { ST, FST, ORDER, WD, WD_LONG, dm, daysBetween, today, todayLabel, dayFromIso, parseIso, paletteOf, tint } from "../format.mjs";
 import { Thumb, StatusPill, projectThumbUrl } from "../ui.mjs";
 import { projectStatus } from "./hub.mjs";
 
@@ -40,7 +40,8 @@ export function Calendar() {
     const st = projectStatus(p);
     return {
       p, st, overlap, lastIn, last, bs, be,
-      marks: airs.filter((d) => d >= mStart && d <= mEnd).map((d) => ({ d, past: d < t })),
+      // The project's own date is only firm once its final is approved.
+      marks: airs.filter((d) => d >= mStart && d <= mEnd).map((d) => ({ d, past: d < t, planned: !p.airConfirmed && p.airDate && +dayFromIso(p.airDate) === +d })),
       first: airs.find((d) => d >= mStart) || last,
     };
   }).filter((r) => r.overlap || r.marks.length).sort((a, b) => a.first - b.first);
@@ -94,8 +95,10 @@ export function Calendar() {
           <div class="cal-track">
             ${r.overlap && html`<div style=${`position:absolute;top:50%;height:6px;margin-top:-3px;left:${pct(r.bs)};width:${pct(Math.max(r.be - r.bs, 0.5))};border-radius:3px;background:${tint(ST[r.st].c, 30)}`}></div>`}
             ${r.marks.map((m) => html`<div class="cal-mark" style=${`left:${pct(idx(m.d) + 0.5)}`}>
-              <i style=${`background:${m.past ? "var(--bg-2)" : ST[r.st].c};box-shadow:inset 0 0 0 2px ${ST[r.st].c}, 0 0 0 3px var(--bg-2)`}></i>
-              <div class="mono" style="font-size:10.5px;color:var(--tx-2);white-space:nowrap">${dm(m.d)}</div>
+              <i title=${m.planned ? "Dự kiến — chốt khi duyệt Final" : "Đã chốt"} style=${m.planned
+                ? `background:var(--bg-2);outline:2px dashed ${FST[r.st].c};outline-offset:-2px;box-shadow:0 0 0 3px var(--bg-2)`
+                : `background:${m.past ? "var(--bg-2)" : FST[r.st].c};box-shadow:inset 0 0 0 2px ${FST[r.st].c}, 0 0 0 3px var(--bg-2)`}></i>
+              <div class="mono" style="font-size:10.5px;color:var(--tx-2);white-space:nowrap">${dm(m.d)}${m.planned ? "?" : ""}</div>
             </div>`)}
             ${r.overlap && !r.lastIn && html`<div class="mono" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--tx-2);padding:3px 8px;border-radius:6px;background:var(--bg-3)">→ ${dm(r.last)}</div>`}
           </div>
@@ -107,7 +110,8 @@ export function Calendar() {
     </div></div>
     <div class="legend">
       <div class="row gap8"><span style="width:22px;height:6px;border-radius:3px;background:var(--line-2)"></span>Thời gian sản xuất</div>
-      <div class="row gap8"><span style="width:10px;height:10px;transform:rotate(45deg);border-radius:2px;box-shadow:inset 0 0 0 2px var(--tx-3)"></span>Ngày lên sóng</div>
+      <div class="row gap8"><span style="width:10px;height:10px;transform:rotate(45deg);border-radius:2px;background:var(--s-ok)"></span>Đã chốt (Final đã duyệt)</div>
+      <div class="row gap8"><span style="width:10px;height:10px;transform:rotate(45deg);border-radius:2px;outline:2px dashed var(--tx-3);outline-offset:-2px"></span>Dự kiến</div>
       <div class="row gap8"><span style="width:2px;height:14px;background:var(--acc)"></span>Hôm nay</div>
     </div>
 
@@ -116,11 +120,11 @@ export function Calendar() {
       ${upcoming.map(({ d, p }) => {
         const n = daysBetween(t, d);
         const vids = Math.max(1, Math.round(total(p) / Math.max(1, p.airDates.length)));
-        return html`<div class="list-row" style="grid-template-columns:110px 72px minmax(0,1fr) 150px 110px;padding:18px 0" role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })}>
+        return html`<div class="list-row" style="grid-template-columns:110px 72px minmax(0,1fr) 200px 110px;padding:18px 0" role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })}>
           <div><div style="font-size:24px;font-weight:600;letter-spacing:-0.03em;line-height:1">${dm(d)}</div><div style="margin-top:5px;font-size:12px;color:var(--tx-3)">${WD_LONG[d.getDay()]}</div></div>
           <${Thumb} src=${projectThumbUrl(p)} pal=${paletteOf(p)} ratio="16/10" radius=${8} />
           <div style="min-width:0"><div class="ell" style="font-size:15.5px;font-weight:500;letter-spacing:-0.01em">${p.name}</div><div style="margin-top:3px;font-size:12.5px;color:var(--tx-3)">${total(p) ? vids + " video" : "Chưa có video"}</div></div>
-          <div><${StatusPill} k=${projectStatus(p)} /></div>
+          <div class="row gap8"><${StatusPill} k=${projectStatus(p)} map=${p.final ? FST : ST} />${p.airDate && +dayFromIso(p.airDate) === +d && html`<span style=${`font-size:11.5px;color:${p.airConfirmed ? "var(--s-ok)" : "var(--tx-3)"}`}>${p.airConfirmed ? "đã chốt" : "dự kiến"}</span>`}</div>
           <div style=${`font-size:13px;font-weight:500;text-align:right;color:${n <= 3 ? "var(--s-fix)" : "var(--tx-3)"}`}>${n === 0 ? "Hôm nay" : n === 1 ? "Ngày mai" : "còn " + n + " ngày"}</div>
         </div>`;
       })}

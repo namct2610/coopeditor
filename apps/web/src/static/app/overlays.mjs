@@ -5,6 +5,7 @@ import { html, useState, useEffect, useRef, useMemo } from "./lib.mjs";
 import {
   S, set, go, toast, errMsg, guard, projectById, assetById, isOwner, canManage,
   createProject, patchProject, patchAsset, nasList, importFiles, inviteMember, setMemberRole, removeMember, loadMembers, createScript,
+  deliverFinalFromNas, approveFinal, isFinal,
 } from "./store.mjs";
 import { ROLE_LABEL, ROLE_OPTS, fmtShort, fmtAgo, fmtDur, paletteOf, thumbBg, flatBg } from "./format.mjs";
 import { Avatar, Seg, Spinner } from "./ui.mjs";
@@ -132,7 +133,7 @@ function Share({ pid }) {
 }
 
 // ---------------------------------------------------------------------------
-function Import({ pid }) {
+function Import({ pid, final }) {
   const p = projectById(pid);
   const [path, setPath] = useState("/");
   const [listing, setListing] = useState(null);
@@ -153,6 +154,15 @@ function Import({ pid }) {
   const doImport = async () => {
     if (!n) return;
     setBusy(true);
+    if (final) {
+      try {
+        const a = await deliverFinalFromNas(pid, Object.keys(sel)[0]);
+        toast("Đã nộp " + a.title + " — chờ chủ dự án duyệt");
+        closeOverlay();
+      } catch (e) { toast(errMsg(e, "Không nộp được Final"), "error", 6000); }
+      setBusy(false);
+      return;
+    }
     try {
       const r = await importFiles(pid, Object.keys(sel));
       const k = (r && r.imported && r.imported.length) || 0;
@@ -162,8 +172,9 @@ function Import({ pid }) {
     setBusy(false);
   };
   return html`<${Scrim} pad="96px 24px">
-    <div class="modal" style="max-width:680px" role="dialog" aria-label="Thêm nguồn từ NAS">
-      <div class="modal-title">Thêm nguồn từ NAS</div>
+    <div class="modal" style="max-width:680px" role="dialog" aria-label=${final ? "Nộp Final từ NAS" : "Thêm nguồn từ NAS"}>
+      <div class="modal-title">${final ? "Chọn file Final trên NAS" : "Thêm nguồn từ NAS"}</div>
+      ${final && html`<div style="margin:-6px 0 14px;font-size:13.5px;color:var(--tx-2)">Chọn file đã xuất. Final sẽ ở trạng thái Chờ duyệt cho tới khi chủ dự án duyệt.</div>`}
       <div class="crumbs">
         ${crumbs.map((c, i) => html`${i > 0 && html`<span>/</span>`}<span class="c" onClick=${() => setPath(c.path)}>${c.label === "/" ? "NAS" : c.label}</span>`)}
       </div>
@@ -180,7 +191,7 @@ function Import({ pid }) {
             </div>`;
           }
           const on = !!sel[f.path];
-          return html`<div class="file-row" onClick=${() => { const s = { ...sel }; if (on) delete s[f.path]; else s[f.path] = true; setSel(s); }}>
+          return html`<div class="file-row" onClick=${() => { const s = final ? {} : { ...sel }; if (on) delete s[f.path]; else s[f.path] = true; setSel(s); }}>
             <div class=${"box" + (on ? " on" : "")}>${on ? "✓" : ""}</div>
             <div class="grow" style="min-width:0">
               <div class="ell" style=${`font-size:14.5px;font-weight:500;color:${on ? "var(--tx)" : "var(--tx-2)"}`}>${f.name}</div>
@@ -191,9 +202,47 @@ function Import({ pid }) {
         })}
       </div>
       <div class="modal-foot">
-        <div class="grow" style="font-size:13px;color:var(--tx-2)">${n ? "Đã chọn " + n + " file · file gốc giữ nguyên trên NAS" : "Chưa chọn file nào"}</div>
+        <div class="grow" style="font-size:13px;color:var(--tx-2)">${n ? (final ? Object.keys(sel)[0].split("/").pop() : "Đã chọn " + n + " file · file gốc giữ nguyên trên NAS") : "Chưa chọn file nào"}</div>
         <button type="button" class="link" style="padding:0 8px;font-size:13.5px" onClick=${closeOverlay}>Huỷ</button>
-        <button type="button" class="btn btn-primary" disabled=${!n || busy} onClick=${doImport}>${busy ? "Đang thêm…" : "Thêm vào " + (p ? "dự án" : "")}</button>
+        <button type="button" class="btn btn-primary" disabled=${!n || busy} onClick=${doImport}>${final ? (busy ? "Đang nộp…" : "Nộp làm Final") : busy ? "Đang thêm…" : "Thêm vào " + (p ? "dự án" : "")}</button>
+      </div>
+    </div>
+  </${Scrim}>`;
+}
+
+// ---------------------------------------------------------------------------
+// Owner approves the current final and confirms the air date in one step.
+function ApproveFinal({ pid }) {
+  const p = projectById(pid);
+  const fin = p && p.final;
+  const tomorrow = new Date(Date.now() + 86400000);
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const [date, setDate] = useState((p && p.airDate) || iso(tomorrow));
+  const [busy, setBusy] = useState(false);
+  const reschedule = fin && fin.reviewStatus === "ok";
+  const submit = async () => {
+    if (!date || busy) return;
+    setBusy(true);
+    try {
+      await approveFinal(pid, date);
+      toast(reschedule ? "Đã đổi ngày lên sóng" : "Đã duyệt " + (fin ? fin.title : "Final") + " · lịch lên sóng đã chốt");
+      closeOverlay();
+    } catch (e) { toast(errMsg(e, "Không duyệt được"), "error"); }
+    setBusy(false);
+  };
+  return html`<${Scrim}>
+    <div class="modal" style="max-width:460px" role="dialog" aria-label="Duyệt Final">
+      <div class="modal-title">${reschedule ? "Đổi ngày lên sóng" : "Duyệt " + (fin ? fin.title : "Final")}</div>
+      <div style="font-size:13.5px;color:var(--tx-2);line-height:1.6;margin-bottom:18px">${reschedule
+        ? "Final đã duyệt. Chọn ngày lên sóng mới — lịch vẫn ở trạng thái đã chốt."
+        : html`${fin ? fin.title : "Final"} chuyển sang <b style="color:var(--s-ok);font-weight:600">Đã duyệt</b> và ngày lên sóng được chốt trên Lịch.`}</div>
+      <label class="field-label" style="display:block;font-size:12.5px;color:var(--tx-3);margin-bottom:6px">Ngày lên sóng</label>
+      <input type="date" class="input" value=${date} min=${iso(new Date())} onInput=${(e) => setDate(e.target.value)} style="width:100%" />
+      ${p && p.airDate && p.airDate !== date && html`<div class="muted" style="font-size:12.5px;margin-top:8px">Dự kiến trước đó: ${p.airDate.split("-").reverse().join("/")}</div>`}
+      <div class="modal-foot">
+        <div class="grow"></div>
+        <button type="button" class="link" style="padding:0 8px;font-size:13.5px" onClick=${closeOverlay}>Huỷ</button>
+        <button type="button" class="btn btn-primary" disabled=${!date || busy} onClick=${submit}>${busy ? "Đang lưu…" : reschedule ? "Lưu ngày" : "Duyệt & chốt lịch"}</button>
       </div>
     </div>
   </${Scrim}>`;
@@ -283,7 +332,7 @@ function NewScript({ pid }) {
   return null;
 }
 
-const KINDS = { palette: Palette, share: Share, import: Import, newProject: ProjectForm, editProject: ProjectForm, renameAsset: RenameAsset, audit: Audit, newScript: NewScript };
+const KINDS = { palette: Palette, share: Share, import: Import, approveFinal: ApproveFinal, newProject: ProjectForm, editProject: ProjectForm, renameAsset: RenameAsset, audit: Audit, newScript: NewScript };
 
 export function Overlays() {
   const o = S.overlay;

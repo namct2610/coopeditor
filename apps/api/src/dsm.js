@@ -849,3 +849,36 @@ export function devLookupFile(path) {
   }
   return node;
 }
+
+// ---- Final video uploads ---------------------------------------------------
+// An uploaded Final lands next to the footage, in
+// <library>/Coopeditor Final/<project>/, when the package can write to the
+// mounted share (so it shows up in File Station). If it can't (no mount, or
+// the share is read-only for the package user) it goes to the package's own
+// data dir instead — still on the NAS, just not browsable.
+export function safeFolderName(name, fallback = "Project") {
+  const cleaned = String(name || "").normalize("NFC").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").replace(/^[.\s]+|[.\s]+$/g, "").slice(0, 80);
+  return cleaned || fallback;
+}
+export function isVideoFileName(name) { return looksLikeVideoName(name); }
+export async function finalUploadDir(projectFolder) {
+  const folder = safeFolderName(projectFolder);
+  const storedDir = "/Coopeditor Final/" + folder;
+  if (hasMountedNasRootConfigured()) {
+    for (const local of resolveSourcePathCandidates(storedDir)) {
+      try {
+        await mkdir(local, { recursive: true });
+        await access(local, fsConstants.W_OK);
+        return { localDir: local, storedDir, onShare: true };
+      } catch (_) { /* try the next candidate */ }
+    }
+  }
+  const localDir = join(APP_DATA_DIR, "finals", folder);
+  await mkdir(localDir, { recursive: true });
+  return { localDir, storedDir: localDir, onShare: false };
+}
+// Probe a file we wrote ourselves; storedPath is what goes into assets.nas_path.
+export async function probeLocalVideo(name, storedPath, localPath) {
+  const st = await stat(localPath);
+  return buildVideoEntry({ name, path: storedPath, bytes: st.size, probePath: localPath });
+}

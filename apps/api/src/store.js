@@ -589,12 +589,12 @@ function aliasUserId(raw) {
   return map[slug] || null;
 }
 
-export function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream" }) {
+export function addAssetFromImport({ projectId, title, codec, sizeLabel, durationMs, nasPath, width = 0, height = 0, frameRate = 24, resolutionLabel = "", mimeType = "application/octet-stream", kind = "source" }) {
   const id = "imp_" + randomUUID().slice(0, 8);
   const existing = listAssetsByProject(projectId).length;
   const [paletteA, paletteB] = PAL[existing % PAL.length];
   const a = {
-    id, projectId, title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: Math.round(frameRate || 24),
+    id, projectId, kind: kind === "final" ? "final" : "source", title, position: existing, nasPath, codec, sizeLabel, durationMs, frameRate: Math.round(frameRate || 24),
     width: width || 0, height: height || 0, resolutionLabel: resolutionLabel || "", mimeType: mimeType || "application/octet-stream",
     status: "pending", progress: 0, reviewStatus: "edit", reviewStatusBy: null, reviewStatusAt: null,
     commentsCount: 0, versionsCount: 1, paletteA, paletteB, createdAt: now(),

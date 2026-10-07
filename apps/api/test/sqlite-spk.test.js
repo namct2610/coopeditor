@@ -246,3 +246,17 @@ test("SPK sqlite store replaces and clears a comment sketch", async () => {
   assert.deepEqual((await store.setCommentAnnotation(c.id, sketch)).annotation, sketch);
   assert.equal((await store.setCommentAnnotation(c.id, null)).annotation, null);
 });
+
+test("SPK sqlite store keeps final deliveries apart and records the air-date confirmation", async () => {
+  const fin = await store.addAssetFromImport({ projectId, kind: "final", title: "Final v1", codec: "H.264", sizeLabel: "1.2 GB", durationMs: 30000, nasPath: "/Coopeditor Final/x/final.mp4" });
+  assert.equal(fin.kind, "final");
+  const listed = await store.listAssetsByProject(projectId);
+  assert.equal(listed.find((a) => a.id === fin.id).kind, "final");
+  assert.ok(listed.some((a) => a.kind === "source"));
+  const p = await store.patchProject(projectId, { airDate: "2026-12-01", airConfirmedAt: "2026-10-07T10:00:00.000Z", airConfirmedBy: userId });
+  assert.equal(p.airConfirmedAt, "2026-10-07T10:00:00.000Z");
+  assert.equal(p.airConfirmedBy, userId);
+  const cleared = await store.patchProject(projectId, { airConfirmedAt: null, airConfirmedBy: userId });
+  assert.equal(cleared.airConfirmedAt, null);
+  assert.equal(cleared.airConfirmedBy, null);
+});

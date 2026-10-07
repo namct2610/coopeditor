@@ -10,6 +10,8 @@ export const ST = {
   air: { label: "Đã lên sóng", c: "var(--s-air)" },
 };
 export const ORDER = ["edit", "wait", "fix", "ok", "air"];
+// A final delivery waits on the owner's approval rather than a review.
+export const FST = { ...ST, wait: { ...ST.wait, label: "Chờ duyệt" } };
 
 export const SST = {
   draft: { label: "Nháp", c: "var(--s-edit)" },
