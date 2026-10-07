@@ -197,8 +197,32 @@ function Update() {
       <div style="display:flex;flex-direction:column;gap:8px">${notes.map((c) => html`<div class="row" style="gap:12px;font-size:13.5px;color:var(--tx-2);line-height:1.5;align-items:flex-start"><span class="muted">—</span>${c}</div>`)}</div>
       ${s.error && html`<div class="err" style="margin-top:12px">${s.error}</div>`}
     </div>
+    ${s.packageFeed && html`<${FeedStatus} f=${s.packageFeed} local=${local.version} />`}
     <div class="note" style="padding-top:20px">Cập nhật trực tiếp trong DSM Package Center sau khi thêm nguồn gói
       <span class="mono dim">${location.origin + (location.port === "3000" ? "" : "/api")}/spkserver</span> (Settings → Package Sources). Dữ liệu dự án được giữ nguyên khi nâng cấp.</div>`;
+}
+
+// What DSM Package Center gets from this app's /spkserver source right now.
+function FeedStatus({ f, local }) {
+  const pct = f.mirror && f.mirror.size ? Math.floor((f.mirror.bytes / f.mirror.size) * 100) : 0;
+  const localN = String(local || "").replace(/^(\d+\.\d+\.\d+)-(?:spk-)?rc(\d+)$/, "$1-$2");
+  const num = (v) => (String(v || "").match(/\d+/g) || []).map(Number);
+  const cmp = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+  const newer = f.offered && cmp(f.offered, localN) > 0;
+  let line, tone = "var(--tx-2)";
+  if (f.error && !f.offered && !(f.mirror && f.mirror.name)) { line = "Không đọc được bản mới từ GitHub: " + f.error; tone = "var(--s-fix)"; }
+  else if (f.mirror && f.mirror.state === "downloading") line = "Đang tải gói " + (f.tag || "") + " về NAS · " + pct + "% — nút Update hiện trong Package Center khi tải xong.";
+  else if (f.mirror && f.mirror.state === "failed") { line = "Tải gói về NAS lỗi (" + f.mirror.failures + " lần): " + f.mirror.error + ". Sẽ thử lại, sau 3 lần thì Package Center tải thẳng từ GitHub."; tone = "var(--s-fix)"; }
+  else if (f.mirror && f.mirror.state === "waiting") line = "Chuẩn bị tải gói " + (f.tag || "") + " về NAS…";
+  else if (f.offered) { line = newer ? "Package Center sẽ thấy bản " + f.offered + " (" + f.tag + "). Mở Package Center → Cài đặt → Nguồn gói, hoặc bấm Làm mới, để hiện nút Update." : (cmp(f.offered, localN) < 0 ? "Bản đang chạy (" + localN + ") mới hơn bản phát hành trên GitHub (" + f.offered + ")." : "Package Center đang ở bản mới nhất (" + f.offered + ")."); tone = newer ? "var(--acc-tx)" : "var(--tx-2)"; }
+  else line = "Nguồn gói chưa có bản cho kiến trúc " + (f.arch || "này") + ".";
+  return html`<div class="card-box" style="margin-top:16px">
+    <div class="row gap10" style="margin-bottom:8px"><div style="font-size:13.5px;font-weight:500">Nguồn gói Package Center</div><div class="grow"></div>
+      <div class="mono muted" style="font-size:11.5px">${f.arch || ""}${f.via ? " · qua " + f.via : ""}${f.checkedAt ? " · " + fmtAgo(f.checkedAt) : ""}</div></div>
+    <div style=${`font-size:13.5px;line-height:1.55;color:${tone}`}>${line}</div>
+    ${f.mirror && f.mirror.state === "downloading" && html`<div class="meter" style="margin-top:10px"><div style=${`width:${Math.max(1, pct)}%`}></div></div>`}
+    ${f.error && f.offered && html`<div class="muted" style="font-size:12px;margin-top:6px">Lần kiểm tra gần nhất lỗi (${f.error}) — đang dùng kết quả trước đó.</div>`}
+  </div>`;
 }
 
 // ---------------------------------------------------------------------------

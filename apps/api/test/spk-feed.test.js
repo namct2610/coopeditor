@@ -7,7 +7,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { infoVersionFromTag, archBucket, catalogFromRelease, changelogFromNotes, downloadSpk, mirrorPath } from "../src/spk-feed.js";
+import { infoVersionFromTag, archBucket, catalogFromRelease, changelogFromNotes, downloadSpk, mirrorPath, buildSpkCatalog, packageFeedStatus } from "../src/spk-feed.js";
 
 test("infoVersionFromTag normalises tags the same way build-spk.sh does", () => {
   assert.equal(infoVersionFromTag("v1.0.0-spk-rc42"), "1.0.0-42");
@@ -121,5 +121,40 @@ test("downloadSpk aborts a stalled transfer instead of hanging", async () => {
   } finally {
     srv.closeAllConnections(); srv.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("catalog is found without the GitHub API (rate-limited) via releases/latest + checksums.json", async () => {
+  const real = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, opts = {}) => {
+    url = String(url); seen.push(url);
+    if (url.includes("api.github.com")) return new Response('{"message":"API rate limit exceeded"}', { status: 403 });
+    if (url.endsWith("/releases/latest")) {
+      assert.equal(opts.redirect, "manual");
+      return new Response(null, { status: 302, headers: { location: "https://github.com/namct2610/coopeditor/releases/tag/v1.0.0-spk-rc58" } });
+    }
+    if (url.endsWith("/releases/download/v1.0.0-spk-rc58/checksums.json")) {
+      return Response.json({ "coopeditor-x86_64-1.0.0-spk-rc58.spk": { md5: "abc", size: 123 }, "coopeditor-aarch64-1.0.0-spk-rc58.spk": { md5: "def", size: 456 } });
+    }
+    if (url.includes("raw.githubusercontent.com")) return Response.json({ summary: "Video Final", changes: ["a"] });
+    return new Response("nope", { status: 404 });
+  };
+  try {
+    const cat = await buildSpkCatalog("geminilake", { force: true });
+    assert.equal(cat.packages.length, 1);
+    const pkg = cat.packages[0];
+    assert.equal(pkg.version, "1.0.0-58");
+    assert.equal(pkg.md5, "abc");
+    assert.equal(pkg.size, 123);
+    assert.equal(pkg.link, "https://github.com/namct2610/coopeditor/releases/download/v1.0.0-spk-rc58/coopeditor-x86_64-1.0.0-spk-rc58.spk");
+    assert.match(pkg.changelog, /Video Final/);
+    assert.ok(!seen.some((u) => u.includes("api.github.com")), "API not needed when the redirect works");
+    const st = await packageFeedStatus(null);
+    assert.equal(st.tag, "v1.0.0-spk-rc58");
+    assert.equal(st.via, "github.com");
+    assert.equal(st.error, null);
+  } finally {
+    globalThis.fetch = real;
   }
 });

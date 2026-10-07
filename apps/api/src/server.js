@@ -44,7 +44,7 @@ import * as oidc from "./oidc.js";
 import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
-import { buildSpkCatalog, mirrorPath, warmSpkMirror } from "./spk-feed.js";
+import { buildSpkCatalog, mirrorPath, packageFeedStatus, warmSpkMirror } from "./spk-feed.js";
 import { ANNOTATION_IMAGE_ID, validateAnnotation } from "./annotation.js";
 import { writeZip, zipLength } from "./zip-stream.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
@@ -1736,7 +1736,9 @@ async function handle(req, res, url) {
 
   if (p === "/admin/update-status" && m === "GET") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
-    return send(res, 200, await checkUpdateStatus({ force: url.searchParams.get("refresh") === "1" }));
+    const force = url.searchParams.get("refresh") === "1";
+    const [status, packageFeed] = await Promise.all([checkUpdateStatus({ force }), packageFeedStatus(SPK_MIRROR_DIR, { force })]);
+    return send(res, 200, { ...status, packageFeed });
   }
 
   // Settings page: read the full runtime-config.json (owner-only). The

@@ -47,34 +47,69 @@ export function archBucket(arch) {
 }
 
 let _cache = null; // { at, data }
-async function fetchLatestRelease() {
-  if (_cache && Date.now() - _cache.at < CACHE_TTL_MS) return _cache.data;
+const UA = { "user-agent": "coopeditor-spk-feed" };
+// What the last refresh found, for Cài đặt → Cập nhật.
+const _feed = { checkedAt: null, tag: null, via: null, error: null };
+
+// The latest release without the GitHub API: github.com/<repo>/releases/latest
+// redirects to the tag, and checksums.json (attached by publish-spk) already
+// lists every .spk with md5 + size. The unauthenticated API allows only 60
+// calls/hour per public IP — an office NAT shares that with every other
+// device, and a 403 there left Package Center with an empty catalog.
+async function releaseFromDownloads() {
+  const r = await fetch(`https://github.com/${REPO}/releases/latest`, { redirect: "manual", headers: UA, signal: AbortSignal.timeout(15000) });
+  const loc = r.headers.get("location") || "";
+  const m = loc.match(/\/releases\/tag\/([^/?#]+)$/);
+  if (!m) throw new Error("releases/latest: HTTP " + r.status + (loc ? " → " + loc : ""));
+  const tag = decodeURIComponent(m[1]);
+  const base = `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/`;
+  const c = await fetch(base + "checksums.json", { headers: UA, signal: AbortSignal.timeout(20000) });
+  if (!c.ok) throw new Error("checksums.json: HTTP " + c.status);
+  const checksums = await c.json();
+  const assets = Object.entries(checksums || {}).map(([name, sum]) => ({ name, size: Number(sum && sum.size) || 0, browser_download_url: base + encodeURIComponent(name) }));
+  return { release: { tag_name: tag, body: "", assets }, checksums };
+}
+async function releaseFromApi() {
   const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-    headers: { accept: "application/vnd.github+json", "user-agent": "coopeditor-spk-feed" },
-  }).catch(() => null);
-  // GitHub down / rate-limited: keep serving the last good catalog rather
-  // than an empty one (DSM would show "no update" until the next poll).
-  if (!res || !res.ok) {
-    if (_cache) return _cache.data;
-    throw new Error("github_release_http_" + (res ? res.status : "network"));
-  }
+    headers: { accept: "application/vnd.github+json", ...UA }, signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error("api.github.com: HTTP " + res.status + (res.status === 403 ? " (rate limit)" : ""));
   const release = await res.json();
   let checksums = {};
   const checksumAsset = (release.assets || []).find((a) => a.name === "checksums.json");
   if (checksumAsset) {
     try {
-      const r = await fetch(checksumAsset.browser_download_url, { headers: { "user-agent": "coopeditor-spk-feed" } });
+      const r = await fetch(checksumAsset.browser_download_url, { headers: UA, signal: AbortSignal.timeout(20000) });
       if (r.ok) checksums = await r.json();
     } catch (_) {}
   }
+  return { release, checksums };
+}
+
+async function fetchLatestRelease({ force = false } = {}) {
+  if (!force && _cache && Date.now() - _cache.at < CACHE_TTL_MS) return _cache.data;
+  let found = null;
+  const errors = [];
+  for (const [via, get] of [["github.com", releaseFromDownloads], ["api.github.com", releaseFromApi]]) {
+    try { found = { ...(await get()), via }; break; } catch (err) { errors.push(String(err && err.message || err)); }
+  }
+  _feed.checkedAt = new Date().toISOString();
+  // GitHub unreachable: keep serving the last good catalog rather than an
+  // empty one (DSM would show "no update" until the next poll).
+  if (!found) {
+    _feed.error = errors.join(" · ");
+    if (_cache) return _cache.data;
+    throw new Error(_feed.error);
+  }
+  _feed.error = null; _feed.tag = found.release.tag_name; _feed.via = found.via;
   // "What's new" in Package Center: the summary + changes from release.json
   // at that tag (the GitHub release body is generic install docs).
   let notes = null;
   try {
-    const r = await fetch(`https://raw.githubusercontent.com/${REPO}/${encodeURIComponent(release.tag_name)}/release.json`, { headers: { "user-agent": "coopeditor-spk-feed" } });
+    const r = await fetch(`https://raw.githubusercontent.com/${REPO}/${encodeURIComponent(found.release.tag_name)}/release.json`, { headers: UA, signal: AbortSignal.timeout(15000) });
     if (r.ok) notes = await r.json();
   } catch (_) {}
-  const data = { release, checksums, notes };
+  const data = { release: found.release, checksums: found.checksums, notes };
   _cache = { at: Date.now(), data };
   return data;
 }
@@ -144,7 +179,7 @@ export async function mirrorPath(dir, name) {
   return (await stat(path).catch(() => null)) ? path : null; // present ⇒ verified (renamed only after the check)
 }
 
-export async function downloadSpk({ dir, name, url, md5, size, idleMs = MIRROR_IDLE_MS }) {
+export async function downloadSpk({ dir, name, url, md5, size, idleMs = MIRROR_IDLE_MS, onProgress }) {
   if (!SPK_NAME_RE.test(name)) throw new Error("bad spk name");
   await mkdir(dir, { recursive: true });
   const part = join(dir, name + ".part");
@@ -153,7 +188,7 @@ export async function downloadSpk({ dir, name, url, md5, size, idleMs = MIRROR_I
   const kick = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => idle.abort(new Error("spk download stalled")), idleMs); };
   const hash = createHash("md5");
   let bytes = 0;
-  const tap = new Transform({ transform(chunk, _e, cb) { kick(); hash.update(chunk); bytes += chunk.length; cb(null, chunk); } });
+  const tap = new Transform({ transform(chunk, _e, cb) { kick(); hash.update(chunk); bytes += chunk.length; if (onProgress) onProgress(bytes); cb(null, chunk); } });
   try {
     const res = await fetch(url, { headers: { "user-agent": "coopeditor-spk-mirror" }, signal: AbortSignal.any([idle.signal, AbortSignal.timeout(30 * 60_000)]) });
     if (!res.ok || !res.body) throw new Error("spk download http " + res.status);
@@ -179,7 +214,10 @@ function startMirror(dir, asset, sum) {
   const st = _mirror.get(asset.name) || { promise: null, failures: 0, lastFailAt: 0 };
   _mirror.set(asset.name, st);
   if (st.promise || (st.lastFailAt && Date.now() - st.lastFailAt < MIRROR_RETRY_MS)) return st;
-  st.promise = downloadSpk({ dir, name: asset.name, url: asset.browser_download_url, md5: sum.md5, size: sum.size || asset.size })
+  st.size = sum.size || asset.size || 0;
+  st.bytes = 0;
+  st.promise = downloadSpk({ dir, name: asset.name, url: asset.browser_download_url, md5: sum.md5, size: st.size, onProgress: (n) => { st.bytes = n; } })
+    .then(() => { st.error = null; })
     .catch((err) => { st.failures += 1; st.lastFailAt = Date.now(); st.error = String(err && err.message || err); })
     .finally(() => { st.promise = null; });
   return st;
@@ -190,7 +228,7 @@ function startMirror(dir, asset, sum) {
 export async function buildSpkCatalog(archParam, opts = {}) {
   const bucket = archBucket(archParam);
   if (!bucket) return { packages: [] };
-  const { release, checksums, notes } = await fetchLatestRelease();
+  const { release, checksums, notes } = await fetchLatestRelease({ force: opts.force });
   if (!opts.mirrorDir || !opts.baseUrl) return catalogFromRelease(release, checksums, bucket, notes);
   const asset = (release.assets || []).find((a) => a.name.includes("-" + bucket + "-") && a.name.endsWith(".spk"));
   if (!asset) return { packages: [] };
@@ -208,4 +246,26 @@ export function warmSpkMirror(mirrorDir) {
   const arch = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
   if (!arch) return;
   buildSpkCatalog(arch, { mirrorDir, baseUrl: "http://local" }).catch(() => {});
+}
+
+// What Package Center would get for this machine's arch right now, and why —
+// shown in Cài đặt → Cập nhật so an empty catalog isn't a silent mystery.
+export async function packageFeedStatus(mirrorDir, { force = false } = {}) {
+  const arch = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
+  const out = { arch, offered: null, tag: null, via: null, checkedAt: null, error: null, mirror: null };
+  try {
+    const cat = await buildSpkCatalog(arch || "", { mirrorDir, baseUrl: "http://local", force });
+    const pkg = (cat.packages || [])[0];
+    out.offered = pkg ? pkg.version : null;
+    if (cat.preparing) {
+      const st = _mirror.get(cat.preparing) || {};
+      out.mirror = { name: cat.preparing, state: st.promise ? "downloading" : st.error ? "failed" : "waiting", bytes: st.bytes || 0, size: st.size || 0, failures: st.failures || 0, error: st.error || null };
+    } else if (pkg) {
+      out.mirror = { state: pkg.link.startsWith("http://local/") ? "ready" : "github" };
+    }
+  } catch (err) {
+    out.error = String(err && err.message || err);
+  }
+  Object.assign(out, { tag: _feed.tag, via: _feed.via, checkedAt: _feed.checkedAt, error: out.error || _feed.error });
+  return out;
 }
