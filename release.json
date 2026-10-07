@@ -1,14 +1,12 @@
 {
-  "version": "1.0.0-rc56",
-  "summary": "Giao dien moi (v2): studio sang tao, sang/toi, 5 trang thai video, review voi panel ghi chu co dinh va tra loi theo luong.",
+  "version": "1.0.0-rc57",
+  "summary": "Phac thao tren khung hinh: chen chu, khung, anh, o giu cho, khung crop va vung che mo ngay tren video khi review.",
   "changes": [
-    "Giao dien lam moi toan bo: Hub du an voi muc 'Cho ban review', chi tiet du an dem video theo trang thai, lich len song dang dong thoi gian, kich ban kieu Docs, cai dat 5 muc. Doi sang/toi va mau nhan, luu theo tai khoan.",
-    "Review: panel ghi chu ben phai, tra loi theo luong, loc theo Mo/Xong va theo nguoi; avatar dat dung thoi diem tren dai khung hinh (anh that tu video); ve khung/mui ten/chu; safe area; lui/tien 1 frame; doi toc do va chat luong proxy.",
-    "Moi video co trang thai Dang dung / Cho review / Can sua / Da duyet / Da len song. Video 'Cho review' hien o dau Hub cho ca nhom.",
-    "File goc ProRes/XAVC trinh duyet khong phat duoc: bao ngay tren khung hinh va tao proxy 720p bang 1 nut; tien do proxy tu cap nhat ca tren ban SPK.",
-    "Cai dat Proxy: chon tu tao proxy 720p/1080p khi them nguon, do dai segment HLS 4/6 giay, xem cache va don proxy mo coi, hang doi transcode.",
-    "Sua loi tren ban SPK (SQLite): danh dau ghi chu 'xong' bi loi, hinh ve tren khung khong hien lai sau khi gui.",
-    "hls.js dong kem trong goi, NAS chi co mang LAN van phat duoc proxy."
+    "Cong cu ve trong trang review thanh trinh phac thao: chu (phu de, tieu de, lower third) voi co chu / dam / bong / nen, khung chu nhat va elip co nen, mui ten, duong thang, but va but da quang.",
+    "Chen anh (logo, anh tham khao) bang nut, dan Ctrl/Cmd V hoac keo tha vao khung hinh; anh duoc thu nho truoc khi tai len NAS.",
+    "O giu cho B-roll / logo / PiP, khung crop 9:16, 1:1, 4:5 lam toi phan bi cat, vung che mo; menu Mau nhanh chen san cac bo cuc hay dung.",
+    "Chon, keo, doi kich thuoc, nhan ban, doi lop, hoan tac / lam lai va phim tat nhu trinh editor; bam dup de sua chu.",
+    "Ghi chu hien anh thu nho cua phac thao; nguoi viet hoac quan ly co the sua lai phac thao sau khi gui. Hinh ve cu van hien dung."
   ],
-  "publishedAt": "2026-10-07T00:00:00.000Z"
+  "publishedAt": "2026-10-07T12:00:00.000Z"
 }

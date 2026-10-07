@@ -514,6 +514,11 @@ export function setCommentContent(id, content) {
   if (c) c.content = content;
   return c;
 }
+export function setCommentAnnotation(id, annotation) {
+  const c = comments.get(id);
+  if (c) c.annotation = annotation || null;
+  return c;
+}
 export function deleteComment(id) {
   const existing = comments.get(id);
   if (!existing || existing.deletedAt) return null;

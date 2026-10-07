@@ -13,6 +13,7 @@ const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 // (COOPEDITOR_LIB_DIR is exported by its start script), never in dev/tests.
 const SPK_MIRROR_DIR = process.env.COOPEDITOR_LIB_DIR ? join(APP_DATA_DIR, "spk-mirror") : null;
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
+const ANNOTATION_IMAGE_DIR = join(APP_DATA_DIR, "system", "annotation-images");
 const PROXY_STORAGE_SNAPSHOT_PATH = join(APP_DATA_DIR, "system", "proxy-storage-cache.json");
 const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
 const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -44,7 +45,7 @@ import { startRetention } from "./retention.js";
 import { buildProxyStorageReport } from "./proxy-storage.js";
 import { DEFAULT_UPDATE_FEED_URL, applyRuntimeEnvFromConfig, publicRuntimeSummary, readRuntimeConfig, resolveUpdaterConfig, writeRuntimeConfig } from "./runtime-config.js";
 import { buildSpkCatalog, mirrorPath, warmSpkMirror } from "./spk-feed.js";
-import { validateAnnotation } from "./annotation.js";
+import { ANNOTATION_IMAGE_ID, validateAnnotation } from "./annotation.js";
 import { writeZip, zipLength } from "./zip-stream.js";
 import { buildLocalReleaseMeta, hasRemoteUpdate, normalizeRemoteReleaseMeta } from "./release-meta.js";
 import { ensureTranscodeRuntimeReady, getTranscodeRuntimeStatus } from "./transcode-runtime-status.js";
@@ -164,10 +165,10 @@ function setSecurityHeaders(res) {
   );
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = 1_000_000) {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (c) => { data += c; if (data.length > 1_000_000) { req.destroy(); reject(new Error("Body too large")); } });
+    req.on("data", (c) => { data += c; if (data.length > maxBytes) { req.destroy(); reject(new Error("Body too large")); } });
     req.on("end", () => { if (!data) return resolve({}); try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
     req.on("error", reject);
   });
@@ -221,6 +222,19 @@ function normalizeCommentContent(raw, { suffix = "" } = {}) {
   }
   return content + normalizedSuffix;
 }
+
+// Images placed on the frame by the sketch editor (logos, references). The
+// browser re-encodes them (≤1600 px) before upload; we only check the bytes
+// really are PNG/JPEG/WebP so the file can be served same-origin safely.
+const MAX_ANNOTATION_IMAGE_BYTES = 3 * 1024 * 1024;
+const ANNOTATION_IMAGE_TYPES = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+function sniffImageExt(buf) {
+  if (buf.length > 8 && buf[0] === 0x89 && buf.toString("latin1", 1, 4) === "PNG") return "png";
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (buf.length > 12 && buf.toString("latin1", 0, 4) === "RIFF" && buf.toString("latin1", 8, 12) === "WEBP") return "webp";
+  return null;
+}
+const safeDirName = (s) => /^[A-Za-z0-9_-]{1,80}$/.test(String(s || ""));
 
 async function saveProjectThumbDataUrl(projectId, dataUrl) {
   const parsed = parseProjectThumbDataUrl(dataUrl);
@@ -1472,6 +1486,36 @@ async function handle(req, res, url) {
       return send(res, 202, refreshed);
     }
   }
+  if ((mat = p.match(/^\/asset-versions\/([^/]+)\/annotation-images(?:\/([^/]+))?$/))) {
+    const vid = mat[1], imageId = mat[2];
+    if (!safeDirName(vid)) return bad(res, "Version not found", 404);
+    const projectId = await store.findProjectIdForVersion(vid);
+    if (!projectId) return bad(res, "Version not found", 404);
+    if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
+    if (m === "GET" && imageId) {
+      if (!ANNOTATION_IMAGE_ID.test(imageId)) return bad(res, "Not found", 404);
+      const file = join(ANNOTATION_IMAGE_DIR, vid, imageId);
+      let info;
+      try { info = await stat(file); } catch (_) { return bad(res, "Not found", 404); }
+      res.writeHead(200, { "content-type": ANNOTATION_IMAGE_TYPES[imageId.split(".").pop()], "content-length": info.size, "cache-control": "private, max-age=31536000, immutable" });
+      createReadStream(file).pipe(res);
+      return;
+    }
+    if (m === "POST" && !imageId) {
+      const body = await readJson(req, Math.ceil(MAX_ANNOTATION_IMAGE_BYTES * 1.4)).catch(() => null);
+      const match = body && typeof body.dataUrl === "string" && body.dataUrl.match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
+      if (!match) return bad(res, "Ảnh không hợp lệ hoặc lớn hơn 3 MB");
+      const buf = Buffer.from(match[1], "base64");
+      const ext = sniffImageExt(buf);
+      if (!ext) return bad(res, "Chỉ hỗ trợ ảnh PNG, JPEG hoặc WebP");
+      if (buf.length > MAX_ANNOTATION_IMAGE_BYTES) return bad(res, "Ảnh lớn hơn 3 MB");
+      const id = randomBytes(12).toString("hex") + "." + ext;
+      await mkdir(join(ANNOTATION_IMAGE_DIR, vid), { recursive: true });
+      await writeFile(join(ANNOTATION_IMAGE_DIR, vid, id), buf);
+      return send(res, 201, { id, bytes: buf.length });
+    }
+    return bad(res, "Method not allowed", 405);
+  }
   if ((mat = p.match(/^\/asset-versions\/([^/]+)\/comments$/))) {
     const vid = mat[1];
     const projectId = await store.findProjectIdForVersion(vid);
@@ -1512,6 +1556,16 @@ async function handle(req, res, url) {
     if (!writableComment) return;
     const body = await readJson(req).catch(() => null);
     if (!body) return bad(res, "Invalid body");
+    if (Object.prototype.hasOwnProperty.call(body, "annotation")) {
+      // Sketch edited after posting (draft editor → "Lưu phác thảo"). null clears it.
+      const annotation = body.annotation === null ? null : validateAnnotation(body.annotation);
+      if (body.annotation !== null && !annotation) return bad(res, "Invalid annotation");
+      const c = await store.setCommentAnnotation(mat[1], annotation);
+      if (!c) return bad(res, "Comment not found", 404);
+      await publishProjectEvent(projectId, { type: "comment", action: "updated", comment: c });
+      await audit.record({ actorUserId: sess.userId, action: "comment.sketch_edited", resourceType: "comment", resourceId: c.id, projectId, payload: { items: annotation && annotation.items ? annotation.items.length : 0 } });
+      return send(res, 200, c);
+    }
     if (typeof body.content === "string") {
       let content = "";
       try {

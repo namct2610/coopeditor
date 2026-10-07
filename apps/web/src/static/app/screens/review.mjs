@@ -6,12 +6,13 @@
 import { html, useState, useEffect, useRef, useMemo, useCallback, useReducer } from "../lib.mjs";
 import {
   S, set, go, projectById, assetById, canManage, guard, toast, errMsg, userById,
-  setReviewStatus, loadVersion, loadRenditions, loadComments, requestRendition, renditionBusy, postComment, resolveComment, editComment, deleteComment,
+  setReviewStatus, loadVersion, loadRenditions, loadComments, requestRendition, renditionBusy, postComment, resolveComment, editComment, editCommentSketch, deleteComment,
 } from "../store.mjs";
 import { ST, ORDER, fmtTc, fmtShort, fmtAgo, paletteOf, flatBg, resLabel, clamp, isAudio } from "../format.mjs";
 import { Avatar, Seg, Menu, MenuItem, IcPlay, IcPause, Spinner, personOf } from "../ui.mjs";
 import { mediaUrl, enc } from "../api.mjs";
 import { openOverlay } from "../overlays.mjs";
+import { useSketchEditor, SketchToolbar, SketchCanvas, SketchLayer, sketchItems, hasSketch } from "../sketch.mjs";
 
 // ---------------------------------------------------------------------------
 // Playback clock: time-driven bits subscribe to this instead of re-rendering
@@ -79,37 +80,6 @@ function useSource(videoRef, url, onReady, onFail) {
   }, [url]);
 }
 
-// ---------------------------------------------------------------------------
-// annotations — normalised 0..1 coordinates, same payload the API validates.
-const DRAW_TOOLS = [["pen", "Bút"], ["arrow", "Mũi tên"], ["rect", "Khung"], ["text", "Chữ"]];
-const DRAW_COLORS = ["#f0644f", "#e9b949", "#ffffff"];
-const STROKE_W = 3;
-
-function Stroke({ s }) {
-  const c = s.color || DRAW_COLORS[0];
-  const sw = clamp(Number(s.width) || STROKE_W, 1, 24);
-  const pts = s.points || [];
-  if (!pts.length) return null;
-  const a = pts[0], b = pts[pts.length - 1];
-  const common = { fill: "none", stroke: c, "stroke-width": sw, "vector-effect": "non-scaling-stroke", "stroke-linecap": "round", "stroke-linejoin": "round" };
-  if (s.tool === "rect") return html`<rect x=${Math.min(a[0], b[0])} y=${Math.min(a[1], b[1])} width=${Math.abs(b[0] - a[0])} height=${Math.abs(b[1] - a[1])} ...${common} />`;
-  if (s.tool === "ellipse") return html`<ellipse cx=${(a[0] + b[0]) / 2} cy=${(a[1] + b[1]) / 2} rx=${Math.abs(b[0] - a[0]) / 2} ry=${Math.abs(b[1] - a[1]) / 2} ...${common} />`;
-  if (s.tool === "arrow") {
-    // Arrow head drawn as two short lines in screen-independent units: the
-    // svg is stretched (preserveAspectRatio=none), so derive the angle from
-    // the 16:9 aspect to keep the head symmetric.
-    const dx = (b[0] - a[0]) * 16, dy = (b[1] - a[1]) * 9;
-    const ang = Math.atan2(dy, dx), len = 0.35;
-    const hx = (t) => b[0] - (Math.cos(ang + t) * len) / 16, hy = (t) => b[1] - (Math.sin(ang + t) * len) / 9;
-    return html`<g><line x1=${a[0]} y1=${a[1]} x2=${b[0]} y2=${b[1]} ...${common} />
-      <polyline points=${`${hx(0.5)},${hy(0.5)} ${b[0]},${b[1]} ${hx(-0.5)},${hy(-0.5)}`} ...${common} /></g>`;
-  }
-  const line = pts.map((p) => p[0] + "," + p[1]).join(" ");
-  if (s.tool === "highlight") return html`<polyline points=${line} ...${common} stroke-opacity="0.34" stroke-width=${sw * 6} />`;
-  return html`<polyline points=${line} ...${common} />`;
-}
-
-function hasAnn(a) { return !!(a && ((a.strokes && a.strokes.length) || (a.texts && a.texts.length))); }
 
 // ---------------------------------------------------------------------------
 function authorOf(c) {
@@ -138,7 +108,6 @@ export function Review() {
   const clock = useMemo(makeClock, []);
   const videoRef = useRef(null);
   const stageRef = useRef(null);
-  const textRef = useRef(null);
 
   // ---- ui state ----
   const [quality, setQuality] = useState(null);      // null = auto
@@ -154,18 +123,14 @@ export function Review() {
   const [sending, setSending] = useState(false);
   const [editing, setEditing] = useState(null);       // { id, text }
   const [drawing, setDrawing] = useState(false);
-  const [tool, setTool] = useState("pen");
-  const [color, setColor] = useState(0);
-  const [ann, setAnn] = useState({ strokes: [], texts: [] });
-  const [live, setLive] = useState(null);
   const [playErr, setPlayErr] = useState(false);
-  const liveRef = useRef(null);
-  const [textAt, setTextAt] = useState(null);        // {x,y,value}
+  const ed = useSketchEditor(versionId);              // draft sketch for the next note
+  const [sketchFor, setSketchFor] = useState(null);  // { id, stash } editing a posted note's sketch
   const statusBtn = useRef(null);
 
   useEffect(() => {
     setVid(null); setActiveId(S.route.c || null); setReplyTo(null); setDraft("");
-    setAnn({ strokes: [], texts: [] }); setDrawing(false); setQuality(null); setPlayErr(false);
+    ed.reset([]); setSketchFor(null); setDrawing(false); setQuality(null); setPlayErr(false);
   }, [aid]);
   useEffect(() => { if (vid) loadVersion(vid); }, [vid]);
 
@@ -300,12 +265,12 @@ export function Review() {
       if (e.key === " " || e.key === "k" || e.key === "K") { e.preventDefault(); togglePlay(); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); e.shiftKey ? seek(clock.ms - 1000) : step(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); e.shiftKey ? seek(clock.ms + 1000) : step(1); }
-      else if (e.key === "Escape" && drawing) setDrawing(false);
+      else if (e.key === "Escape" && drawing && !sketchFor) setDrawing(false);
       else if (e.key === "Enter" && !drawing) { const t = document.getElementById("noteComposer"); if (t) { e.preventDefault(); pause(); t.focus(); } }
     };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [togglePlay, seek, drawing, fps]);
+  }, [togglePlay, seek, drawing, sketchFor, fps]);
 
   // ---- comments model ----
   const roots = useMemo(() => (comments || []).filter((c) => !c.parentId), [comments]);
@@ -332,7 +297,8 @@ export function Review() {
   const jumpTo = (c) => { pause(); setActiveId(c.id); seek(c.timestampMs); };
 
   const send = async () => {
-    const text = draft.trim();
+    const sketched = !replyC && !sketchFor && ed.items.length > 0;
+    const text = draft.trim() || (sketched ? "Xem phác thảo trên khung" : "");
     if (!text || !versionId || sending) return;
     setSending(true);
     try {
@@ -342,11 +308,11 @@ export function Review() {
         setReplyTo(null);
       } else {
         const ms = Math.round(clock.ms);
-        const annotation = hasAnn(ann) ? { strokes: ann.strokes, texts: ann.texts } : undefined;
+        const annotation = sketched ? { items: ed.items } : undefined;
         const c = await postComment(versionId, { content: text, timestampMs: ms, frameNumber: Math.round((ms / 1000) * fps), annotation });
         setActiveId(c.id);
         if (noteFilter === "done") setNoteFilter("open");
-        setAnn({ strokes: [], texts: [] });
+        ed.reset([]);
         setDrawing(false);
       }
       setDraft("");
@@ -354,49 +320,33 @@ export function Review() {
     setSending(false);
   };
 
-  // ---- drawing ----
-  const ptFromEvent = (e) => {
+  // ---- sketch (draft editor on the frame) ----
+  const toggleDraw = (e) => { if (e) e.stopPropagation(); pause(); setDrawing(!drawing); };
+  const finishDraw = () => { ed.setSel(null); setDrawing(false); };
+  const editSketch = (c) => {
+    pause(); setActiveId(c.id); seek(c.timestampMs);
+    setSketchFor({ id: c.id, stash: sketchFor ? sketchFor.stash : ed.items });
+    ed.reset(sketchItems(c.annotation)); ed.setTool("select"); setDrawing(true);
+  };
+  const saveSketchEdit = async () => {
+    const st = sketchFor;
+    if (!st) return;
+    try { await editCommentSketch(versionId, st.id, ed.items.length ? { items: ed.items } : null); }
+    catch (e) { toast(errMsg(e, "Không lưu được phác thảo"), "error"); return; }
+    toast("Đã lưu phác thảo");
+    setSketchFor(null); ed.reset(st.stash); setDrawing(false);
+  };
+  // Leaving the editor any other way (Huỷ, play, Esc) drops an unsaved edit
+  // of a posted sketch and brings back the draft for the next note.
+  useEffect(() => { if (!drawing && sketchFor) { ed.reset(sketchFor.stash); setSketchFor(null); } }, [drawing]);
+  const onStageDrop = (e) => {
+    const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find((x) => /^image\//.test(x.type));
+    if (!f) return;
+    e.preventDefault();
     const r = stageRef.current.getBoundingClientRect();
-    return [clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1)].map((n) => Math.round(n * 1000) / 1000);
+    pause(); setDrawing(true);
+    ed.insertImageFile(f, [clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1)]);
   };
-  const onDown = (e) => {
-    if (!drawing) return;
-    e.preventDefault(); e.stopPropagation();
-    const p = ptFromEvent(e);
-    if (tool === "text") { setTextAt({ x: p[0], y: p[1], value: "" }); setTimeout(() => textRef.current && textRef.current.focus(), 0); return; }
-    e.currentTarget.setPointerCapture(e.pointerId);
-    liveRef.current = { tool, color: DRAW_COLORS[color], width: STROKE_W, points: [p] };
-    setLive(liveRef.current);
-  };
-  // The stroke in progress lives in a ref: pointer events can arrive faster
-  // than renders, and pointerup must see the last point, not a stale closure.
-  const onMove = (e) => {
-    const s = liveRef.current;
-    if (!s) return;
-    const p = ptFromEvent(e);
-    liveRef.current = { ...s, points: s.tool === "pen" ? (s.points.length < 256 ? [...s.points, p] : s.points) : [s.points[0], p] };
-    setLive(liveRef.current);
-  };
-  const onUp = (e) => {
-    const s = liveRef.current;
-    if (!s) return;
-    if (e && e.clientX != null && s.tool !== "pen") s.points = [s.points[0], ptFromEvent(e)];
-    liveRef.current = null;
-    setLive(null);
-    const [a, b] = [s.points[0], s.points[s.points.length - 1]];
-    if (s.points.length < 2 || (Math.abs(a[0] - b[0]) < 0.004 && Math.abs(a[1] - b[1]) < 0.004)) return;
-    setAnn((x) => ({ ...x, strokes: [...x.strokes, s].slice(0, 50), order: [...(x.order || []), "s"] }));
-  };
-  const commitText = () => {
-    if (textAt && textAt.value.trim()) setAnn((x) => ({ ...x, texts: [...x.texts, { x: textAt.x, y: textAt.y, color: DRAW_COLORS[color], text: textAt.value.trim().slice(0, 120) }].slice(0, 32), order: [...(x.order || []), "t"] }));
-    setTextAt(null);
-  };
-  const undo = () => setAnn((x) => {
-    const order = (x.order || []).slice();
-    const last = order.pop();
-    return last === "t" ? { ...x, texts: x.texts.slice(0, -1), order } : { ...x, strokes: x.strokes.slice(0, -1), order };
-  });
-  const toggleDraw = (e) => { if (e) e.stopPropagation(); pause(); setDrawing(!drawing); setTextAt(null); };
 
   if (!project || !asset) {
     return html`<div class="screen"><div class="page tight">
@@ -408,8 +358,9 @@ export function Review() {
   const curStatus = asset.reviewStatus || "edit";
   const presence = (S.presence || []).filter((u) => u && u.id !== (S.me && S.me.id) && u.focus && u.focus.kind === "source" && u.focus.id === aid);
   const verOpts = versions.slice(-4).map((v) => [v.id, "v" + v.versionNumber]);
-  const dirtyAnn = hasAnn(ann);
-  const showSavedAnn = !drawing && active && hasAnn(active.annotation) ? active : null;
+  const dirtyAnn = !sketchFor && ed.items.length;
+  const showSavedAnn = !drawing && active && hasSketch(active.annotation) ? active : null;
+  const frameSrc = (ms) => { const d = asset.durationMs || clock.dur; const i = d ? clamp(Math.floor((ms / d) * FILM_N), 0, FILM_N - 1) : 0; return mediaUrl("/assets/" + enc(asset.id) + "/frame?n=" + FILM_N + "&i=" + i); };
   const renditionState = (q) => { if (q === "source") return ""; const r = rByH(Number(q)); if (!r) return " · —"; if (r.status === "processing") return " · " + (r.progress || 0) + "%"; if (r.status !== "ready") return " · tạo"; return ""; };
 
   return html`<div class="screen-split" data-screen-label="Review video">
@@ -438,34 +389,20 @@ export function Review() {
         </div>
         <button type="button" class="btn btn-outline btn-sm" onClick=${() => openOverlay("share", { pid })}>Chia sẻ</button>
       </div>
+      ${drawing && html`<${SketchToolbar} ed=${ed} title=${sketchFor ? "Sửa phác thảo" : ""} doneLabel=${sketchFor ? "Lưu phác thảo" : "Xong"}
+        onDone=${sketchFor ? saveSketchEdit : finishDraw} onCancel=${sketchFor ? () => setDrawing(false) : null} />`}
 
       <div class="stage-wrap">
-        <div class="stage" ref=${stageRef} onClick=${() => { if (!drawing) togglePlay(); }}>
+        <div class="stage" ref=${stageRef} onClick=${() => { if (!drawing) togglePlay(); }}
+          onDragOver=${(e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); }} onDrop=${onStageDrop}>
           <video ref=${videoRef} playsinline preload="metadata" poster=${mediaUrl("/assets/" + enc(asset.id) + "/poster?fallback=none")}></video>
           <div class="vig"></div>
           <${StageTags} clock=${clock} fps=${fps} asset=${asset} q=${effQ} />
           ${safe && html`<div class="safe" style="inset:5%"></div><div class="safe" style="inset:10%;border-color:rgba(255,255,255,0.45)"></div>`}
-          <svg class=${"ann-svg" + (drawing ? " drawing" : "")} viewBox="0 0 1 1" preserveAspectRatio="none" style=${drawing ? "" : "pointer-events:none"}
-            onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onUp} onClick=${(e) => drawing && e.stopPropagation()}>
-            ${showSavedAnn && html`<${SavedAnn} clock=${clock} c=${showSavedAnn} />`}
-            ${(drawing || dirtyAnn) && ann.strokes.map((s) => html`<${Stroke} s=${s} />`)}
-            ${live && html`<${Stroke} s=${live} />`}
-          </svg>
-          ${(drawing || dirtyAnn) && ann.texts.map((t) => html`<div class="ann-text" style=${`left:${t.x * 100}%;top:${t.y * 100}%;color:${t.color}`}>${t.text}</div>`)}
-          ${showSavedAnn && html`<${SavedTexts} clock=${clock} c=${showSavedAnn} />`}
-          ${textAt && html`<input ref=${textRef} class="ann-input" style=${`left:${textAt.x * 100}%;top:${textAt.y * 100}%;color:${DRAW_COLORS[color]}`} value=${textAt.value} maxlength="120" placeholder="Nhập chữ, Enter để đặt"
-            onClick=${(e) => e.stopPropagation()} onInput=${(e) => setTextAt({ ...textAt, value: e.target.value })}
-            onKeyDown=${(e) => { e.stopPropagation(); if (e.key === "Enter") commitText(); if (e.key === "Escape") setTextAt(null); }} onBlur=${commitText} />`}
-          ${playErr && effQ === "source" ? html`<${SourceUnplayable} asset=${asset} r720=${rByH(720)} manage=${manage} onMake=${() => pickQuality("720")} />` : html`<${PlayOverlay} clock=${clock} drawing=${drawing} />`}
-          ${drawing && html`<div class="draw-bar" onClick=${(e) => e.stopPropagation()}>
-            <div class="row" style="gap:2px">${DRAW_TOOLS.map(([k, l]) => html`<button type="button" class=${"draw-tool" + (tool === k ? " on" : "")} onClick=${() => setTool(k)}>${l}</button>`)}</div>
-            <div class="draw-sep"></div>
-            <div class="row" style="gap:10px;padding:0 4px">${DRAW_COLORS.map((c, i) => html`<button type="button" aria-label=${"Màu " + (i + 1)} class=${"draw-color" + (color === i ? " on" : "")} style=${`background:${c}`} onClick=${() => setColor(i)}></button>`)}</div>
-            <div class="draw-sep"></div>
-            <button type="button" class="draw-mini" onClick=${undo} disabled=${!dirtyAnn}>Hoàn tác</button>
-            ${dirtyAnn && html`<button type="button" class="draw-mini" onClick=${() => setAnn({ strokes: [], texts: [] })}>Xoá</button>`}
-            <button type="button" class="draw-done" onClick=${toggleDraw}>Xong</button>
-          </div>`}
+          ${showSavedAnn && html`<${SavedSketch} clock=${clock} c=${showSavedAnn} vid=${versionId} />`}
+          ${!drawing && dirtyAnn > 0 && html`<${SketchLayer} items=${ed.items} vid=${versionId} />`}
+          ${drawing && html`<${SketchCanvas} ed=${ed} />`}
+          ${playErr && effQ === "source" && !drawing ? html`<${SourceUnplayable} asset=${asset} r720=${rByH(720)} manage=${manage} onMake=${() => pickQuality("720")} />` : html`<${PlayOverlay} clock=${clock} drawing=${drawing} />`}
         </div>
       </div>
 
@@ -491,12 +428,13 @@ export function Review() {
         ${comments === null && html`<div style="padding:40px 12px;text-align:center" class="muted">Đang tải ghi chú…</div>`}
         ${visible.map((c) => html`<${Thread} key=${c.id} c=${c} replies=${repliesOf[c.id] || []} active=${c.id === activeId} expanded=${!!expanded[c.id]}
           onJump=${() => jumpTo(c)} versionId=${versionId} editing=${editing} setEditing=${setEditing}
+          frameSrc=${frameSrc} onEditSketch=${() => editSketch(c)} canSketch=${manage}
           onReply=${() => { setReplyTo(c.id); setActiveId(c.id); setExpanded({ ...expanded, [c.id]: true }); setTimeout(() => { const t = document.getElementById("noteComposer"); t && t.focus(); }, 0); }}
           onToggle=${() => setExpanded({ ...expanded, [c.id]: !expanded[c.id] })} />`)}
         ${comments && visible.length === 0 && html`<div style="padding:40px 12px;text-align:center;font-size:13.5px;color:var(--tx-3)">${roots.length ? "Không có ghi chú nào khớp bộ lọc." : "Chưa có ghi chú. Dừng ở khung cần sửa rồi viết bên dưới."}</div>`}
       </div>
       <${Composer} clock=${clock} replyC=${replyC} cancelReply=${() => setReplyTo(null)} draft=${draft} setDraft=${setDraft} send=${send} sending=${sending}
-        drawing=${drawing} toggleDraw=${toggleDraw} dirtyAnn=${dirtyAnn} />
+        drawing=${drawing} toggleDraw=${toggleDraw} dirtyAnn=${dirtyAnn} sketchFor=${sketchFor} />
     </aside>
   </div>`;
 }
@@ -537,15 +475,11 @@ function PlayOverlay({ clock, drawing }) {
   if (clock.playing || drawing) return null;
   return html`<div class="big-play"><${IcPlay} size=${22} color="#fff" style="margin-left:3px" /></div>`;
 }
-function SavedAnn({ clock, c }) {
+function SavedSketch({ clock, c, vid }) {
   useClock(clock);
+  const items = useMemo(() => sketchItems(c.annotation), [c.annotation]);
   if (Math.abs(clock.ms - c.timestampMs) > 2500) return null;
-  return html`<g>${(c.annotation.strokes || []).map((s) => html`<${Stroke} s=${s} />`)}</g>`;
-}
-function SavedTexts({ clock, c }) {
-  useClock(clock);
-  if (Math.abs(clock.ms - c.timestampMs) > 2500) return null;
-  return (c.annotation.texts || []).map((t) => html`<div class="ann-text" style=${`left:${t.x * 100}%;top:${t.y * 100}%;color:${t.color}`}>${t.text}</div>`);
+  return html`<${SketchLayer} items=${items} vid=${vid} />`;
 }
 
 function Transport(props) {
@@ -588,7 +522,7 @@ function Transport(props) {
       <button type="button" class="step-btn" title="Tiến 1 frame (→)" onClick=${() => step(1)}>1F ›</button>
       <div class="mono" style="margin-left:6px;font-size:13px;white-space:nowrap">${fmtTc(clock.ms, fps)} <span class="muted">/ ${fmtTc(dur, fps)}</span></div>
       <div class="grow"></div>
-      <button type="button" class=${"ctl" + (drawing ? " on" : "")} onClick=${toggleDraw}>Vẽ ghi chú</button>
+      <button type="button" class=${"ctl" + (drawing ? " on" : "")} title="Phác thảo trên khung: chữ, khung, ảnh, mũi tên…" onClick=${toggleDraw}>Phác thảo</button>
       <button type="button" class=${"ctl" + (safe ? " on2" : "")} onClick=${() => setSafe(!safe)}>Safe area</button>
       <button type="button" class="ctl ring" title="Tốc độ" onClick=${cycleSpeed}>${speed}×</button>
       <div style="position:relative">
@@ -606,15 +540,16 @@ function Transport(props) {
 
 // Filmstrip frames load lazily one after another (the API also caps ffmpeg
 // runs) and fall back to the gradient if the NAS can't make one.
-function FilmFrame({ src }) {
+function FilmFrame({ src, cls }) {
   const [st, setSt] = useState("loading");
   if (st === "failed") return null;
-  return html`<img src=${src} alt="" decoding="async" style=${st === "ok" ? "" : "opacity:0"} onLoad=${() => setSt("ok")} onError=${() => setSt("failed")} />`;
+  return html`<img src=${src} alt="" class=${cls} decoding="async" style=${st === "ok" ? "" : "opacity:0"} onLoad=${() => setSt("ok")} onError=${() => setSt("failed")} />`;
 }
 
-function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versionId, editing, setEditing }) {
+function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versionId, editing, setEditing, frameSrc, onEditSketch, canSketch }) {
   const a = authorOf(c);
   const mine = S.me && c.authorUserId === S.me.id && !c.guestLabel;
+  const sketch = useMemo(() => sketchItems(c.annotation), [c.annotation]);
   const isEditing = editing && editing.id === c.id;
   return html`<div class=${"thread" + (active ? " on" : "")} onClick=${onJump}>
     <div class="row" style="gap:9px">
@@ -636,11 +571,15 @@ function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versi
           </div>
         </div>`
       : html`<div class="thread-text" style=${`color:${c.resolved ? "var(--tx-3)" : "var(--tx)"}`}>${c.content}</div>`}
-    ${hasAnn(c.annotation) && html`<div style="margin:8px 0 0 33px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx-2)"><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid var(--s-fix)"></span>Có hình vẽ trên khung</div>`}
+    ${sketch.length > 0 && html`<div class="row" style="margin:10px 0 0 33px;gap:10px;align-items:flex-end">
+      <div class="sk-thumb" title="Phác thảo trên khung — bấm để xem"><${FilmFrame} src=${frameSrc(c.timestampMs)} cls="bg" /><${SketchLayer} items=${sketch} vid=${versionId} /></div>
+      <div style="font-size:12px;color:var(--tx-3);line-height:1.5">Phác thảo<br />${sketch.length} đối tượng</div>
+    </div>`}
     <div class="thread-acts">
       <button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onReply(); }}>Trả lời</button>
       ${replies.length > 0 && html`<button type="button" style="color:var(--acc-tx);font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onToggle(); }}>${expanded ? "Ẩn phản hồi" : replies.length + " phản hồi"}</button>`}
       ${mine && !isEditing && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); setEditing({ id: c.id, text: c.content }); }}>Sửa</button>`}
+      ${(mine || canSketch) && !c.guestLabel && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onEditSketch(); }}>${sketch.length ? "Sửa phác thảo" : "Thêm phác thảo"}</button>`}
       ${mine && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); if (confirm("Xoá ghi chú này cùng các phản hồi?")) guard(() => deleteComment(versionId, c.id)); }}>Xoá</button>`}
     </div>
     ${expanded && replies.length > 0 && html`<div class="replies" onClick=${(e) => e.stopPropagation()}>
@@ -652,9 +591,9 @@ function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versi
   </div>`;
 }
 
-function Composer({ clock, replyC, cancelReply, draft, setDraft, send, sending, drawing, toggleDraw, dirtyAnn }) {
+function Composer({ clock, replyC, cancelReply, draft, setDraft, send, sending, drawing, toggleDraw, dirtyAnn, sketchFor }) {
   useClock(clock);
-  const canSend = !!draft.trim() && !sending;
+  const canSend = (!!draft.trim() || (!replyC && dirtyAnn > 0)) && !sending && !sketchFor;
   const replyName = replyC ? authorOf(replyC).name : "";
   return html`<div class="composer">
     ${replyC && html`<div class="row gap8" style="margin:0 4px 10px;font-size:12.5px;color:var(--tx-2)">Trả lời <b style="font-weight:600;color:var(--tx)">${replyName}</b><div class="grow"></div><button type="button" class="link" style="font-size:12.5px" onClick=${cancelReply}>Huỷ</button></div>`}
@@ -664,7 +603,7 @@ function Composer({ clock, replyC, cancelReply, draft, setDraft, send, sending, 
         onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } if (e.key === "Escape") e.target.blur(); }}></textarea>
       <div class="row gap8" style="margin-top:6px">
         <div class="tc-tag" style="padding:3px 8px">@ ${fmtShort(replyC ? replyC.timestampMs : clock.ms)}</div>
-        ${!replyC && html`<button type="button" class=${"ctl" + (drawing || dirtyAnn ? " on" : "")} style="height:26px;padding:0 10px;font-size:12px" onClick=${toggleDraw}>${dirtyAnn ? "Vẽ ✓" : "Vẽ"}</button>`}
+        ${!replyC && !sketchFor && html`<button type="button" class=${"ctl" + (drawing || dirtyAnn ? " on" : "")} style="height:26px;padding:0 10px;font-size:12px" title="Phác thảo trên khung" onClick=${toggleDraw}>${dirtyAnn ? "Phác thảo · " + dirtyAnn : "Phác thảo"}</button>`}
         <div class="grow"></div>
         <div style="font-size:11.5px;color:var(--tx-3)">↵ gửi</div>
         <button type="button" class=${"btn btn-xs " + (canSend ? "btn-primary" : "")} style=${canSend ? "" : "background:var(--bg-3);color:var(--tx-3)"} disabled=${!canSend} onClick=${send}>${sending ? "Đang gửi…" : "Gửi"}</button>

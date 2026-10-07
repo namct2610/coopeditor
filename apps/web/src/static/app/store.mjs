@@ -425,6 +425,10 @@ export async function editComment(vid, id, content) {
   const c = await patch("/comments/" + enc(id), { content });
   patchCommentLocal(vid, id, c);
 }
+export async function editCommentSketch(vid, id, annotation) {
+  const c = await patch("/comments/" + enc(id), { annotation });
+  patchCommentLocal(vid, id, c);
+}
 export async function deleteComment(vid, id) {
   await del("/comments/" + enc(id));
   set({ comments: { ...S.comments, [vid]: (S.comments[vid] || []).filter((c) => c.id !== id && c.parentId !== id) } });

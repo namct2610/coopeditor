@@ -142,6 +142,35 @@ test("filmstrip frame endpoint is access-checked and 404s without a source", asy
   assert.equal(r.status, 404, "demo NAS path does not exist in tests");
 });
 
+test("sketch: images upload + serve with sniffed type, comment sketch can be edited", async () => {
+  const vs = (await http("/assets/p1s1/versions")).json;
+  const vid = vs[vs.length - 1].id;
+  // 1×1 transparent PNG
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  let r = await http("/asset-versions/" + vid + "/annotation-images", { method: "POST", body: { dataUrl: "data:image/png;base64," + Buffer.from("<svg onload=alert(1)>").toString("base64") } });
+  assert.equal(r.status, 400, "non-image bytes are refused whatever the declared type");
+  r = await http("/asset-versions/" + vid + "/annotation-images", { method: "POST", body: { dataUrl: "data:image/webp;base64," + png } });
+  assert.equal(r.status, 201);
+  assert.match(r.json.id, /^[a-f0-9]{24}\.png$/, "extension comes from the bytes");
+  const img = await fetch(BASE + "/asset-versions/" + vid + "/annotation-images/" + r.json.id, { headers: { cookie } });
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get("content-type"), "image/png");
+  assert.equal((await fetch(BASE + "/asset-versions/" + vid + "/annotation-images/..%2F..%2Fx.png", { headers: { cookie } })).status, 404);
+
+  const annotation = { items: [
+    { id: "t1", type: "text", x: 0.1, y: 0.8, text: "Phụ đề", style: "box" },
+    { id: "m1", type: "image", x: 0.7, y: 0.05, w: 0.2, h: 0.1, src: r.json.id },
+  ] };
+  const c = (await http("/asset-versions/" + vid + "/comments", { method: "POST", body: { content: "logo góc phải", timestampMs: 1000, annotation } })).json;
+  assert.equal(c.annotation.items.length, 2);
+  r = await http("/comments/" + c.id, { method: "PATCH", body: { annotation: { items: [annotation.items[0]] } } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.annotation.items.map((i) => i.id), ["t1"]);
+  assert.equal((await http("/comments/" + c.id, { method: "PATCH", body: { annotation: { items: [{ type: "nope" }] } } })).status, 400);
+  r = await http("/comments/" + c.id, { method: "PATCH", body: { annotation: null } });
+  assert.equal(r.json.annotation, null);
+});
+
 test("non-owners cannot change workspace roles or proxy settings", async () => {
   assert.equal((await login("khach")).status, 200);
   assert.equal((await http("/workspace/members/u_lan", { method: "PATCH", body: { role: "client" } })).status, 403);

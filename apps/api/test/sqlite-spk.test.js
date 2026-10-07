@@ -239,3 +239,10 @@ test("SPK sqlite store returns comment annotations as objects", async () => {
   assert.deepEqual(listed.annotation, annotation);
   assert.equal(listed.resolved, false);
 });
+
+test("SPK sqlite store replaces and clears a comment sketch", async () => {
+  const c = await store.addComment({ assetVersionId: versionId, authorUserId: userId, content: "phác thảo", timestampMs: 4000 });
+  const sketch = { strokes: [], texts: [], items: [{ id: "t1", type: "text", x: 0.1, y: 0.8, color: "#ffffff", text: "Phụ đề", size: 34, bold: false, style: "box", align: "center" }] };
+  assert.deepEqual((await store.setCommentAnnotation(c.id, sketch)).annotation, sketch);
+  assert.equal((await store.setCommentAnnotation(c.id, null)).annotation, null);
+});

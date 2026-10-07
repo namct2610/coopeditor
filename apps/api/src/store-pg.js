@@ -633,6 +633,10 @@ export async function setCommentContent(id, content) {
   const row = await one(`UPDATE comments SET content = $1 WHERE id = $2 RETURNING *`, [content, id]);
   return commentRow(row);
 }
+export async function setCommentAnnotation(id, annotation) {
+  const row = await one(`UPDATE comments SET annotation = $1 WHERE id = $2 RETURNING *`, [annotation ? JSON.stringify(annotation) : null, id]);
+  return commentRow(row);
+}
 export async function deleteComment(id) {
   return commentRow(await one(`UPDATE comments SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING *`, [id]));
 }

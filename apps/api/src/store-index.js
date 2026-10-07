@@ -94,6 +94,7 @@ export const findProjectIdForComment = USE_PG ? impl.findProjectIdForComment : A
 export const addComment             = USE_PG ? impl.addComment             : A(impl.addComment);
 export const setCommentResolved     = USE_PG ? impl.setCommentResolved     : A(impl.setCommentResolved);
 export const setCommentContent      = USE_PG ? impl.setCommentContent      : A(impl.setCommentContent);
+export const setCommentAnnotation   = USE_PG ? impl.setCommentAnnotation   : A(impl.setCommentAnnotation);
 export const deleteComment          = USE_PG ? impl.deleteComment          : A(impl.deleteComment);
 export const restoreComment         = USE_PG ? impl.restoreComment         : A(impl.restoreComment);
 
