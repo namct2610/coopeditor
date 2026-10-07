@@ -130,14 +130,29 @@ jobs:
           print(json.dumps(out, indent=2))
           EOF
 
+      # Manual runs publish under v<version> (created at this commit), never
+      # under the branch name: /spkserver reads the latest release's tag as
+      # the package version, so a release tagged "main" would hide updates.
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-spk)?-rc[0-9]+$ ]]; then
+            echo "tag=v${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::attach_release=yes needs version like 1.0.0-spk-rc57"; exit 1
+          fi
+
       - name: Attach SPK files to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             spks/*.spk
             spks/checksums.json
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
           body: |
             ## Coopeditor SPK release
