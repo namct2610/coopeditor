@@ -5,14 +5,15 @@
 
 import { html, useState, useEffect, useRef, useMemo, useCallback, useReducer } from "../lib.mjs";
 import {
-  S, set, go, projectById, assetById, canManage, isOwner, isFinal, rejectFinal, guard, toast, errMsg, userById,
+  S, set, go, href, projectById, assetById, canManage, isOwner, isFinal, rejectFinal, guard, toast, errMsg, userById,
   setReviewStatus, loadVersion, loadRenditions, loadComments, requestRendition, renditionBusy, postComment, resolveComment, editComment, editCommentSketch, deleteComment,
 } from "../store.mjs";
 import { ST, FST, ORDER, fmtTc, fmtShort, fmtAgo, paletteOf, flatBg, resLabel, clamp, isAudio } from "../format.mjs";
-import { Avatar, Seg, Menu, MenuItem, IcPlay, IcPause, Spinner, personOf } from "../ui.mjs";
+import { Avatar, Seg, Menu, MenuItem, IcPlay, IcPause, Spinner, personOf, useContextMenu, ContextMenu, copyText } from "../ui.mjs";
 import { mediaUrl, enc } from "../api.mjs";
 import { openOverlay } from "../overlays.mjs";
 import { useSketchEditor, SketchToolbar, SketchCanvas, SketchLayer, sketchItems, hasSketch } from "../sketch.mjs";
+import { downloadSource } from "./project.mjs";
 
 // ---------------------------------------------------------------------------
 // Playback clock: time-driven bits subscribe to this instead of re-rendering
@@ -88,6 +89,10 @@ function authorOf(c) {
   return { name: u ? u.name : "Thành viên", key: c.authorUserId || c.id, user: u };
 }
 
+// Absolute link to a moment of a video (and optionally a note) for sharing.
+const linkTo = (r) => location.origin + location.pathname + href({ name: "review", ...r });
+const focusComposer = () => setTimeout(() => { const t = document.getElementById("noteComposer"); if (t) t.focus(); }, 0);
+
 const FILM_N = 18;
 const QUALITIES = [["source", "Gốc"], ["720", "720p"], ["1080", "1080p"]];
 const SPEEDS = [1, 1.5, 2, 0.5];
@@ -127,6 +132,8 @@ export function Review() {
   const ed = useSketchEditor(versionId);              // draft sketch for the next note
   const [sketchFor, setSketchFor] = useState(null);  // { id, stash } editing a posted note's sketch
   const statusBtn = useRef(null);
+  const stageMenu = useContextMenu();
+  const stageMs = useRef(0);                         // playhead when the stage menu opened
 
   useEffect(() => {
     setVid(null); setActiveId(S.route.c || null); setReplyTo(null); setDraft("");
@@ -373,6 +380,27 @@ export function Review() {
   const frameSrc = (ms) => { const d = asset.durationMs || clock.dur; const i = d ? clamp(Math.floor((ms / d) * FILM_N), 0, FILM_N - 1) : 0; return mediaUrl("/assets/" + enc(asset.id) + "/frame?n=" + FILM_N + "&i=" + i); };
   const renditionState = (q) => { if (q === "source") return ""; const r = rByH(Number(q)); if (!r) return " · —"; if (r.status === "processing") return " · " + (r.progress || 0) + "%"; if (r.status !== "ready") return " · tạo"; return ""; };
 
+  // Right-click on the video: the moment under the playhead when it opened.
+  const stageItems = () => {
+    const ms = stageMs.current;
+    const at = fmtShort(ms);
+    const v = videoRef.current;
+    return [
+      { label: v && !v.paused ? "Dừng" : "Phát", hint: "Space", onClick: togglePlay },
+      { label: "Ghi chú tại " + at, hint: "↵", onClick: () => { pause(); seek(ms); setReplyTo(null); focusComposer(); } },
+      !sketchFor && { label: "Phác thảo trên khung này", onClick: () => { pause(); seek(ms); setDrawing(true); } },
+      "-",
+      { label: "Lùi 1 frame", hint: "←", onClick: () => step(-1) },
+      { label: "Tiến 1 frame", hint: "→", onClick: () => step(1) },
+      "-",
+      { label: "Copy link tại " + at, onClick: () => copyText(linkTo({ pid, aid, t: ms }), "Đã copy link tại " + at) },
+      { label: "Copy timecode", hint: fmtTc(ms, fps), onClick: () => copyText(fmtTc(ms, fps), "Đã copy timecode") },
+      "-",
+      { label: "Safe area", check: safe, onClick: () => setSafe(!safe) },
+      { label: "Tải bản gốc", onClick: () => downloadSource(asset.id) },
+    ];
+  };
+
   return html`<div class="screen-split" data-screen-label="Review video">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column">
       <div class="rv-top">
@@ -391,7 +419,7 @@ export function Review() {
             onClick=${(e) => { e.stopPropagation(); if (manage) setStatusMenu(!statusMenu); }}>
             <span class="dot" style=${`background:${SM[curStatus].c}`}></span>${SM[curStatus].label}${manage && html`<span style="font-size:10px;opacity:0.8">▾</span>`}
           </button>
-          <${Menu} open=${statusMenu} onClose=${() => setStatusMenu(false)} anchorRef=${statusBtn} style="right:0;top:42px;width:240px">
+          <${Menu} open=${statusMenu} onClose=${() => setStatusMenu(false)} anchorRef=${statusBtn} align="end" width=${240}>
             <div class="menu-title">Trạng thái dự án (theo Final)</div>
             ${statusOpts.map((k) => html`<${MenuItem} check=${k === curStatus} onClick=${() => pickStatus(k)}>
               <span class="dot dot8" style=${`background:${SM[k].c}`}></span><span class="grow">${final && k === "ok" && curStatus !== "ok" ? "Duyệt & chốt lịch…" : SM[k].label}</span>
@@ -406,6 +434,7 @@ export function Review() {
 
       <div class="stage-wrap">
         <div class="stage" ref=${stageRef} onClick=${() => { if (!drawing) togglePlay(); }}
+          onContextMenu=${(e) => { if (drawing) return; stageMs.current = clock.ms; stageMenu.open(e); }}
           onDragOver=${(e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); }} onDrop=${onStageDrop}>
           <video ref=${videoRef} playsinline preload="metadata" poster=${mediaUrl("/assets/" + enc(asset.id) + "/poster?fallback=none")}></video>
           <div class="vig"></div>
@@ -416,6 +445,7 @@ export function Review() {
           ${drawing && html`<${SketchCanvas} ed=${ed} />`}
           ${playErr && effQ === "source" && !drawing ? html`<${SourceUnplayable} asset=${asset} r720=${rByH(720)} manage=${manage} onMake=${() => pickQuality("720")} />` : html`<${PlayOverlay} clock=${clock} drawing=${drawing} />`}
         </div>
+        <${ContextMenu} cm=${stageMenu} title=${fmtTc(stageMs.current, fps) + " · F " + Math.floor((stageMs.current / 1000) * fps)} items=${stageMenu.at ? stageItems() : []} />
       </div>
 
       <${Transport} clock=${clock} asset=${asset} roots=${roots} peopleOff=${peopleOff} activeId=${activeId} jumpTo=${jumpTo} seek=${seek} fps=${fps}
@@ -441,7 +471,7 @@ export function Review() {
         ${visible.map((c) => html`<${Thread} key=${c.id} c=${c} replies=${repliesOf[c.id] || []} active=${c.id === activeId} expanded=${!!expanded[c.id]}
           onJump=${() => jumpTo(c)} versionId=${versionId} editing=${editing} setEditing=${setEditing}
           frameSrc=${frameSrc} onEditSketch=${() => editSketch(c)} canSketch=${manage}
-          onReply=${() => { setReplyTo(c.id); setActiveId(c.id); setExpanded({ ...expanded, [c.id]: true }); setTimeout(() => { const t = document.getElementById("noteComposer"); t && t.focus(); }, 0); }}
+          onReply=${() => { setReplyTo(c.id); setActiveId(c.id); setExpanded({ ...expanded, [c.id]: true }); focusComposer(); }}
           onToggle=${() => setExpanded({ ...expanded, [c.id]: !expanded[c.id] })} />`)}
         ${comments && visible.length === 0 && html`<div style="padding:40px 12px;text-align:center;font-size:13.5px;color:var(--tx-3)">${roots.length ? "Không có ghi chú nào khớp bộ lọc." : "Chưa có ghi chú. Dừng ở khung cần sửa rồi viết bên dưới."}</div>`}
       </div>
@@ -539,7 +569,7 @@ function Transport(props) {
       <button type="button" class="ctl ring" title="Tốc độ" onClick=${cycleSpeed}>${speed}×</button>
       <div style="position:relative">
         <button type="button" ref=${qBtn} class="ctl ring" title="Chất lượng phát (bấm giữ Shift để xoay vòng)" onClick=${(e) => (e.shiftKey ? cycleQuality() : setQMenu(!qMenu))}>${qLabel}</button>
-        <${Menu} open=${qMenu} onClose=${() => setQMenu(false)} anchorRef=${qBtn} style="right:0;bottom:42px;width:250px">
+        <${Menu} open=${qMenu} onClose=${() => setQMenu(false)} anchorRef=${qBtn} align="end" side="top" width=${250}>
           <div class="menu-title">Chất lượng phát</div>
           ${QUALITIES.map(([k, l]) => html`<${MenuItem} check=${k === effQ} onClick=${() => { setQMenu(false); pickQuality(k); }}>
             <span class="mono" style="width:52px">${l}</span><span class="muted" style="font-size:12px">${k === "source" ? "file gốc trên NAS" : k === "720" ? "~3.5 Mbps" : "~8 Mbps"}${renditionState(k)}</span>
@@ -563,7 +593,23 @@ function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versi
   const mine = S.me && c.authorUserId === S.me.id && !c.guestLabel;
   const sketch = useMemo(() => sketchItems(c.annotation), [c.annotation]);
   const isEditing = editing && editing.id === c.id;
-  return html`<div class=${"thread" + (active ? " on" : "")} onClick=${onJump}>
+  const cm = useContextMenu();
+  const canEditSketch = (mine || canSketch) && !c.guestLabel;
+  const remove = () => { if (confirm("Xoá ghi chú này cùng các phản hồi?")) guard(() => deleteComment(versionId, c.id)); };
+  const items = cm.at ? [
+    { label: "Đi tới " + fmtShort(c.timestampMs), onClick: onJump },
+    { label: "Trả lời", onClick: onReply },
+    { label: c.resolved ? "Mở lại" : "Đánh dấu xong", onClick: () => resolveComment(versionId, c.id, !c.resolved) },
+    mine && { label: "Sửa nội dung", onClick: () => setEditing({ id: c.id, text: c.content }) },
+    canEditSketch && { label: sketch.length ? "Sửa phác thảo" : "Thêm phác thảo", onClick: onEditSketch },
+    "-",
+    { label: "Copy link ghi chú", onClick: () => copyText(linkTo({ pid: S.route.pid, aid: S.route.aid, t: c.timestampMs, c: c.id }), "Đã copy link ghi chú") },
+    { label: "Copy nội dung", onClick: () => copyText(c.content, "Đã copy nội dung ghi chú") },
+    mine && "-",
+    mine && { label: "Xoá ghi chú", danger: true, onClick: remove },
+  ] : [];
+  return html`<div class=${"thread" + (active ? " on" : "")} onClick=${onJump} onContextMenu=${cm.open}>
+    <${ContextMenu} cm=${cm} title=${a.name + " · " + fmtShort(c.timestampMs)} items=${items} />
     <div class="row" style="gap:9px">
       <${Avatar} user=${a.user} name=${a.name} size=${24} />
       <div class="ell" style="font-size:13.5px;font-weight:500">${a.name}</div>
@@ -591,8 +637,8 @@ function Thread({ c, replies, active, expanded, onJump, onReply, onToggle, versi
       <button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onReply(); }}>Trả lời</button>
       ${replies.length > 0 && html`<button type="button" style="color:var(--acc-tx);font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onToggle(); }}>${expanded ? "Ẩn phản hồi" : replies.length + " phản hồi"}</button>`}
       ${mine && !isEditing && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); setEditing({ id: c.id, text: c.content }); }}>Sửa</button>`}
-      ${(mine || canSketch) && !c.guestLabel && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onEditSketch(); }}>${sketch.length ? "Sửa phác thảo" : "Thêm phác thảo"}</button>`}
-      ${mine && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); if (confirm("Xoá ghi chú này cùng các phản hồi?")) guard(() => deleteComment(versionId, c.id)); }}>Xoá</button>`}
+      ${canEditSketch && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); onEditSketch(); }}>${sketch.length ? "Sửa phác thảo" : "Thêm phác thảo"}</button>`}
+      ${mine && html`<button type="button" class="link" style="font-size:12.5px" onClick=${(e) => { e.stopPropagation(); remove(); }}>Xoá</button>`}
     </div>
     ${expanded && replies.length > 0 && html`<div class="replies" onClick=${(e) => e.stopPropagation()}>
       ${replies.map((r) => { const ra = authorOf(r); return html`<div>

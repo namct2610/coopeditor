@@ -20,6 +20,7 @@ function renderHtml() {
   return inject + RAW_HTML;
 }
 const HTML = renderHtml();
+const DEV_API = "http://localhost:4000 http://127.0.0.1:4000";
 
 // App modules (app/*), vendored libs (vendor/*) and brand images are real
 // files — same as web-spa.js on the NAS. Everything else gets the SPA shell.
@@ -44,8 +45,10 @@ const server = createServer((req, res) => {
   res.setHeader("surrogate-control", "no-store");
   res.setHeader(
     "content-security-policy",
-    "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; " +
-      "connect-src 'self' ws: wss: http://localhost:4000 http://127.0.0.1:4000; " +
+    // The API is another origin in dev (:4000): posters, filmstrip frames and
+    // the video itself come from there.
+    "default-src 'self'; img-src 'self' data: " + DEV_API + "; media-src 'self' blob: " + DEV_API + "; " +
+      "connect-src 'self' ws: wss: " + DEV_API + "; " +
       // jsdelivr: hls.js bundle. blob: scripts: hls.js spawns a worker via Blob URL.
       "script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net; " +
       "worker-src 'self' blob:; " +

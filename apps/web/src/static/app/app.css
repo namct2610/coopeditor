@@ -179,10 +179,11 @@ main.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(-
 .rv-presence>div{height:34px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx-3);white-space:nowrap;flex:0 0 auto}
 .status-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;user-select:none}
 .status-btn[disabled]{cursor:default}
-.menu{position:absolute;z-index:60;min-width:220px;padding:6px;border-radius:14px;background:var(--bg-2);box-shadow:var(--shadow),inset 0 0 0 1px var(--line-2);animation:coFade 140ms ease}
+.pop-host{position:absolute;left:0;top:0}
+.menu{position:fixed;z-index:150;min-width:220px;max-width:calc(100vw - 16px);padding:6px;border-radius:14px;background:var(--bg-2);box-shadow:var(--shadow),inset 0 0 0 1px var(--line-2);animation:coFade 140ms ease;overflow-y:auto;overscroll-behavior:contain;outline:none}
 .menu-title{padding:8px 10px 6px;font-size:11px;font-family:var(--mono);letter-spacing:0.06em;color:var(--tx-3);text-transform:uppercase}
 .menu-item{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;font-size:13.5px;cursor:pointer;width:100%;color:var(--tx)}
-.menu-item:hover{background:var(--bg-3)}
+.menu-item:hover,.menu-item:focus-visible{background:var(--bg-3);outline:none}
 .menu-item.danger{color:var(--s-fix)}
 .menu-item .chk{color:var(--acc-tx);font-size:12px;margin-left:auto}
 .menu-item .hint{margin-left:auto;font-size:12px;color:var(--tx-3);font-family:var(--mono)}
@@ -302,7 +303,7 @@ main.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(-
 .cal-mark{position:absolute;top:50%;transform:translate(-50%,-8px);display:flex;flex-direction:column;align-items:center;gap:7px}
 .cal-mark i{width:14px;height:14px;transform:rotate(45deg);border-radius:3px;display:block}
 .legend{display:flex;align-items:center;flex-wrap:wrap;gap:10px 22px;margin-top:16px;font-size:12.5px;color:var(--tx-3)}
-.date-pop{position:absolute;z-index:70;width:280px;padding:14px;border-radius:16px;background:var(--bg-2);box-shadow:var(--shadow),inset 0 0 0 1px var(--line-2);animation:coFade 140ms ease}
+.date-pop{position:fixed;z-index:150;outline:none;width:280px;padding:14px;border-radius:16px;background:var(--bg-2);box-shadow:var(--shadow),inset 0 0 0 1px var(--line-2);animation:coFade 140ms ease}
 .dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:10px}
 .dp-wd{font-family:var(--mono);font-size:10px;color:var(--tx-3);text-align:center;padding:4px 0}
 .dp-day{height:32px;border-radius:8px;display:grid;place-items:center;font-size:12.5px;cursor:pointer;color:var(--tx-2)}

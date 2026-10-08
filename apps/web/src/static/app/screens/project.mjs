@@ -7,7 +7,7 @@ import {
   patchProject, patchAsset, deleteAsset, reorderAssets, archiveProject, deleteProject,
 } from "../store.mjs";
 import { SST, dm, daysBetween, today, fmtAgo, fmtDur, paletteOf, resLabel, isAudio, p2, dayFromIso } from "../format.mjs";
-import { Thumb, AvStack, StatusPill, Seg, MoreMenu, DatePicker, posterUrl } from "../ui.mjs";
+import { Thumb, AvStack, StatusPill, Seg, MoreMenu, DatePicker, posterUrl, useContextMenu, ContextMenu } from "../ui.mjs";
 import { nextAir } from "./hub.mjs";
 import { openOverlay } from "../overlays.mjs";
 import { FinalPanel } from "./final.mjs";
@@ -38,11 +38,18 @@ function assetMenu(pid, a, setDateFor) {
   ];
 }
 
+// Right-click on a video: open it, then the same actions as its "⋯" menu.
+function AssetContextMenu({ cm, pid, a, open, setDateFor }) {
+  return html`<${ContextMenu} cm=${cm} title=${a.title} items=${cm.at ? [{ label: "Mở review", onClick: open }, "-", ...assetMenu(pid, a, setDateFor)] : []} />`;
+}
+
 function AssetCard({ pid, a, dateFor, setDateFor }) {
   const processing = a.status === "processing";
   const audio = isAudio(a);
   const open = () => go({ name: "review", pid, aid: a.id });
-  return html`<div class="card" role="link" tabindex="0" onClick=${open} onKeyDown=${(e) => e.key === "Enter" && open()}>
+  const cm = useContextMenu();
+  const foot = useRef(null);
+  return html`<div class="card" role="link" tabindex="0" onClick=${open} onKeyDown=${(e) => e.key === "Enter" && open()} onContextMenu=${cm.open}>
     <${Thumb} src=${posterUrl(a.id)} pal=${paletteOf(a)} radius=${14} audio=${audio}>
       <div class="glass mono" style="left:12px;top:12px;height:22px;padding:0 8px;border-radius:6px;font-size:11px">v${a.versionsCount || 1}</div>
       <div class="on-thumb" style="right:12px;bottom:10px;color:rgba(255,255,255,0.88)">${fmtDur(a.durationMs)}</div>
@@ -58,13 +65,14 @@ function AssetCard({ pid, a, dateFor, setDateFor }) {
       <div class="ell" style="font-size:16px;font-weight:500;letter-spacing:-0.015em">${a.title}</div>
       <div class="ell" style="margin-top:4px;font-size:12.5px;color:var(--tx-3)">${assetMeta(a)}</div>
     </div>
-    <div class="row gap10" style="position:relative">
+    <div class="row gap10" ref=${foot}>
       ${a.airDate && html`<span class="mono" style="font-size:11.5px;color:var(--acc-tx)">◆ ${dm(dayFromIso(a.airDate))}</span>`}
       <div class="grow"></div>
       <div style="font-size:12.5px;color:var(--tx-2)">${a.openCommentsCount ? a.openCommentsCount + " ghi chú" : ""}</div>
-      ${dateFor === a.id && html`<${DatePicker} value=${a.airDate} style="left:0;top:32px" onClose=${() => setDateFor(null)}
+      ${dateFor === a.id && html`<${DatePicker} value=${a.airDate} anchorRef=${foot} onClose=${() => setDateFor(null)}
         onPick=${(d) => { setDateFor(null); guard(() => patchAsset(a.id, { airDate: d })); }} />`}
     </div>
+    <${AssetContextMenu} cm=${cm} pid=${pid} a=${a} open=${open} setDateFor=${setDateFor} />
   </div>`;
 }
 
@@ -72,7 +80,9 @@ const ROW_COLS = "28px 128px minmax(0,1fr) 90px 60px";
 function AssetRow({ pid, a, i, drag, dateFor, setDateFor }) {
   const processing = a.status === "processing";
   const open = () => go({ name: "review", pid, aid: a.id });
-  return html`<div class=${"list-row" + (drag.over === a.id ? " drop-target" : "") + (drag.id === a.id ? " dragging" : "")}
+  const cm = useContextMenu();
+  const row = useRef(null);
+  return html`<div ref=${row} class=${"list-row" + (drag.over === a.id ? " drop-target" : "") + (drag.id === a.id ? " dragging" : "")} onContextMenu=${cm.open}
     style=${`grid-template-columns:${ROW_COLS};gap:20px;padding:14px 0;position:relative`}
     draggable=${drag.enabled} onDragStart=${(e) => drag.start(e, a.id)} onDragOver=${(e) => drag.over_(e, a.id)} onDrop=${(e) => drag.drop(e, a.id)} onDragEnd=${drag.end}
     role="link" tabindex="0" onClick=${open} onKeyDown=${(e) => e.key === "Enter" && open()}>
@@ -87,8 +97,9 @@ function AssetRow({ pid, a, i, drag, dateFor, setDateFor }) {
     <div style="font-size:12.5px;color:var(--tx-2);text-align:right;white-space:nowrap">${a.openCommentsCount ? a.openCommentsCount + " ghi chú" : ""}</div>
     <div class="mono" style="font-size:12px;color:var(--tx-2);text-align:right">${fmtDur(a.durationMs)}</div>
     <${MoreMenu} items=${assetMenu(pid, a, setDateFor)} cls="icon-btn flat" style="right:-44px;top:50%;margin-top:-18px" />
-    ${dateFor === a.id && html`<${DatePicker} value=${a.airDate} style="right:0;top:60px" onClose=${() => setDateFor(null)}
+    ${dateFor === a.id && html`<${DatePicker} value=${a.airDate} anchorRef=${row} align="end" onClose=${() => setDateFor(null)}
       onPick=${(d) => { setDateFor(null); guard(() => patchAsset(a.id, { airDate: d })); }} />`}
+    <${AssetContextMenu} cm=${cm} pid=${pid} a=${a} open=${open} setDateFor=${setDateFor} />
   </div>`;
 }
 
@@ -115,6 +126,7 @@ export function Project() {
   const p = projectById(pid);
   const [dateFor, setDateFor] = useState(null);
   const [airOpen, setAirOpen] = useState(false);
+  const airBtn = useRef(null);
   const all = S.sources[pid];
   const list = (all || []).filter((a) => !isFinal(a)).sort((a, b) => a.position - b.position);
   const shown = list;
@@ -159,14 +171,14 @@ export function Project() {
         <div style="margin-right:6px"><${AvStack} users=${p.team || []} size=${30} /></div>
         <button type="button" class="btn btn-outline" onClick=${() => openOverlay("share", { pid })}>Chia sẻ</button>
         ${manage && S.caps.nas && html`<button type="button" class="btn btn-primary" onClick=${() => openOverlay("import", { pid })}>Thêm nguồn</button>`}
-        <div style="position:relative;width:40px;height:40px"><${MoreMenu} items=${menu} cls="icon-btn" style="left:0;top:2px" menuStyle="right:0;top:42px;min-width:240px" /></div>
+        <div style="position:relative;width:40px;height:40px"><${MoreMenu} items=${menu} cls="icon-btn" style="left:0;top:2px" width=${260} /></div>
       </div>
     </div>
     <div class="row gap10" style="flex-wrap:wrap;margin-bottom:44px;position:relative">
-      <button type="button" class="acc-chip" style=${manage ? "" : "cursor:default"} onClick=${() => manage && setAirOpen(!airOpen)}>
+      <button type="button" ref=${airBtn} class="acc-chip" style=${manage ? "" : "cursor:default"} onClick=${() => manage && setAirOpen(!airOpen)}>
         <span class="diamond"></span>${na ? (p.airConfirmed ? "Lên sóng " : "Dự kiến lên sóng ") + dm(na) + " · " + (daysBetween(t, na) === 0 ? "hôm nay" : "còn " + daysBetween(t, na) + " ngày") + (p.airConfirmed ? " · đã chốt" : "") : "Chưa đặt ngày lên sóng"}
       </button>
-      ${airOpen && html`<${DatePicker} value=${p.airDate} style="left:0;top:38px" onClose=${() => setAirOpen(false)}
+      ${airOpen && html`<${DatePicker} value=${p.airDate} anchorRef=${airBtn} onClose=${() => setAirOpen(false)}
         onPick=${(d) => { setAirOpen(false); guard(() => patchProject(pid, { airDate: d })); }} />`}
       ${script && html`<button type="button" class="ring-chip" onClick=${() => go({ name: "script", sid: script.id })}>Kịch bản: ${script.title} <span class="muted">· ${(SST[script.status] || SST.draft).label}</span></button>`}
     </div>

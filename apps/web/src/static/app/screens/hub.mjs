@@ -2,10 +2,11 @@
 // status, as a grid or a list.
 
 import { html } from "../lib.mjs";
-import { S, set, go, viewMode, loadArchived, restoreProject, archiveProject, isOwner, guard } from "../store.mjs";
+import { S, set, go, viewMode, loadArchived, restoreProject, archiveProject, isOwner, canManage, guard } from "../store.mjs";
 import { ST, ORDER, todayLabel, today, dayFromIso, daysBetween, dm, fmtAgo, fmtDur, paletteOf, tint } from "../format.mjs";
-import { Thumb, AvStack, StatusPill, Seg, IcPlay, MoreMenu, posterUrl, projectThumbUrl } from "../ui.mjs";
+import { Thumb, AvStack, StatusPill, Seg, IcPlay, MoreMenu, posterUrl, projectThumbUrl, useContextMenu, ContextMenu } from "../ui.mjs";
 import { openOverlay } from "../overlays.mjs";
+import { downloadZip } from "./project.mjs";
 
 export function nextAir(p) {
   const t = today();
@@ -24,19 +25,29 @@ export function FinalLine({ p }) {
   </div>`;
 }
 
-function projectMenu(p) {
-  if (!isOwner(p.id)) return [];
+// "⋯" on a project card and its right-click menu.
+function projectMenu(p, withOpen) {
   return [
-    { label: "Sửa tên / khách hàng", onClick: () => openOverlay("editProject", { pid: p.id }) },
-    { label: "Lưu trữ dự án", onClick: () => guard(() => archiveProject(p.id)) },
+    withOpen && { label: "Mở dự án", onClick: () => go({ name: "project", pid: p.id }) },
+    withOpen && "-",
+    { label: "Chia sẻ", onClick: () => openOverlay("share", { pid: p.id }) },
+    { label: "Tải toàn bộ file gốc (.zip)", onClick: () => downloadZip(p) },
+    canManage(p.id) && { label: "Sửa tên / khách hàng", onClick: () => openOverlay("editProject", { pid: p.id }) },
+    isOwner(p.id) && "-",
+    isOwner(p.id) && { label: "Lưu trữ dự án", onClick: () => guard(() => archiveProject(p.id)) },
   ];
 }
 
 function QueueCard({ q }) {
   const pal = paletteOf({ id: q.assetId });
   const notes = q.openCommentsCount ? q.openCommentsCount + " ghi chú" : "Chưa có ghi chú";
+  const cm = useContextMenu();
   return html`<a class="card" href=${"#/p/" + encodeURIComponent(q.projectId) + "/v/" + encodeURIComponent(q.assetId) + "?t=0"}
-    onClick=${(e) => { e.preventDefault(); go({ name: "review", pid: q.projectId, aid: q.assetId, t: 0 }); }} style="color:inherit">
+    onClick=${(e) => { e.preventDefault(); go({ name: "review", pid: q.projectId, aid: q.assetId, t: 0 }); }} onContextMenu=${cm.open} style="color:inherit">
+    <${ContextMenu} cm=${cm} title=${q.title} items=${[
+      { label: "Xem & ghi chú", onClick: () => go({ name: "review", pid: q.projectId, aid: q.assetId, t: 0 }) },
+      { label: "Mở dự án", onClick: () => go({ name: "project", pid: q.projectId }) },
+    ]} />
     <${Thumb} src=${posterUrl(q.assetId)} pal=${pal} radius=${16}>
       <div class="shade"></div>
       <div class="glass" style="left:14px;top:14px"><span class="dot" style="background:oklch(0.82 0.13 80)"></span>${q.kind === "final" ? "Final · chờ duyệt" : "Chờ review"}</div>
@@ -57,12 +68,14 @@ function ProjectCard({ p }) {
   const total = mixTotal(p);
   const notes = p.openCommentsCount ? p.openCommentsCount + " ghi chú mở" : "—";
   const fresh = S.notif[p.id];
-  return html`<div class="card" role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })}>
+  const cm = useContextMenu();
+  return html`<div class="card" role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })} onContextMenu=${cm.open}>
+    <${ContextMenu} cm=${cm} title=${p.name} items=${cm.at ? projectMenu(p, true) : []} />
     <${Thumb} src=${projectThumbUrl(p)} pal=${paletteOf(p)} ratio="16/10" radius=${16}>
       <div class="glass" style="left:14px;top:14px"><span class="dot" style=${`background:${ST[st].c}`}></span>${ST[st].label}</div>
       <div class="glass" style="right:14px;top:14px;font-weight:400">${na ? "Lên sóng " + dm(na) : "Chưa đặt lịch"}</div>
       <div class="on-thumb" style="left:14px;bottom:12px;color:rgba(255,255,255,0.8)">${total} video</div>
-      <${MoreMenu} items=${projectMenu(p)} style="right:14px;bottom:10px" menuStyle="right:0;bottom:38px" />
+      <${MoreMenu} items=${projectMenu(p)} style="right:14px;bottom:10px" side="top" />
     </${Thumb}>
     <div>
       <div style="font-size:18px;font-weight:500;letter-spacing:-0.02em;line-height:1.3;text-wrap:pretty">${p.name}</div>
@@ -82,7 +95,9 @@ const LIST_COLS = "120px minmax(0,1fr) 180px 130px 120px";
 function ProjectRow({ p }) {
   const st = projectStatus(p);
   const na = nextAir(p);
-  return html`<div class="list-row" style=${`grid-template-columns:${LIST_COLS}`} role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })}>
+  const cm = useContextMenu();
+  return html`<div class="list-row" style=${`grid-template-columns:${LIST_COLS}`} role="link" tabindex="0" onClick=${() => go({ name: "project", pid: p.id })} onKeyDown=${(e) => e.key === "Enter" && go({ name: "project", pid: p.id })} onContextMenu=${cm.open}>
+    <${ContextMenu} cm=${cm} title=${p.name} items=${cm.at ? projectMenu(p, true) : []} />
     <${Thumb} src=${projectThumbUrl(p)} pal=${paletteOf(p)} ratio="16/10" radius=${10} />
     <div style="min-width:0">
       <div class="ell" style="font-size:16.5px;font-weight:500;letter-spacing:-0.015em">${p.name}</div>

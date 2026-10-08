@@ -66,7 +66,7 @@ function DeliverButtons({ pid, primary, label = "Nộp Final" }) {
   const btn = useRef(null);
   return html`<div style="position:relative">
     <button type="button" ref=${btn} class=${"btn " + (primary ? "btn-primary" : "btn-outline")} onClick=${() => setOpen(!open)}>${label} ▾</button>
-    <${Menu} open=${open} onClose=${() => setOpen(false)} anchorRef=${btn} style="right:0;top:46px;width:260px">
+    <${Menu} open=${open} onClose=${() => setOpen(false)} anchorRef=${btn} align="end" width=${260}>
       <${MenuItem} onClick=${() => { setOpen(false); pickFile(pid); }}>Upload từ máy tính</${MenuItem}>
       ${S.caps.nas && html`<${MenuItem} onClick=${() => { setOpen(false); openOverlay("import", { pid, final: true }); }}>Chọn file đã xuất trên NAS</${MenuItem}>`}
     </${Menu}>

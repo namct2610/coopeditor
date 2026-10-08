@@ -37,22 +37,30 @@ function commentMark(T) {
 // ---- autosave ----
 let saveTimer = null;
 let saving = null;
-async function saveNow(force) {
+// `bodyHtml` is passed when the editor may be gone by the time this runs (a
+// save still in flight when the screen closes).
+async function saveNow(force, bodyHtml) {
   const s = S.script;
   const ed = window.__scEditor;
-  if (!s || !ed) return;
+  if (!s || (!ed && bodyHtml == null)) return;
   if (S.scriptSave === "conflict" && !force) return;
   clearTimeout(saveTimer);
-  const body = ed.getHTML();
-  const title = (s.title || "").trim() || "Kịch bản chưa đặt tên";
-  if (saving) { await saving; return saveNow(force); }
+  const body = bodyHtml != null ? bodyHtml : ed.getHTML();
+  if (saving) { await saving; if (S.script && S.script.id === s.id) return saveNow(force, body); return; }
+  const rawTitle = S.script.title;
+  const title = (rawTitle || "").trim() || "Kịch bản chưa đặt tên";
   set({ scriptSave: "saving" });
   saving = (async () => {
     try {
-      const r = await api("/scripts/" + enc(s.id), { method: "PATCH", body: { title, body, baseVersion: s.version } });
-      patchScriptLocal({ version: r.version, updatedAt: r.updatedAt, updatedBy: r.updatedBy, updatedByName: r.updatedByName, title: r.title });
+      const r = await api("/scripts/" + enc(s.id), { method: "PATCH", body: { title, body, baseVersion: S.script.version } });
+      // Keep the saved body: the editor is rebuilt from S.script when the
+      // script is reopened. The title only takes the server's form if it
+      // wasn't edited further while this request was in flight.
+      if (!S.script || S.script.id !== s.id) return; // another script was opened meanwhile
+      patchScriptLocal({ version: r.version, updatedAt: r.updatedAt, updatedBy: r.updatedBy, updatedByName: r.updatedByName, body, ...(S.script.title === rawTitle ? { title: r.title } : {}) });
       if (S.scriptSave === "saving") set({ scriptSave: "saved", savedAt: new Date() });
     } catch (e) {
+      if (!S.script || S.script.id !== s.id) return;
       if (e.status === 409) set({ scriptSave: "conflict", scriptConflict: e.body && e.body.script });
       else { set({ scriptSave: "error" }); toast(errMsg(e, "Chưa lưu được kịch bản"), "error"); }
     } finally { saving = null; }
@@ -96,6 +104,8 @@ function useEditor(hostRef, script, rev, onSelect) {
     return () => {
       dead = true;
       if (ed) {
+        // Unsaved edits stay with the script (a reopen shows them) and are flushed.
+        if (["dirty", "saving", "conflict"].includes(S.scriptSave) && S.script && S.script.id === script.id) patchScriptLocal({ body: ed.getHTML() });
         if (S.scriptSave === "dirty" || S.scriptSave === "saving") saveNow();
         if (window.__scEditor === ed) window.__scEditor = null;
         // Destroy after the flush grabbed getHTML().
@@ -240,7 +250,7 @@ export function Script() {
         <div class="sc-saved"><div><span class="dot dot6" style=${`background:${saveColor}`}></span>${saveLabel}</div></div>
         <${Seg} opts=${Object.keys(SST).map((k) => [k, SST[k].label, html`<span class="dot dot6" style=${`background:${SST[k].c}`}></span>`])} value=${s.status} onPick=${(k) => setScriptField("status", k)} />
         ${project && html`<button type="button" class="btn btn-outline btn-sm" onClick=${() => openOverlay("share", { pid: project.id })}>Chia sẻ</button>`}
-        <div style="position:relative;width:36px;height:36px;flex:0 0 auto"><${MoreMenu} cls="icon-btn flat" style="left:0;top:0" menuStyle="right:0;top:40px"
+        <div style="position:relative;width:36px;height:36px;flex:0 0 auto"><${MoreMenu} cls="icon-btn flat" style="left:0;top:0"
           items=${[{ label: "Xoá kịch bản", danger: true, onClick: () => { if (confirm("Xoá kịch bản \"" + s.title + "\"?")) guard(async () => { clearTimeout(saveTimer); await deleteScript(s.id); go({ name: "scripts" }); }); } }]} /></div>
       </div>
       ${S.scriptSave === "conflict" && html`<div class="row gap12" style="padding:10px 28px;background:color-mix(in oklch,var(--s-fix) 12%,transparent);font-size:13px">
@@ -251,7 +261,7 @@ export function Script() {
       <div class="sc-toolbar"><div>
         <div style="position:relative">
           <button type="button" ref=${blockBtn} class="tb" onMouseDown=${(e) => e.preventDefault()} onClick=${() => setBlockMenu(!blockMenu)}>${(BLOCKS.find((b) => b[0] === blk) || BLOCKS[0])[1]} <span style="font-size:9px">▾</span></button>
-          <${Menu} open=${blockMenu} onClose=${() => setBlockMenu(false)} anchorRef=${blockBtn} style="left:0;top:36px;width:220px">
+          <${Menu} open=${blockMenu} onClose=${() => setBlockMenu(false)} anchorRef=${blockBtn} width=${220} keepFocus>
             ${BLOCKS.map(([k, l, fn]) => html`<${MenuItem} check=${k === blk} onClick=${() => { setBlockMenu(false); cmd(fn)(); }}>${l}</${MenuItem}>`)}
           </${Menu}>
         </div>
@@ -274,7 +284,7 @@ export function Script() {
               <button type="button" ref=${projBtn} class="sc-proj" onClick=${() => setProjMenu(!projMenu)}>
                 <span style=${`width:18px;height:18px;border-radius:50%;background:${project ? thumbBg(...paletteOf(project)) : "var(--bg-3)"}`}></span>${project ? project.name : "Chưa gắn dự án"}
               </button>
-              <${Menu} open=${projMenu} onClose=${() => setProjMenu(false)} anchorRef=${projBtn} style="left:0;top:36px;width:320px;max-height:360px;overflow-y:auto">
+              <${Menu} open=${projMenu} onClose=${() => setProjMenu(false)} anchorRef=${projBtn} width=${320} maxHeight=${360}>
                 <div class="menu-title">Gắn vào dự án</div>
                 ${S.projects.map((p) => html`<${MenuItem} check=${p.id === s.projectId} onClick=${() => { setProjMenu(false); setScriptField("projectId", p.id); }}><span class="ell">${p.name}</span></${MenuItem}>`)}
                 ${s.projectId && html`<div class="menu-sep"></div><${MenuItem} onClick=${() => { setProjMenu(false); setScriptField("projectId", null); }}>Bỏ gắn dự án</${MenuItem}>`}

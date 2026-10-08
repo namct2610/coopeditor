@@ -32,6 +32,7 @@ export const S = {
   script: null,             // open script incl. body + comments
   scriptSave: "saved",      // saved | dirty | saving | conflict | error
   scriptConflict: null,
+  scriptLoadedAt: 0,
 
   hubFilter: "all",
   projFilter: "all",
@@ -467,15 +468,17 @@ export async function loadScripts() {
   if (!S.caps.scripts) return;
   try { set({ scripts: await get("/scripts") }); } catch (_) { if (!S.scripts) set({ scripts: [] }); }
 }
+// Reopening a script fetches it again (someone may have edited it since),
+// unless this tab still has edits for it in flight or just loaded it.
 export async function openScript(id) {
-  if (S.script && S.script.id === id) return;
+  if (S.script && S.script.id === id && (S.scriptSave !== "saved" || Date.now() - S.scriptLoadedAt < 3000)) return;
   set({ script: null, scriptSave: "saved", scriptConflict: null });
-  try { set({ script: await get("/scripts/" + enc(id)) }); }
+  try { set({ script: await get("/scripts/" + enc(id)), scriptLoadedAt: Date.now() }); }
   catch (e) { toast(errMsg(e, "Không mở được kịch bản"), "error"); go({ name: "scripts" }); }
 }
 export async function createScript(projectId) {
   const s = await post("/scripts", { title: "Kịch bản chưa đặt tên", projectId: projectId || null });
-  set({ scripts: [s, ...(S.scripts || [])], script: { ...s, comments: [] } });
+  set({ scripts: [s, ...(S.scripts || [])], script: { ...s, comments: [] }, scriptSave: "saved", scriptConflict: null, scriptLoadedAt: Date.now() });
   go({ name: "script", sid: s.id });
   return s;
 }

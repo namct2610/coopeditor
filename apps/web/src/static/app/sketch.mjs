@@ -14,7 +14,7 @@ import { html, useState, useEffect, useLayoutEffect, useRef } from "./lib.mjs";
 import { clamp } from "./format.mjs";
 import { mediaUrl, enc, post } from "./api.mjs";
 import { S, toast, errMsg } from "./store.mjs";
-import { Menu, MenuItem } from "./ui.mjs";
+import { Menu, MenuItem, useContextMenu, ContextMenu } from "./ui.mjs";
 
 const RW = 1280, RH = 720;
 const U = (n) => `calc(${n} * 100cqh / ${RH})`;
@@ -47,6 +47,9 @@ export const TOOLS = [
   { k: "blur", label: "Vùng che mờ", key: "B" },
 ];
 const SHORTCUTS = Object.fromEntries(TOOLS.map((t) => [t.key.toLowerCase(), t.k]));
+// "Chèn ảnh (hoặc dán…)" → "Chèn ảnh": the tool's name as an object's name.
+const typeLabel = (type) => { const t = TOOLS.find((x) => x.k === type); return t ? t.label.split(/ \(| — /)[0] : "Đối tượng"; };
+const MOD = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent) ? "⌘" : "Ctrl ";
 
 const frameAt = (ratio, h = 1) => { const w = Math.min(1, h * ratioN(ratio)); return { type: "frame", x: r3((1 - w) / 2), y: r3((1 - h) / 2), w: r3(w), h, color: "#ffffff", ratio, dim: true }; };
 export const TEMPLATES = [
@@ -422,6 +425,8 @@ export function SketchCanvas({ ed }) {
   const [selBox, setSelBox] = useState(null);
   const drag = useRef(null);
   const clip = useRef(null);
+  const cm = useContextMenu();
+  const cmAt = useRef({ id: null, p: [0.5, 0.5] });   // object + point under the right-click
 
   let shown = ovr ? ed.items.map((i) => (i.id === ovr.id ? ovr.item : i)) : ed.items;
   if (draft) shown = [...shown, draft];
@@ -443,6 +448,53 @@ export function SketchCanvas({ ed }) {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
+  };
+
+  const pasteClip = () => {
+    const it = clip.current;
+    if (!it) return;
+    const copy = { ...moveItem(it, itemBox(it, layerRef.current), 0.025, 0.04), id: uid() };
+    clip.current = copy;
+    edRef.current.add([copy]);
+  };
+  const startEdit = (it) => setEditing(it.type === "text" ? { item: it, isNew: false } : { item: it, label: true });
+
+  // Right-click: actions for the object under the pointer, or what can be
+  // inserted on an empty spot.
+  const onContext = (e) => {
+    if (drag.current) { e.preventDefault(); return; }
+    if (editing) return; // typing in a text box: the browser's own menu (paste, spelling)
+    const ed = edRef.current;
+    const p = pt(e);
+    const hit = hitTest(ed.items, p, layerRef.current);
+    if (hit) { ed.setTool("select"); ed.setSel(hit.id); }
+    cmAt.current = { id: hit ? hit.id : null, p };
+    cm.open(e);
+  };
+  const ctxItems = () => {
+    const it = cmAt.current.id ? ed.items.find((i) => i.id === cmAt.current.id) : null;
+    if (it) {
+      return [
+        (it.type === "text" || it.type === "placeholder") && { label: it.type === "text" ? "Sửa chữ" : "Đổi nhãn", hint: "↵", onClick: () => startEdit(it) },
+        { label: "Nhân bản", hint: MOD + "D", onClick: () => ed.duplicate(it.id) },
+        { label: "Sao chép", hint: MOD + "C", onClick: () => { clip.current = it; } },
+        "-",
+        { label: "Đưa lên trên cùng", onClick: () => ed.layer(it.id, "top") },
+        { label: "Lên một lớp", hint: "]", onClick: () => ed.layer(it.id, 1) },
+        { label: "Xuống một lớp", hint: "[", onClick: () => ed.layer(it.id, -1) },
+        { label: "Đưa xuống dưới cùng", onClick: () => ed.layer(it.id, "bottom") },
+        "-",
+        { label: "Xoá", hint: "Del", danger: true, onClick: () => ed.remove(it.id) },
+      ];
+    }
+    return [
+      clip.current && { label: "Dán", hint: MOD + "V", onClick: pasteClip },
+      { label: "Chèn ảnh…", hint: "I", onClick: () => ed.pickImage(cmAt.current.p) },
+      "-",
+      ...TEMPLATES.map((t) => (t.sep ? "-" : { label: t.label, hint: t.hint, onClick: () => ed.add(t.make()) })),
+      "-",
+      ed.items.length > 0 && { label: "Xoá hết phác thảo", danger: true, onClick: () => { ed.change(() => []); ed.setSel(null); } },
+    ];
   };
 
   const onDown = (e) => {
@@ -556,6 +608,7 @@ export function SketchCanvas({ ed }) {
   };
 
   const onHandleDown = (e, handle, idx) => {
+    if (e.button !== 0) return; // right-click on a handle opens the object menu
     e.preventDefault(); e.stopPropagation();
     const ed = edRef.current;
     const it = ed.selected;
@@ -568,8 +621,7 @@ export function SketchCanvas({ ed }) {
     const ed = edRef.current;
     const hit = hitTest(ed.items, pt(e), layerRef.current);
     if (!hit) return;
-    if (hit.type === "text") { ed.setSel(hit.id); setEditing({ item: hit, isNew: false }); }
-    else if (hit.type === "placeholder") { ed.setSel(hit.id); setEditing({ item: hit, label: true }); }
+    if (hit.type === "text" || hit.type === "placeholder") { ed.setSel(hit.id); startEdit(hit); }
   };
 
   const commitText = (raw) => {
@@ -609,7 +661,7 @@ export function SketchCanvas({ ed }) {
       else if ((k === "delete" || k === "backspace") && ed.sel) ed.remove(ed.sel);
       else if (k === "escape" && ed.sel) ed.setSel(null);
       else if (k === "escape" && ed.tool !== "select") ed.setTool("select");
-      else if (k === "enter" && ed.selected && (ed.selected.type === "text" || ed.selected.type === "placeholder")) setEditing(ed.selected.type === "text" ? { item: ed.selected, isNew: false } : { item: ed.selected, label: true });
+      else if (k === "enter" && ed.selected && (ed.selected.type === "text" || ed.selected.type === "placeholder")) startEdit(ed.selected);
       else if (k.startsWith("arrow") && ed.sel && !mod) {
         const st = e.shiftKey ? 10 : 1;
         const dx = k === "arrowleft" ? -st / RW : k === "arrowright" ? st / RW : 0;
@@ -626,13 +678,7 @@ export function SketchCanvas({ ed }) {
       const ed = edRef.current;
       const file = [...((e.clipboardData && e.clipboardData.files) || [])].find((f) => /^image\//.test(f.type));
       if (file) { e.preventDefault(); ed.insertImageFile(file); return; }
-      if (clip.current) {
-        e.preventDefault();
-        const it = clip.current;
-        const copy = { ...moveItem(it, itemBox(it, layerRef.current), 0.025, 0.04), id: uid() };
-        clip.current = copy;
-        ed.add([copy]);
-      }
+      if (clip.current) { e.preventDefault(); pasteClip(); }
     };
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("paste", onPaste);
@@ -643,9 +689,10 @@ export function SketchCanvas({ ed }) {
   const editItem = editing && !editing.label ? { ...editing.item, ...(editing.isNew ? { color: ed.props.tcolor, size: ed.props.size, bold: ed.props.bold, style: ed.props.style } : {}) } : null;
   const ends = sel && (sel.type === "line" || sel.type === "arrow") ? [sel.points[0], sel.points[sel.points.length - 1]] : null;
 
-  return html`<div class="sk-edit-root" onClick=${(e) => e.stopPropagation()}>
+  return html`<div class="sk-edit-root" onClick=${(e) => e.stopPropagation()} onContextMenu=${onContext}>
     <${SketchLayer} items=${shown} vid=${ed.vid} layerRef=${layerRef} hideId=${editing && !editing.isNew && !editing.label ? editing.item.id : null} cls="editing" />
     <div class="sk-hit" style=${`cursor:${cursor}`} onPointerDown=${onDown} onDblClick=${onDbl}></div>
+    <${ContextMenu} cm=${cm} width=${260} title=${cm.at ? (cmAt.current.id ? typeLabel((ed.items.find((i) => i.id === cmAt.current.id) || {}).type) : "Chèn vào khung") : ""} items=${cm.at ? ctxItems() : []} />
     <div class="sk-ui">
       ${sel && selBox && !ends && !editing && html`<div class="sk-sel" style=${boxCss(selBox)}></div>
         ${handlesFor(sel).map((h) => { const [x, y] = handlePos(selBox, h); return html`<div class=${"sk-h h-" + h} style=${`left:${x * 100}%;top:${y * 100}%`} onPointerDown=${(e) => onHandleDown(e, h)}></div>`; })}`}
@@ -790,7 +837,7 @@ export function SketchToolbar({ ed, title, doneLabel = "Xong", onDone, onCancel 
       <div class="sk-sep"></div>
       <div style="position:relative">
         <button type="button" ref=${tplBtn} class=${"sk-chip" + (tpl ? " on" : "")} onClick=${() => setTpl(!tpl)}>Mẫu nhanh ▾</button>
-        <${Menu} open=${tpl} onClose=${() => setTpl(false)} anchorRef=${tplBtn} style="left:0;top:36px;width:270px">
+        <${Menu} open=${tpl} onClose=${() => setTpl(false)} anchorRef=${tplBtn} width=${270}>
           <div class="menu-title">Chèn mẫu</div>
           ${TEMPLATES.map((t) => (t.sep ? html`<div class="menu-sep"></div>` : html`<${MenuItem} hint=${t.hint} onClick=${() => { setTpl(false); ed.add(t.make()); }}>${t.label}</${MenuItem}>`))}
         </${Menu}>
