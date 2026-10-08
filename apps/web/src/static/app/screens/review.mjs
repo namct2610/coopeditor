@@ -91,7 +91,9 @@ function authorOf(c) {
 
 // Absolute link to a moment of a video (and optionally a note) for sharing.
 const linkTo = (r) => location.origin + location.pathname + href({ name: "review", ...r });
-const focusComposer = () => setTimeout(() => { const t = document.getElementById("noteComposer"); if (t) t.focus(); }, 0);
+// The composer is always mounted: focus it right away so keys typed straight
+// after "Trả lời" land in it, not on the button that was clicked.
+const focusComposer = () => { const t = document.getElementById("noteComposer"); if (t) t.focus(); };
 
 const FILM_N = 18;
 const QUALITIES = [["source", "Gốc"], ["720", "720p"], ["1080", "1080p"]];
@@ -401,7 +403,7 @@ export function Review() {
     ];
   };
 
-  return html`<div class="screen-split" data-screen-label="Review video">
+  return html`<div class="screen-split stack" data-screen-label="Review video">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column">
       <div class="rv-top">
         <button type="button" class="rv-crumb" onClick=${() => go({ name: "project", pid })}>← ${project.name.split(" — ")[0]}</button>
@@ -490,7 +492,7 @@ function SourceUnplayable({ asset, r720, manage, onMake }) {
   return html`<div onClick=${(e) => e.stopPropagation()} style="position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,10,9,.55);backdrop-filter:blur(4px);cursor:default">
     <div style="text-align:center;max-width:420px;padding:0 24px;color:#fff">
       <div style="font-size:16px;font-weight:600">Trình duyệt không phát được file gốc</div>
-      <div style="margin-top:6px;font-size:13px;color:rgba(255,255,255,.7);line-height:1.55">${asset.codec || "Codec này"} chỉ xem được qua proxy. Proxy 720p (~3.5 Mbps) được tạo một lần trên NAS, cả nhóm dùng chung.</div>
+      <div class="unplayable-d" style="margin-top:6px;font-size:13px;color:rgba(255,255,255,.7);line-height:1.55">${asset.codec || "Codec này"} chỉ xem được qua proxy. Proxy 720p (~3.5 Mbps) được tạo một lần trên NAS, cả nhóm dùng chung.</div>
       <div style="margin-top:16px">
         ${st === "processing" || queued
           ? html`<div style="font-size:13px">${queued ? "Đã xếp hàng · chờ worker nhận…" : "Đang tạo proxy 720p · " + (r720.progress || 0) + "%"}</div><div class="bar-track" style="margin:10px auto 0;width:220px"><div class="bar-fill" style=${`width:${queued ? 2 : r720.progress || 0}%`}></div></div>`

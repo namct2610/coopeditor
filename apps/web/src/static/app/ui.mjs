@@ -164,10 +164,12 @@ window.addEventListener("keydown", (e) => {
     pops.slice().forEach((x) => x.close());
   }
 }, true);
+// A pointer menu closes when the page scrolls under it, but not on the tail
+// of a scroll that was already running when it opened (trackpad inertia).
 document.addEventListener("scroll", (e) => {
   pops.slice().forEach((p) => {
     if (p.box.contains(e.target)) return;
-    if (p.opts().at || !placePop(p.box.firstElementChild, p.opts())) p.close();
+    if (p.opts().at ? Date.now() - p.openedAt > 250 : !placePop(p.box.firstElementChild, p.opts())) p.close();
   });
 }, true);
 window.addEventListener("resize", () => {
@@ -194,6 +196,7 @@ export function Popover({ open, onClose, anchorRef, at, owner, align = "start", 
     const entry = {
       box, owner: owner && owner.current !== undefined ? owner.current : owner || null,
       opts: () => optsRef.current,
+      openedAt: Date.now(),
       anchor: () => (optsRef.current.anchorRef && optsRef.current.anchorRef.current) || null,
       focused: false,
       // keyboard close returns focus to where it came from

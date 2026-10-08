@@ -1,7 +1,7 @@
 // Modal layers: ⌘K search, Chia sẻ, Thêm nguồn từ NAS, Dự án mới / sửa,
 // đổi tên video, nhật ký.
 
-import { html, useState, useEffect, useRef, useMemo } from "./lib.mjs";
+import { html, useState, useEffect, useLayoutEffect, useRef, useMemo } from "./lib.mjs";
 import {
   S, set, go, toast, errMsg, guard, projectById, assetById, isOwner, canManage,
   createProject, patchProject, patchAsset, nasList, importFiles, inviteMember, setMemberRole, removeMember, loadMembers, createScript,
@@ -14,6 +14,15 @@ import { get, enc, mediaUrl } from "./api.mjs";
 export function openOverlay(kind, props = {}) { set({ overlay: { kind, ...props } }); }
 export function closeOverlay() { set({ overlay: null }); }
 
+// The `autofocus` attribute only works on page load: dialogs focus (and select)
+// their first field themselves, as soon as it's in the DOM — keys typed right
+// after opening must not reach the button behind the dialog.
+function useFirstField() {
+  const ref = useRef(null);
+  useLayoutEffect(() => { const el = ref.current; if (el) { el.focus(); el.select(); } }, []);
+  return ref;
+}
+
 function Scrim({ children, top, pad = "120px 24px", onClose = closeOverlay }) {
   return html`<div class=${"scrim" + (top ? " top" : "")} style=${`padding:${pad}`} onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>${children}</div>`;
 }
@@ -23,8 +32,7 @@ function Scrim({ children, top, pad = "120px 24px", onClose = closeOverlay }) {
 function Palette() {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  const inputRef = useRef(null);
-  useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+  const inputRef = useFirstField();
   const results = useMemo(() => {
     const n = q.trim().toLowerCase();
     const match = (s) => !n || String(s || "").toLowerCase().includes(n);
@@ -254,6 +262,7 @@ function ProjectForm({ pid }) {
   const [name, setName] = useState(editing ? editing.name : "");
   const [client, setClient] = useState(editing ? editing.client : "");
   const [busy, setBusy] = useState(false);
+  const first = useFirstField();
   const submit = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -268,7 +277,7 @@ function ProjectForm({ pid }) {
     <div class="modal" style="max-width:480px" role="dialog">
       <div class="modal-title" style="margin-bottom:22px">${editing ? "Sửa dự án" : "Dự án mới"}</div>
       <div class="field-label">Tên dự án</div>
-      <input class="input on-bg lg" autofocus value=${name} placeholder="VD: Vinamilk — TVC Tết 15s" onInput=${(e) => setName(e.target.value)} onKeyDown=${onKey} style="margin-bottom:16px" />
+      <input ref=${first} class="input on-bg lg" value=${name} placeholder="VD: Vinamilk — TVC Tết 15s" onInput=${(e) => setName(e.target.value)} onKeyDown=${onKey} style="margin-bottom:16px" />
       <div class="field-label">Khách hàng</div>
       <input class="input on-bg lg" value=${client} placeholder="VD: Vinamilk" onInput=${(e) => setClient(e.target.value)} onKeyDown=${onKey} />
       <div class="modal-foot" style="justify-content:flex-end;margin-top:26px">
@@ -282,12 +291,13 @@ function ProjectForm({ pid }) {
 function RenameAsset({ aid }) {
   const a = assetById(aid);
   const [title, setTitle] = useState(a ? a.title : "");
+  const first = useFirstField();
   if (!a) return null;
   const submit = () => guard(async () => { if (!title.trim()) return; await patchAsset(aid, { title: title.trim() }); closeOverlay(); });
   return html`<${Scrim} pad="160px 24px">
     <div class="modal" style="max-width:480px">
       <div class="modal-title" style="margin-bottom:18px">Đổi tên video</div>
-      <input class="input on-bg lg" autofocus value=${title} onInput=${(e) => setTitle(e.target.value)} onKeyDown=${(e) => e.key === "Enter" && submit()} />
+      <input ref=${first} class="input on-bg lg" value=${title} onInput=${(e) => setTitle(e.target.value)} onKeyDown=${(e) => e.key === "Enter" && submit()} />
       <div class="note" style="margin-top:10px">Chỉ đổi tên hiển thị — file trên NAS giữ nguyên.</div>
       <div class="modal-foot" style="justify-content:flex-end">
         <button type="button" class="link" style="padding:0 8px;font-size:13.5px" onClick=${closeOverlay}>Huỷ</button>
