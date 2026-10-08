@@ -9,3 +9,7 @@ export const html = htm.bind(h);
 export { h, render, Fragment, createRef, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useReducer };
 
 export const stop = (e) => { if (e) e.stopPropagation(); };
+
+// Enter that submits — not the Enter that commits a word in an input method
+// (macOS Vietnamese Telex/VNI, CJK…), which would send half-typed text.
+export const isEnter = (e) => e.key === "Enter" && !e.isComposing && e.keyCode !== 229;

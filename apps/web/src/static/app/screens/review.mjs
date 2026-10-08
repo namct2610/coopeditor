@@ -3,7 +3,7 @@
 // filmstrip at each note's timecode, drawing on the frame, safe area, frame
 // stepping, speed and proxy quality.
 
-import { html, useState, useEffect, useRef, useMemo, useCallback, useReducer } from "../lib.mjs";
+import { html, useState, useEffect, useRef, useMemo, useCallback, useReducer, isEnter } from "../lib.mjs";
 import {
   S, set, go, href, projectById, assetById, canManage, isOwner, isFinal, rejectFinal, guard, toast, errMsg, userById,
   setReviewStatus, loadVersion, loadRenditions, loadComments, requestRendition, renditionBusy, postComment, resolveComment, editComment, editCommentSketch, deleteComment,
@@ -550,9 +550,9 @@ function Transport(props) {
       })}
     </div>
     <div class="filmstrip" ref=${film}
-      onPointerDown=${(e) => { scrub.current = true; e.currentTarget.setPointerCapture(e.pointerId); seek(msAt(e)); }}
+      onPointerDown=${(e) => { if (e.button !== 0) return; scrub.current = true; e.currentTarget.setPointerCapture(e.pointerId); seek(msAt(e)); }}
       onPointerMove=${(e) => { const ms = msAt(e); setHover({ ms, left: (ms / (dur || 1)) * 100 }); if (scrub.current) seek(ms); }}
-      onPointerUp=${() => { scrub.current = false; }} onPointerLeave=${() => setHover(null)}>
+      onPointerUp=${() => { scrub.current = false; }} onLostPointerCapture=${() => { scrub.current = false; }} onPointerLeave=${() => setHover(null)}>
       ${frames.map((src, i) => html`<div class="fr" style=${`background:${flatBg(...(i % 2 ? pal : [pal[1], pal[0]]))}`}><${FilmFrame} src=${src} /></div>`)}
       <div class="buffer" style=${`width:${bufPct}%`}></div>
       <div class="after" style=${`left:${pct}%`}></div>
@@ -660,7 +660,7 @@ function Composer({ clock, replyC, cancelReply, draft, setDraft, send, sending, 
     <div class="composer-box">
       <textarea id="noteComposer" rows="2" value=${draft} placeholder=${replyC ? "Viết phản hồi…" : "Ghi chú tại " + fmtShort(clock.ms) + "…"}
         onInput=${(e) => setDraft(e.target.value)}
-        onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } if (e.key === "Escape") e.target.blur(); }}></textarea>
+        onKeyDown=${(e) => { if (isEnter(e) && !e.shiftKey) { e.preventDefault(); send(); } if (e.key === "Escape" && !e.isComposing) e.target.blur(); }}></textarea>
       <div class="row gap8" style="margin-top:6px">
         <div class="tc-tag" style="padding:3px 8px">@ ${fmtShort(replyC ? replyC.timestampMs : clock.ms)}</div>
         ${!replyC && !sketchFor && html`<button type="button" class=${"ctl" + (drawing || dirtyAnn ? " on" : "")} style="height:26px;padding:0 10px;font-size:12px" title="Phác thảo trên khung" onClick=${toggleDraw}>${dirtyAnn ? "Phác thảo · " + dirtyAnn : "Phác thảo"}</button>`}

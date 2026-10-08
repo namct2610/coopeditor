@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 
 test("dsmListFolder falls back to mounted NAS when FileStation list_share fails", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-dsm-"));
@@ -22,7 +21,7 @@ test("dsmListFolder falls back to mounted NAS when FileStation list_share fails"
   });
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?fallback=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?fallback=" + Date.now());
     const listing = await mod.dsmListFolder("sid-demo", "/");
     assert.equal(listing.path, "/");
     assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "Projects"));
@@ -52,7 +51,7 @@ test("mounted NAS listing hides non-video files and system folders", async () =>
   });
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?filter=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?filter=" + Date.now());
     const listing = await mod.dsmListFolder("sid-demo", "/");
     assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "Clips"));
     assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "clip.mp4"));
@@ -75,7 +74,7 @@ test("dev login still prefers mounted NAS over demo tree when a real mount is co
   process.env.DSM_DEV_LOGIN = "1";
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?dev-mounted=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?dev-mounted=" + Date.now());
     const listing = await mod.dsmListFolder("sid-dev", "/");
     assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "PCNgon"));
     assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "C1967.MP4"));
@@ -92,7 +91,7 @@ test("dev mode with mounted NAS does not silently fall back to demo when real pa
   process.env.DSM_DEV_LOGIN = "1";
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?dev-mounted-error=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?dev-mounted-error=" + Date.now());
     await assert.rejects(
       () => mod.dsmListFolder("sid-dev", "/"),
       /Khong tim thay thu muc NAS da mount|Khong doc duoc thu muc NAS da mount/i,
@@ -120,7 +119,7 @@ test("mounted NAS listing can be rooted to a single shared folder via DSM librar
   });
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?library-root-listing=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?library-root-listing=" + Date.now());
     const listing = await mod.dsmListFolder("sid-demo", "/");
     assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "502. Case G200"));
     assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "C1967.MP4"));
@@ -148,7 +147,7 @@ test("mounted NAS listing stays inside the shared folder when mount root already
   });
 
   try {
-    const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?library-root-mounted-directly=" + Date.now());
+    const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?library-root-mounted-directly=" + Date.now());
     const listing = await mod.dsmListFolder("sid-demo", "/");
     assert.ok(listing.entries.some((entry) => entry.type === "folder" && entry.name === "502. Case G200"));
     assert.ok(listing.entries.some((entry) => entry.type === "file" && entry.name === "C1967.MP4"));
@@ -206,7 +205,7 @@ printf 'JPEGDATA' > "$last"
   process.env.APP_DATA_DIR = join(root, "app-data");
   process.env.COOPEDITOR_FFMPEG_DISABLE_SYSTEM_LOOKUP = "1";
 
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href + "?thumb-fallback=" + Date.now());
+  const mod = await import(new URL("../src/dsm.js", import.meta.url).href + "?thumb-fallback=" + Date.now());
   const thumbPath = await mod.ensureVideoThumbnail("/C1967.MP4", "thumb:test", { seekMs: 1000, width: 640 });
   const body = await readFile(thumbPath, "utf8");
   assert.equal(body, "JPEGDATA");

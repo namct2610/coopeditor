@@ -1,10 +1,13 @@
 {
-  "version": "1.0.0-rc59",
-  "summary": "Bo trang thai tren tung video: chi con trang thai cua du an, di theo video Final.",
+  "version": "1.0.0-rc60",
+  "summary": "Menu khong con bi che hay cat: menu ..., menu chuot phai va lich chon ngay luon noi tren cung, nam gon trong man hinh; them menu chuot phai tren video va trong trinh soan thao; sua loi mat noi dung kich ban.",
   "changes": [
-    "Video nguon khong con trang thai rieng (bo nhan trang thai tren the video, bo cac o dem theo trang thai, bo menu 'Chuyen sang').",
-    "Trang thai du an: chua nop Final = Dang dung; da nop = Cho duyet; tra ve = Can sua; duyet = Da duyet; da duyet va toi ngay len song da chot = Da len song.",
-    "Hub: muc 'Final cho duyet' thay cho 'Cho ban review'; the du an ghi vong Final hien tai va lich da chot hay chua."
+    "Menu ... tren the video (truoc bi thumbnail cat mat muc Xoa), menu kieu doan va menu ... trong trinh soan kich ban, menu Mau nhanh cua phac thao: hien day du, tu lat len khi het cho, Esc va bam ra ngoai deu dong.",
+    "Chuot phai: tren the video/dong video, the du an, Final cho duyet, khung video (phat, ghi chu/phac thao tai khung nay, lui/tien 1 frame, copy link/timecode, safe area, tai ban goc), ghi chu, doi tuong phac thao (nhan ban, thu tu lop, xoa) va vung trong (dan, chen anh, mau).",
+    "Kich ban: mo lai kich ban vua soan khong con hien trang trang roi ghi de len ban tren may chu; dang luu ma go tiep tieu de khong bi tra ve.",
+    "Proxy HLS: segment dung 4/6 giay theo cai dat (truoc ~10 giay vi keyframe khong duoc ep), tua muot hon.",
+    "Dien thoai: man hinh review xep doc, khung video khong con bi bang ghi chu che mat.",
+    "Hop thoai Du an moi / Doi ten va o tim kiem Ctrl/Cmd K tu dat con tro; Enter khi bo go tieng Viet dang ghep chu khong gui ghi chu nua; chuot phai len filmstrip khong con keo theo tua video."
   ],
-  "publishedAt": "2026-10-07T18:00:00.000Z"
+  "publishedAt": "2026-10-08T16:30:00.000Z"
 }

@@ -1,7 +1,7 @@
 // Soạn kịch bản: Docs-like continuous text (TipTap), comments anchored to a
 // passage, optimistic-concurrency autosave (409 → "bản mới hơn").
 
-import { html, useState, useEffect, useRef, useReducer } from "../lib.mjs";
+import { html, useState, useEffect, useRef, useReducer, isEnter } from "../lib.mjs";
 import { S, set, go, toast, errMsg, guard, setScriptField, patchScriptLocal, projectById, deleteScript } from "../store.mjs";
 import { SST, fmtAgo, paletteOf, thumbBg, p2 } from "../format.mjs";
 import { Avatar, Seg, Menu, MenuItem, MoreMenu } from "../ui.mjs";
@@ -294,7 +294,7 @@ export function Script() {
           </div>
           <textarea ref=${titleRef} class="sc-title" rows="1" value=${s.title} placeholder="Tên kịch bản"
             onInput=${(e) => { patchScriptLocal({ title: e.target.value }); markDirty(); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
-            onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); ed && ed.commands.focus("start"); } }}></textarea>
+            onKeyDown=${(e) => { if (isEnter(e)) { e.preventDefault(); ed && ed.commands.focus("start"); } }}></textarea>
           ${error && html`<div class="err">${error}</div>`}
           <div ref=${host}></div>
         </div>
@@ -312,7 +312,7 @@ export function Script() {
           <div class="quote">${newThread.quote}</div>
           <div class="inline-input" style="height:auto;padding:6px 6px 6px 12px">
             <input id="scNewComment" value=${newText} placeholder="Bình luận về đoạn này…" onInput=${(e) => setNewText(e.target.value)}
-              onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); submitThread(); } if (e.key === "Escape") setNewThread(null); }} />
+              onKeyDown=${(e) => { if (isEnter(e)) { e.preventDefault(); submitThread(); } if (e.key === "Escape") setNewThread(null); }} />
             <button type="button" class="btn btn-primary btn-xxs" onClick=${submitThread}>Gửi</button>
           </div>
           <button type="button" class="link" style="font-size:12px;margin-top:8px" onClick=${() => setNewThread(null)}>Huỷ</button>
@@ -337,7 +337,7 @@ export function Script() {
             </div>`)}</div>`}
             ${on && html`<div style="margin:12px 0 0 33px" onClick=${(e) => e.stopPropagation()}>
               <div class="inline-input">
-                <input value=${draft} placeholder="Trả lời…" onInput=${(e) => setDraft(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); reply(c.id); } }} />
+                <input value=${draft} placeholder="Trả lời…" onInput=${(e) => setDraft(e.target.value)} onKeyDown=${(e) => { if (isEnter(e)) { e.preventDefault(); reply(c.id); } }} />
                 <button type="button" class="btn btn-primary btn-xxs" onClick=${() => reply(c.id)}>Gửi</button>
               </div>
               ${mine && html`<button type="button" class="link" style="font-size:12px;margin-top:8px" onClick=${() => removeThread(c)}>Xoá bình luận</button>`}

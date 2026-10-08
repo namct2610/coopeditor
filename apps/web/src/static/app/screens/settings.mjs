@@ -1,7 +1,7 @@
 // Cài đặt: Hồ sơ, Thành viên & quyền, Proxy & transcode, Cập nhật, Giao diện
 // (+ Hệ thống for workspace owners: the runtime config the old UI exposed).
 
-import { html, useState, useEffect } from "../lib.mjs";
+import { html, useState, useEffect, isEnter } from "../lib.mjs";
 import { S, set, go, toast, errMsg, guard, logout, setPrefs, viewMode, fetchUpdateStatus, inviteMember } from "../store.mjs";
 import { ROLE_LABEL, ROLE_OPTS, HUES, fmtBytes, fmtAgo } from "../format.mjs";
 import { Avatar, Seg, Toggle, Spinner } from "../ui.mjs";
@@ -69,7 +69,7 @@ function Members() {
   }, "Không mời được");
   return html`
     ${S.caps.workspace && owned.length > 0 && html`<div class="row gap10" style="margin-bottom:28px;flex-wrap:wrap">
-      <input class="input" style="flex:1;min-width:180px" placeholder="Tài khoản DSM, vd. lan.nguyen" value=${inv.name} onInput=${(e) => setInv({ ...inv, name: e.target.value })} onKeyDown=${(e) => e.key === "Enter" && invite()} />
+      <input class="input" style="flex:1;min-width:180px" placeholder="Tài khoản DSM, vd. lan.nguyen" value=${inv.name} onInput=${(e) => setInv({ ...inv, name: e.target.value })} onKeyDown=${(e) => isEnter(e) && invite()} />
       <select class="input" style="width:auto" value=${pid} onChange=${(e) => setInv({ ...inv, pid: e.target.value })} aria-label="Dự án">
         ${owned.map((p) => html`<option value=${p.id}>${p.name}</option>`)}
       </select>

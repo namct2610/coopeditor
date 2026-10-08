@@ -1,7 +1,7 @@
 // Modal layers: ⌘K search, Chia sẻ, Thêm nguồn từ NAS, Dự án mới / sửa,
 // đổi tên video, nhật ký.
 
-import { html, useState, useEffect, useLayoutEffect, useRef, useMemo } from "./lib.mjs";
+import { html, useState, useEffect, useLayoutEffect, useRef, useMemo, isEnter } from "./lib.mjs";
 import {
   S, set, go, toast, errMsg, guard, projectById, assetById, isOwner, canManage,
   createProject, patchProject, patchAsset, nasList, importFiles, inviteMember, setMemberRole, removeMember, loadMembers, createScript,
@@ -62,7 +62,7 @@ function Palette() {
         onKeyDown=${(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); setSel(Math.min(sel + 1, results.length - 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setSel(Math.max(sel - 1, 0)); }
-          else if (e.key === "Enter" && results[sel]) pick(results[sel]);
+          else if (isEnter(e) && results[sel]) pick(results[sel]);
           else if (e.key === "Escape") closeOverlay();
         }} />
       <div style="padding:8px">
@@ -112,7 +112,7 @@ function Share({ pid }) {
       <div class="modal-sub">${p.name} — thành viên đăng nhập bằng tài khoản DSM của họ.</div>
       ${owner && html`<div class="row gap10" style="margin-bottom:12px;flex-wrap:wrap">
         <input class="input on-bg" style="flex:1;min-width:180px" placeholder="Tài khoản DSM hoặc email" value=${name} list="shareUsers"
-          onInput=${(e) => setName(e.target.value)} onKeyDown=${(e) => e.key === "Enter" && invite()} />
+          onInput=${(e) => setName(e.target.value)} onKeyDown=${(e) => isEnter(e) && invite()} />
         <datalist id="shareUsers">${Object.values(S.users).map((u) => html`<option value=${u.name}>${u.email || ""}</option>`)}</datalist>
         <${Seg} opts=${ROLE_OPTS} value=${role} onPick=${setRole} />
         <button type="button" class="btn btn-primary" style="height:42px" disabled=${busy || !name.trim()} onClick=${invite}>Mời</button>
@@ -272,7 +272,7 @@ function ProjectForm({ pid }) {
     } catch (e) { toast(errMsg(e), "error"); }
     setBusy(false);
   };
-  const onKey = (e) => { if (e.key === "Enter") submit(); };
+  const onKey = (e) => { if (isEnter(e)) submit(); };
   return html`<${Scrim} pad="140px 24px">
     <div class="modal" style="max-width:480px" role="dialog">
       <div class="modal-title" style="margin-bottom:22px">${editing ? "Sửa dự án" : "Dự án mới"}</div>
@@ -297,7 +297,7 @@ function RenameAsset({ aid }) {
   return html`<${Scrim} pad="160px 24px">
     <div class="modal" style="max-width:480px">
       <div class="modal-title" style="margin-bottom:18px">Đổi tên video</div>
-      <input ref=${first} class="input on-bg lg" value=${title} onInput=${(e) => setTitle(e.target.value)} onKeyDown=${(e) => e.key === "Enter" && submit()} />
+      <input ref=${first} class="input on-bg lg" value=${title} onInput=${(e) => setTitle(e.target.value)} onKeyDown=${(e) => isEnter(e) && submit()} />
       <div class="note" style="margin-top:10px">Chỉ đổi tên hiển thị — file trên NAS giữ nguyên.</div>
       <div class="modal-foot" style="justify-content:flex-end">
         <button type="button" class="link" style="padding:0 8px;font-size:13.5px" onClick=${closeOverlay}>Huỷ</button>

@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
     "seed": "node src/seed.js",
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "test:pg": "node --test test/pg-mode.test.js",
     "build": "echo \"build api\"",
     "typecheck": "echo \"add TypeScript setup for api\""

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 
 test("applyRuntimeEnvFromConfig preserves updater defaults from env for old config files", async () => {
   const root = await mkdtemp(join(tmpdir(), "coopeditor-config-"));
@@ -22,7 +21,7 @@ test("applyRuntimeEnvFromConfig preserves updater defaults from env for old conf
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json";
 
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?runtime=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?runtime=" + Date.now());
   const cfg = mod.readRuntimeConfig();
   assert.equal(!!cfg, true);
   mod.applyRuntimeEnvFromConfig(cfg);
@@ -47,7 +46,7 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "";
 
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?summary=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?summary=" + Date.now());
   const summary = mod.publicRuntimeSummary();
   assert.equal(summary.updater.feedUrl, "https://raw.githubusercontent.com/namct2610/coopeditor/main/release.json");
   assert.equal("triggerUrl" in summary.updater, false);
@@ -55,7 +54,7 @@ test("publicRuntimeSummary exposes default updater feed for legacy config", asyn
 });
 
 test("normalizeRuntimeConfig accepts Synology host paths for dsmMountRoot (SPK runs natively, no container indirection)", async () => {
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?accept-host-path=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?accept-host-path=" + Date.now());
   const cfg = mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
     dsmHost: "https://nas.example.com:5001",
@@ -65,7 +64,7 @@ test("normalizeRuntimeConfig accepts Synology host paths for dsmMountRoot (SPK r
 });
 
 test("normalizeRuntimeConfig rejects a relative dsmMountRoot", async () => {
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-relative-path=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?reject-relative-path=" + Date.now());
   assert.throws(() => mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
     dsmHost: "https://nas.example.com:5001",
@@ -81,7 +80,7 @@ test("normalizeRuntimeConfig accepts DSM library root and applyRuntimeEnvFromCon
   process.env.APP_DATA_DIR = root;
   process.env.APP_CONFIG_PATH = configPath;
 
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?library-root=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?library-root=" + Date.now());
   const cfg = mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
     dsmHost: "https://nas.example.com:5001",
@@ -95,7 +94,7 @@ test("normalizeRuntimeConfig accepts DSM library root and applyRuntimeEnvFromCon
 });
 
 test("normalizeRuntimeConfig rejects traversal in DSM library root", async () => {
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?reject-library-root=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?reject-library-root=" + Date.now());
   assert.throws(() => mod.normalizeRuntimeConfig({
     publicUrl: "https://review.example.com",
     dsmHost: "https://nas.example.com:5001",
@@ -125,7 +124,7 @@ test("resolveUpdaterConfig prefers runtime config and rejects credentialed URLs"
   process.env.APP_CONFIG_PATH = configPath;
   process.env.UPDATE_FEED_URL = "https://env.example.com/feed.json";
 
-  const mod = await import(pathToFileURL(join(process.cwd(), "apps/api/src/runtime-config.js")).href + "?resolve-updater=" + Date.now());
+  const mod = await import(new URL("../src/runtime-config.js", import.meta.url).href + "?resolve-updater=" + Date.now());
   const updater = mod.resolveUpdaterConfig(mod.readRuntimeConfig());
   assert.equal(updater.feedUrl, "https://updates.example.com/release.json");
   assert.equal(updater.pollIntervalSeconds, 600);

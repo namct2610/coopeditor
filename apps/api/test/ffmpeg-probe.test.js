@@ -1,11 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pathToFileURL } from "node:url";
-import { join } from "node:path";
 
-// dsm.js reads env at import; load it fresh from the repo root like the other
-// dsm tests do.
-const dsm = await import(pathToFileURL(join(process.cwd(), "apps/api/src/dsm.js")).href);
+// dsm.js reads env at import; load it the way the other dsm tests do.
+const dsm = await import(new URL("../src/dsm.js", import.meta.url).href);
 
 // Captured from a real `ffmpeg -hide_banner -i clip.mp4` on a file with no
 // output specified (ffmpeg prints input info, then exits 1).

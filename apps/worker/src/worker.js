@@ -466,35 +466,41 @@ async function runFfmpeg(rendition) {
   const codec = codecForHeight(rendition.height);
   // h265 is ~30–40% more efficient; allow a slightly lower bitrate to bank the savings.
   const effectiveBitrate = codec === "h265" ? scaleBitrate(bitrate, 0.65) : bitrate;
+  const seg = hlsSegmentSeconds();
+  // HLS only cuts on keyframes: without one forced at every segment boundary
+  // the encoder's own GOP (x264: 250 frames, ~10 s) decides, and segments end
+  // up ~10 s whatever the setting — coarse seeking. Hardware encoders must
+  // also make them IDR frames to be valid cut points.
+  const keyframes = ["-force_key_frames", "expr:gte(t,n_forced*" + seg + ")"];
   const pre = [];
   let videoArgs;
   if (HW === "nvenc") {
     pre.push("-hwaccel", "cuda", "-hwaccel_output_format", "cuda");
     const enc = codec === "h265" ? "hevc_nvenc" : "h264_nvenc";
-    videoArgs = ["-vf", "scale_cuda=-2:" + rendition.height, "-c:v", enc, "-preset", "p4", "-b:v", effectiveBitrate, "-rc", "vbr", "-cq", "23"];
+    videoArgs = ["-vf", "scale_cuda=-2:" + rendition.height, "-c:v", enc, "-preset", "p4", "-b:v", effectiveBitrate, "-rc", "vbr", "-cq", "23", ...keyframes, "-forced-idr", "1"];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else if (HW === "qsv") {
     pre.push("-hwaccel", "qsv");
     const enc = codec === "h265" ? "hevc_qsv" : "h264_qsv";
-    videoArgs = ["-vf", "scale_qsv=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate];
+    videoArgs = ["-vf", "scale_qsv=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate, ...keyframes, "-forced_idr", "1"];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else if (HW === "vaapi") {
     // VAAPI on Intel iGPU: software-decode the input, upload frames to GPU,
     // scale + encode in hardware. -vaapi_device wires up /dev/dri/renderD128.
     pre.push("-vaapi_device", "/dev/dri/renderD128");
     const enc = codec === "h265" ? "hevc_vaapi" : "h264_vaapi";
-    videoArgs = ["-vf", "format=nv12,hwupload,scale_vaapi=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate];
+    videoArgs = ["-vf", "format=nv12,hwupload,scale_vaapi=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate, ...keyframes];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else {
     const enc = codec === "h265" ? "libx265" : "libx264";
-    videoArgs = ["-vf", "scale=-2:" + rendition.height, "-c:v", enc, "-preset", codec === "h265" ? "fast" : "veryfast", "-b:v", effectiveBitrate];
+    videoArgs = ["-vf", "scale=-2:" + rendition.height, "-c:v", enc, "-preset", codec === "h265" ? "fast" : "veryfast", "-b:v", effectiveBitrate, ...keyframes];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   }
   const args = [
     "-y", ...pre, "-i", localSourcePath,
     ...videoArgs,
     "-c:a", "aac", "-b:a", "128k",
-    "-hls_time", String(hlsSegmentSeconds()), "-hls_playlist_type", "vod",
+    "-hls_time", String(seg), "-hls_playlist_type", "vod",
     "-hls_segment_filename", join(outDir, "seg_%04d.ts"),
     join(outDir, "master.m3u8"),
   ];

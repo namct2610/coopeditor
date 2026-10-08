@@ -10,7 +10,7 @@
 // a note's thumbnail and on any screen size. Payload is validated by
 // apps/api/src/annotation.js.
 
-import { html, useState, useEffect, useLayoutEffect, useRef } from "./lib.mjs";
+import { html, useState, useEffect, useLayoutEffect, useRef, isEnter } from "./lib.mjs";
 import { clamp } from "./format.mjs";
 import { mediaUrl, enc, post } from "./api.mjs";
 import { S, toast, errMsg } from "./store.mjs";
@@ -723,7 +723,7 @@ function TextEditor({ it, onCommit, onCancel }) {
       onPaste=${(e) => { e.preventDefault(); e.stopPropagation(); document.execCommand("insertText", false, (e.clipboardData && e.clipboardData.getData("text/plain")) || ""); }}
       onKeyDown=${(e) => {
         e.stopPropagation();
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finish(); }
+        if (isEnter(e) && !e.shiftKey) { e.preventDefault(); finish(); }
         if (e.key === "Escape") { e.preventDefault(); if (it.text) finish(); else { done.current = true; onCancel(); } }
       }}
       onBlur=${finish}></span>
@@ -738,7 +738,7 @@ function LabelEditor({ it, onCommit, onCancel }) {
   return html`<input ref=${ref} class="sk-label-input" value=${it.text || ""} maxlength="120" placeholder="Nhãn ô giữ chỗ"
     style=${`left:${(it.x + it.w / 2) * 100}%;top:${(it.y + it.h / 2) * 100}%`}
     onPointerDown=${(e) => e.stopPropagation()}
-    onKeyDown=${(e) => { e.stopPropagation(); if (e.key === "Enter") finish(); if (e.key === "Escape") { done.current = true; onCancel(); } }}
+    onKeyDown=${(e) => { e.stopPropagation(); if (isEnter(e)) finish(); if (e.key === "Escape") { done.current = true; onCancel(); } }}
     onBlur=${finish} />`;
 }
 

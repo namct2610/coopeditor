@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node src/dev-server.js",
-    "test:e2e": "playwright test tests/review.e2e.spec.js",
+    "test:e2e": "playwright test",
     "build": "echo \"build web\"",
     "typecheck": "echo \"add TypeScript setup for web\""
   },
