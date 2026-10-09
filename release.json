@@ -1,13 +1,14 @@
 {
-  "version": "1.0.0-rc60",
-  "summary": "Menu khong con bi che hay cat: menu ..., menu chuot phai va lich chon ngay luon noi tren cung, nam gon trong man hinh; them menu chuot phai tren video va trong trinh soan thao; sua loi mat noi dung kich ban.",
+  "version": "1.0.0-rc61",
+  "summary": "Trinh soan kich ban: them nhieu dinh dang chu (phong, co chu, mau chu, to nen nhieu mau, can le, gian dong, thut le, danh sach danh so, lien ket, bang) va chen anh (chon file, dan, keo tha; doi kich thuoc, can le).",
   "changes": [
-    "Menu ... tren the video (truoc bi thumbnail cat mat muc Xoa), menu kieu doan va menu ... trong trinh soan kich ban, menu Mau nhanh cua phac thao: hien day du, tu lat len khi het cho, Esc va bam ra ngoai deu dong.",
-    "Chuot phai: tren the video/dong video, the du an, Final cho duyet, khung video (phat, ghi chu/phac thao tai khung nay, lui/tien 1 frame, copy link/timecode, safe area, tai ban goc), ghi chu, doi tuong phac thao (nhan ban, thu tu lop, xoa) va vung trong (dan, chen anh, mau).",
-    "Kich ban: mo lai kich ban vua soan khong con hien trang trang roi ghi de len ban tren may chu; dang luu ma go tiep tieu de khong bi tra ve.",
-    "Proxy HLS: segment dung 4/6 giay theo cai dat (truoc ~10 giay vi keyframe khong duoc ep), tua muot hon.",
-    "Dien thoai: man hinh review xep doc, khung video khong con bi bang ghi chu che mat.",
-    "Hop thoai Du an moi / Doi ten va o tim kiem Ctrl/Cmd K tu dat con tro; Enter khi bo go tieng Viet dang ghep chu khong gui ghi chu nua; chuot phai len filmstrip khong con keo theo tua video."
+    "Thanh cong cu moi: hoan tac/lam lai, kieu doan, phong chu, co chu (- / +), dam/nghieng/gach chan/gach ngang, mau chu va to nen nhieu mau (doc ro ca giao dien toi), can trai/giua/phai/deu, gian dong, danh sach cham/danh so/checklist, tang/giam thut le.",
+    "Lien ket: nut lien ket hoac Ctrl/Cmd K khi dang go trong kich ban (o cho khac Ctrl/Cmd K van mo bang lenh); co mo link va go lien ket.",
+    "Bang: chon kich thuoc tren luoi; chen/xoa hang va cot, gop/tach o, hang tieu de, xoa bang.",
+    "Muc ...: chi so tren x2, chi so duoi, ma noi dong, duong ke ngang; nut Xoa dinh dang (Ctrl/Cmd \\) giu nguyen binh luan tren doan van.",
+    "Chen anh: nut anh, dan anh chup man hinh/anh da copy, hoac keo tha file anh vao kich ban. Anh duoc thu nho toi da 1600 px va luu tren NAS canh kich ban (xoa cung kich ban).",
+    "Bam vao anh: chon do rong 25/50/75/100%, can trai/giua/phai, mo ta, mo anh goc, xoa; keo mep anh de doi kich thuoc, keo ca anh de di chuyen.",
+    "Thanh cong cu tu xuong hai dong khi man hinh hep; tren dien thoai vuot ngang. Moi menu (mau, co chu, bang...) dung duoc bang phim mui ten."
   ],
-  "publishedAt": "2026-10-08T16:30:00.000Z"
+  "publishedAt": "2026-10-09T02:33:51.000Z"
 }
