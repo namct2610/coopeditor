@@ -239,7 +239,7 @@ export function Script() {
     </div>
 
     <aside class="sc-side">
-      <div class="row gap12" style="padding:22px 22px 18px;border-bottom:1px solid var(--line)">
+      <div class="sc-side-head">
         <div style="font-size:18px;font-weight:600;letter-spacing:-0.02em">Bình luận</div>
         <div class="grow"></div>
         <${Seg} cls="md" opts=${[["open", "Mở " + openN], ["all", "Tất cả " + roots.length]]} value=${filter} onPick=${setFilter} />
