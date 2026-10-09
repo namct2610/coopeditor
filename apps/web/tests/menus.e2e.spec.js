@@ -98,9 +98,11 @@ test.describe("menus", () => {
     await page.keyboard.type("Cảnh mở đầu: nhà bếp buổi sáng.");
     await expect(page.locator(".sc-saved")).toHaveText(/Đã lưu/, { timeout: 5000 });
 
-    await page.locator(".sc-toolbar .tb").first().click();
-    await expectMenuUsable(page);
-    await page.keyboard.press("Escape");
+    for (const title of ["Kiểu đoạn", "Phông chữ", "Cỡ chữ", "Căn lề", "Giãn dòng", "Định dạng khác"]) {
+      await page.locator(`.sc-toolbar .tb[title="${title}"]`).click();
+      await expectMenuUsable(page);
+      await page.keyboard.press("Escape");
+    }
     await page.locator(".sc-top .icon-btn").click();
     await expectMenuUsable(page);
     await page.keyboard.press("Escape");

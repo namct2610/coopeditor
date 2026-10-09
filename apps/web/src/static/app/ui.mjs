@@ -144,7 +144,7 @@ window.addEventListener("keydown", (e) => {
   if (!p) return;
   const el = p.box.firstElementChild;
   const inside = el && el.contains(document.activeElement);
-  const items = el ? [...el.querySelectorAll(".menu-item:not([disabled])")] : [];
+  const items = el ? [...el.querySelectorAll("[role=menuitem]:not([disabled])")] : [];
   const k = e.key;
   if (k === "Escape") {
     e.preventDefault(); e.stopImmediatePropagation();
@@ -154,12 +154,14 @@ window.addEventListener("keydown", (e) => {
     const i = items.indexOf(document.activeElement);
     const n = k === "Home" ? 0 : k === "End" ? items.length - 1 : k === "ArrowDown" ? (i + 1) % items.length : (i <= 0 ? items.length : i) - 1;
     items[n].focus();
-  } else if (k === "Tab") {
+  } else if (k === "Tab" && !(inside && el.getAttribute("role") === "dialog")) {
     pops.slice().forEach((x) => x.close());
   } else if (inside) {
     // Enter / Space still activate the focused item (default action), but
     // the screen's shortcuts (space = play, letters = sketch tools) stay quiet.
-    e.stopImmediatePropagation();
+    // A text field in the popover (a link address) gets its keys as usual;
+    // the shortcuts ignore typing in fields anyway.
+    if (!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) e.stopImmediatePropagation();
   } else {
     pops.slice().forEach((x) => x.close());
   }

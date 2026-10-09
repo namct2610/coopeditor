@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { readFile, stat, statfs, mkdir, writeFile, unlink, rename, truncate, readdir } from "node:fs/promises";
+import { readFile, stat, statfs, mkdir, writeFile, unlink, rename, truncate, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 // Reusable random buffer for /speedtest/segment — generated once at startup and
@@ -14,6 +14,7 @@ const APP_DATA_DIR = process.env.APP_DATA_DIR || "/data";
 const SPK_MIRROR_DIR = process.env.COOPEDITOR_LIB_DIR ? join(APP_DATA_DIR, "spk-mirror") : null;
 const PROJECT_THUMB_DIR = join(APP_DATA_DIR, "system", "project-thumbs");
 const ANNOTATION_IMAGE_DIR = join(APP_DATA_DIR, "system", "annotation-images");
+const SCRIPT_IMAGE_DIR = join(APP_DATA_DIR, "system", "script-images");
 const PROXY_STORAGE_SNAPSHOT_PATH = join(APP_DATA_DIR, "system", "proxy-storage-cache.json");
 const MAX_PROJECT_THUMB_BYTES = 2 * 1024 * 1024;
 const ALLOWED_PROJECT_THUMB_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -235,6 +236,30 @@ function sniffImageExt(buf) {
   return null;
 }
 const safeDirName = (s) => /^[A-Za-z0-9_-]{1,80}$/.test(String(s || ""));
+
+// Sketch images and images in a script share these: the body is { dataUrl },
+// the file lands in `dir` under a random name whose extension comes from the bytes.
+async function saveImageUpload(req, res, dir) {
+  const body = await readJson(req, Math.ceil(MAX_ANNOTATION_IMAGE_BYTES * 1.4)).catch(() => null);
+  const match = body && typeof body.dataUrl === "string" && body.dataUrl.match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return bad(res, "Ảnh không hợp lệ hoặc lớn hơn 3 MB");
+  const buf = Buffer.from(match[1], "base64");
+  const ext = sniffImageExt(buf);
+  if (!ext) return bad(res, "Chỉ hỗ trợ ảnh PNG, JPEG hoặc WebP");
+  if (buf.length > MAX_ANNOTATION_IMAGE_BYTES) return bad(res, "Ảnh lớn hơn 3 MB");
+  const id = randomBytes(12).toString("hex") + "." + ext;
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, id), buf);
+  return send(res, 201, { id, bytes: buf.length });
+}
+async function serveStoredImage(res, dir, imageId) {
+  if (!ANNOTATION_IMAGE_ID.test(imageId)) return bad(res, "Not found", 404);
+  const file = join(dir, imageId);
+  let info;
+  try { info = await stat(file); } catch (_) { return bad(res, "Not found", 404); }
+  res.writeHead(200, { "content-type": ANNOTATION_IMAGE_TYPES[imageId.split(".").pop()], "content-length": info.size, "cache-control": "private, max-age=31536000, immutable" });
+  createReadStream(file).pipe(res);
+}
 
 async function saveProjectThumbDataUrl(projectId, dataUrl) {
   const parsed = parseProjectThumbDataUrl(dataUrl);
@@ -799,9 +824,19 @@ async function handle(req, res, url) {
       }
       if (m === "DELETE") {
         await store.deleteScript(id);
+        if (safeDirName(id)) await rm(join(SCRIPT_IMAGE_DIR, id), { recursive: true, force: true }).catch(() => {});
         await audit.record({ actorUserId: sess.userId, action: "script.deleted", resourceType: "script", resourceId: id, payload: { title: current.title } });
         return send(res, 200, { ok: true });
       }
+    }
+    // Images in the text: stored beside the script, the body only names them
+    // (<img data-image-id>), so the HTML stays small and works from any address.
+    if ((mat = p.match(/^\/scripts\/([^/]+)\/images(?:\/([^/]+))?$/))) {
+      const id = mat[1], imageId = mat[2];
+      if (!safeDirName(id) || !(await store.getScript(id))) return bad(res, "Script not found", 404);
+      if (m === "GET" && imageId) return serveStoredImage(res, join(SCRIPT_IMAGE_DIR, id), imageId);
+      if (m === "POST" && !imageId) return saveImageUpload(req, res, join(SCRIPT_IMAGE_DIR, id));
+      return bad(res, "Method not allowed", 405);
     }
     if ((mat = p.match(/^\/scripts\/([^/]+)\/comments$/)) && m === "POST") {
       if (!(await store.getScript(mat[1]))) return bad(res, "Script not found", 404);
@@ -1594,28 +1629,8 @@ async function handle(req, res, url) {
     const projectId = await store.findProjectIdForVersion(vid);
     if (!projectId) return bad(res, "Version not found", 404);
     if (!(await requireProjectAccess(res, projectId, sess.userId))) return;
-    if (m === "GET" && imageId) {
-      if (!ANNOTATION_IMAGE_ID.test(imageId)) return bad(res, "Not found", 404);
-      const file = join(ANNOTATION_IMAGE_DIR, vid, imageId);
-      let info;
-      try { info = await stat(file); } catch (_) { return bad(res, "Not found", 404); }
-      res.writeHead(200, { "content-type": ANNOTATION_IMAGE_TYPES[imageId.split(".").pop()], "content-length": info.size, "cache-control": "private, max-age=31536000, immutable" });
-      createReadStream(file).pipe(res);
-      return;
-    }
-    if (m === "POST" && !imageId) {
-      const body = await readJson(req, Math.ceil(MAX_ANNOTATION_IMAGE_BYTES * 1.4)).catch(() => null);
-      const match = body && typeof body.dataUrl === "string" && body.dataUrl.match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
-      if (!match) return bad(res, "Ảnh không hợp lệ hoặc lớn hơn 3 MB");
-      const buf = Buffer.from(match[1], "base64");
-      const ext = sniffImageExt(buf);
-      if (!ext) return bad(res, "Chỉ hỗ trợ ảnh PNG, JPEG hoặc WebP");
-      if (buf.length > MAX_ANNOTATION_IMAGE_BYTES) return bad(res, "Ảnh lớn hơn 3 MB");
-      const id = randomBytes(12).toString("hex") + "." + ext;
-      await mkdir(join(ANNOTATION_IMAGE_DIR, vid), { recursive: true });
-      await writeFile(join(ANNOTATION_IMAGE_DIR, vid, id), buf);
-      return send(res, 201, { id, bytes: buf.length });
-    }
+    if (m === "GET" && imageId) return serveStoredImage(res, join(ANNOTATION_IMAGE_DIR, vid), imageId);
+    if (m === "POST" && !imageId) return saveImageUpload(req, res, join(ANNOTATION_IMAGE_DIR, vid));
     return bad(res, "Method not allowed", 405);
   }
   if ((mat = p.match(/^\/asset-versions\/([^/]+)\/comments$/))) {

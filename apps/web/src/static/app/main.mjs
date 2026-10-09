@@ -177,7 +177,8 @@ function App() {
 // ---------------------------------------------------------------------------
 // global keys
 window.addEventListener("keydown", (e) => {
-  if (S.boot !== "ready") return;
+  // defaultPrevented: the script editor took ⌘K for a link
+  if (S.boot !== "ready" || e.defaultPrevented) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openOverlay("palette"); }
 });
 

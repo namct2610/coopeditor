@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const PORT = 4398;
 const BASE = "http://localhost:" + PORT;
@@ -123,6 +123,35 @@ test("scripts list carries plain-text preview lines for the page thumbnail", asy
   const row = (await http("/scripts")).json.find((x) => x.id === s.id);
   assert.deepEqual(row.previewLines, ["Bếp, ban ngày", "Ánh nắng & tiếng nước", "Mỗi sớm mai"]);
   assert.equal(row.excerpt, undefined, "raw HTML stays server-side");
+});
+
+test("scripts: images in the text upload + serve, go away with the script, clients can't read them", async () => {
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  const s = (await http("/scripts", { method: "POST", body: { title: "Storyboard" } })).json;
+  let r = await http("/scripts/" + s.id + "/images", { method: "POST", body: { dataUrl: "data:image/png;base64," + Buffer.from("<svg onload=alert(1)>").toString("base64") } });
+  assert.equal(r.status, 400, "non-image bytes are refused");
+  r = await http("/scripts/" + s.id + "/images", { method: "POST", body: { dataUrl: "data:image/png;base64," + png } });
+  assert.equal(r.status, 201);
+  assert.match(r.json.id, /^[a-f0-9]{24}\.png$/);
+  const url = BASE + "/scripts/" + s.id + "/images/" + r.json.id;
+  let img = await fetch(url, { headers: { cookie } });
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get("content-type"), "image/png");
+  assert.equal((await fetch(BASE + "/scripts/" + s.id + "/images/..%2F..%2Fx.png", { headers: { cookie } })).status, 404);
+  assert.equal((await http("/scripts/nope/images", { method: "POST", body: { dataUrl: "data:image/png;base64," + png } })).status, 404);
+  assert.equal((await fetch(url)).status, 401, "needs a session");
+
+  const own = cookie;
+  cookie = "";
+  await login("client");
+  assert.equal((await fetch(url, { headers: { cookie } })).status, 403, "clients can't use scripts");
+  await http("/auth/logout", { method: "POST" });
+  cookie = own;
+
+  assert.equal((await http("/scripts/" + s.id, { method: "DELETE" })).status, 200);
+  img = await fetch(url, { headers: { cookie } });
+  assert.equal(img.status, 404);
+  assert.equal(existsSync(join(appDataDir, "system", "script-images", s.id)), false, "files are deleted with the script");
 });
 
 test("filmstrip frame endpoint is access-checked and 404s without a source", async () => {

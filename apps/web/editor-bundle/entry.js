@@ -1,5 +1,5 @@
 // Everything the Kịch bản editor needs, exposed as window.Tiptap.
-export { Editor, Mark, Extension, mergeAttributes } from "@tiptap/core";
+export { Editor, Mark, Node, Extension, mergeAttributes } from "@tiptap/core";
 export { default as StarterKit } from "@tiptap/starter-kit";
 export { TextStyleKit } from "@tiptap/extension-text-style";
 export { default as Highlight } from "@tiptap/extension-highlight";

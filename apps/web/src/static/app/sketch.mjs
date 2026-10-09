@@ -49,7 +49,7 @@ export const TOOLS = [
 const SHORTCUTS = Object.fromEntries(TOOLS.map((t) => [t.key.toLowerCase(), t.k]));
 // "Chèn ảnh (hoặc dán…)" → "Chèn ảnh": the tool's name as an object's name.
 const typeLabel = (type) => { const t = TOOLS.find((x) => x.k === type); return t ? t.label.split(/ \(| — /)[0] : "Đối tượng"; };
-const MOD = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent) ? "⌘" : "Ctrl ";
+export const MOD = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent) ? "⌘" : "Ctrl ";
 
 const frameAt = (ratio, h = 1) => { const w = Math.min(1, h * ratioN(ratio)); return { type: "frame", x: r3((1 - w) / 2), y: r3((1 - h) / 2), w: r3(w), h, color: "#ffffff", ratio, dim: true }; };
 export const TEMPLATES = [
@@ -279,7 +279,7 @@ async function readImage(file) {
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error("Không đọc được ảnh")); r.readAsDataURL(file); });
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Không đọc được ảnh")); i.src = dataUrl; });
 }
-async function encodeImage(file) {
+export async function encodeImage(file) {
   const img = await readImage(file);
   const iw = img.width || img.naturalWidth || 800, ih = img.height || img.naturalHeight || 600;
   const s = Math.min(1, 1600 / Math.max(iw, ih));

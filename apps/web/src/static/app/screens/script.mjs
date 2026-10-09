@@ -7,32 +7,7 @@ import { SST, fmtAgo, paletteOf, thumbBg, p2 } from "../format.mjs";
 import { Avatar, Seg, Menu, MenuItem, MoreMenu } from "../ui.mjs";
 import { api, enc } from "../api.mjs";
 import { openOverlay } from "../overlays.mjs";
-
-// ---- TipTap (vendored UMD bundle → window.Tiptap) ----
-let tiptapLoad = null;
-function ensureTiptap() {
-  if (window.Tiptap) return Promise.resolve(window.Tiptap);
-  if (!tiptapLoad) {
-    tiptapLoad = new Promise((resolve, reject) => {
-      const el = document.createElement("script");
-      el.src = "vendor/tiptap.min.js";
-      el.onload = () => (window.Tiptap ? resolve(window.Tiptap) : reject(new Error("Thiếu bộ soạn thảo")));
-      el.onerror = () => { tiptapLoad = null; reject(new Error("Không tải được trình soạn thảo")); };
-      document.head.appendChild(el);
-    });
-  }
-  return tiptapLoad;
-}
-// <span class="sc-comment" data-comment-id> — excludes:"" lets threads
-// overlap; inclusive:false stops typing at the edge from growing the anchor.
-function commentMark(T) {
-  return T.Mark.create({
-    name: "comment", inclusive: false, excludes: "",
-    addAttributes() { return { id: { default: null, parseHTML: (el) => el.getAttribute("data-comment-id"), renderHTML: (a) => (a.id ? { "data-comment-id": a.id } : {}) } }; },
-    parseHTML() { return [{ tag: "span[data-comment-id]" }]; },
-    renderHTML({ HTMLAttributes }) { return ["span", T.mergeAttributes(HTMLAttributes, { class: "sc-comment" }), 0]; },
-  });
-}
+import { ensureTiptap, scriptExtensions, imageHandlers, insertImages, pickImages, Toolbar, ImageBar } from "./script-tools.mjs";
 
 // ---- autosave ----
 let saveTimer = null;
@@ -86,14 +61,8 @@ function useEditor(hostRef, script, rev, onSelect) {
       ed = new T.Editor({
         element: hostRef.current,
         content: script.body || "",
-        extensions: [
-          T.StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),
-          T.TextStyleKit, T.Highlight.configure({ multicolor: true }), T.TextAlign.configure({ types: ["heading", "paragraph"] }),
-          T.TableKit.configure({ table: { resizable: true, cellMinWidth: 60 } }), T.TaskList, T.TaskItem.configure({ nested: true }),
-          T.Placeholder.configure({ placeholder: "Bắt đầu viết… Dùng “Cảnh” cho tiêu đề cảnh, “VO” cho lời bình." }),
-          T.CharacterCount, commentMark(T),
-        ],
-        editorProps: { attributes: { class: "script-doc", spellcheck: "false" } },
+        extensions: scriptExtensions(T, { scriptId: script.id, placeholder: "Bắt đầu viết… Dùng “Cảnh” cho tiêu đề cảnh, “VO” cho lời bình." }),
+        editorProps: { attributes: { class: "script-doc", spellcheck: "false" }, ...imageHandlers(() => ed, script.id) },
         onUpdate: () => { markDirty(); tick(); },
         onSelectionUpdate: () => { tick(); onSelect(ed); },
         onTransaction: () => tick(),
@@ -116,24 +85,6 @@ function useEditor(hostRef, script, rev, onSelect) {
   return { ed: window.__scEditor, error };
 }
 
-const BLOCKS = [
-  ["p", "Đoạn văn", (c) => c.setParagraph()],
-  ["h2", "Cảnh", (c) => c.setHeading({ level: 2 })],
-  ["h1", "Tiêu đề lớn", (c) => c.setHeading({ level: 1 })],
-  ["h3", "Tiêu đề nhỏ", (c) => c.setHeading({ level: 3 })],
-  ["vo", "VO / lời bình", (c) => c.setParagraph().setBlockquote()],
-  ["meta", "Thông số kỹ thuật", (c) => c.setCodeBlock()],
-];
-function currentBlock(ed) {
-  if (!ed) return "p";
-  if (ed.isActive("heading", { level: 2 })) return "h2";
-  if (ed.isActive("heading", { level: 1 })) return "h1";
-  if (ed.isActive("heading", { level: 3 })) return "h3";
-  if (ed.isActive("blockquote")) return "vo";
-  if (ed.isActive("codeBlock")) return "meta";
-  return "p";
-}
-
 export function Script() {
   const s = S.script;
   const [rev, setRev] = useState(0);
@@ -142,11 +93,9 @@ export function Script() {
   const [draft, setDraft] = useState("");
   const [newThread, setNewThread] = useState(null);   // {from,to,quote}
   const [newText, setNewText] = useState("");
-  const [blockMenu, setBlockMenu] = useState(false);
   const [projMenu, setProjMenu] = useState(false);
   const host = useRef(null);
   const titleRef = useRef(null);
-  const blockBtn = useRef(null);
   const projBtn = useRef(null);
 
   const onSelect = (ed) => {
@@ -173,7 +122,6 @@ export function Script() {
   const words = text.split(/\s+/).filter(Boolean).length;
   const saveLabel = { saved: "Đã lưu" + (S.savedAt ? " · " + p2(S.savedAt.getHours()) + ":" + p2(S.savedAt.getMinutes()) : ""), dirty: "Chưa lưu…", saving: "Đang lưu…", conflict: "Có bản mới hơn", error: "Lỗi lưu" }[S.scriptSave];
   const saveColor = { saved: "var(--s-ok)", dirty: "var(--tx-3)", saving: "var(--s-wait)", conflict: "var(--s-fix)", error: "var(--s-fix)" }[S.scriptSave];
-  const cmd = (fn) => () => { if (ed) fn(ed.chain().focus()).run(); };
 
   // Resolved threads lose their highlight; the focused one gets a stronger one.
   const css = [
@@ -239,8 +187,14 @@ export function Script() {
     saveNow(true);
   };
 
-  const blk = currentBlock(ed);
-  const tb = (label, on, fn, title, style = "") => html`<button type="button" class=${"tb" + (on ? " on" : "")} title=${title} style=${style} onMouseDown=${(e) => e.preventDefault()} onClick=${fn}>${label}</button>`;
+  // Image files dropped beside the text (the margins, the title) go in at the cursor.
+  const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+  const onDragOver = (e) => { if (hasFiles(e)) e.preventDefault(); };
+  const onDrop = (e) => {
+    if (!hasFiles(e) || e.defaultPrevented) return;
+    e.preventDefault();
+    if (ed && e.dataTransfer.files.length) insertImages(ed, s.id, e.dataTransfer.files);
+  };
 
   return html`<div class="screen-split stack" data-screen-label="Soạn kịch bản">
     <style>${css}</style>
@@ -258,26 +212,9 @@ export function Script() {
         <button type="button" class="btn btn-outline btn-xs" onClick=${takeTheirs}>Tải bản mới</button>
         <button type="button" class="btn btn-primary btn-xs" onClick=${keepMine}>Ghi đè bằng bản của tôi</button>
       </div>`}
-      <div class="sc-toolbar"><div>
-        <div style="position:relative">
-          <button type="button" ref=${blockBtn} class="tb" onMouseDown=${(e) => e.preventDefault()} onClick=${() => setBlockMenu(!blockMenu)}>${(BLOCKS.find((b) => b[0] === blk) || BLOCKS[0])[1]} <span style="font-size:9px">▾</span></button>
-          <${Menu} open=${blockMenu} onClose=${() => setBlockMenu(false)} anchorRef=${blockBtn} width=${220} keepFocus>
-            ${BLOCKS.map(([k, l, fn]) => html`<${MenuItem} check=${k === blk} onClick=${() => { setBlockMenu(false); cmd(fn)(); }}>${l}</${MenuItem}>`)}
-          </${Menu}>
-        </div>
-        <div class="tb-sep"></div>
-        ${tb(html`<b>B</b>`, ed && ed.isActive("bold"), cmd((c) => c.toggleBold()), "Đậm (⌘B)")}
-        ${tb(html`<i>I</i>`, ed && ed.isActive("italic"), cmd((c) => c.toggleItalic()), "Nghiêng (⌘I)")}
-        ${tb(html`<u>U</u>`, ed && ed.isActive("underline"), cmd((c) => (c.toggleUnderline ? c.toggleUnderline() : c)), "Gạch chân (⌘U)")}
-        ${tb("▍", ed && ed.isActive("highlight"), cmd((c) => c.toggleHighlight({ color: "#fff59d" })), "Tô sáng")}
-        <div class="tb-sep"></div>
-        ${tb("Danh sách", ed && ed.isActive("bulletList"), cmd((c) => c.toggleBulletList()), "Danh sách")}
-        ${tb("Checklist", ed && ed.isActive("taskList"), cmd((c) => c.toggleTaskList()), "Checklist")}
-        ${tb("Bảng", ed && ed.isActive("table"), () => ed && (ed.isActive("table") ? ed.chain().focus().deleteTable().run() : ed.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()), ed && ed.isActive("table") ? "Xoá bảng" : "Chèn bảng 3×3")}
-        <div class="tb-sep"></div>
-        <button type="button" class="tb acc" onMouseDown=${(e) => e.preventDefault()} onClick=${startComment}>Bình luận</button>
-      </div></div>
-      <div style="flex:1;min-height:0;overflow-y:auto" onClick=${(e) => { const el = e.target.closest && e.target.closest("[data-comment-id]"); if (el) { setActive(el.getAttribute("data-comment-id")); setFilter((f) => f); } }}>
+      <${Toolbar} ed=${ed} onComment=${startComment} onImage=${() => pickImages(ed, s.id)} />
+      <${ImageBar} ed=${ed} sid=${s.id} />
+      <div style="flex:1;min-height:0;overflow-y:auto" onDragOver=${onDragOver} onDrop=${onDrop} onClick=${(e) => { const el = e.target.closest && e.target.closest("[data-comment-id]"); if (el) { setActive(el.getAttribute("data-comment-id")); setFilter((f) => f); } }}>
         <div class="sc-doc-wrap">
           <div class="row gap10" style="font-size:13px;color:var(--tx-3);margin-bottom:18px;flex-wrap:wrap">
             <div style="position:relative">
