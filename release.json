@@ -1,14 +1,9 @@
 {
-  "version": "1.0.0-rc61",
-  "summary": "Trinh soan kich ban: them nhieu dinh dang chu (phong, co chu, mau chu, to nen nhieu mau, can le, gian dong, thut le, danh sach danh so, lien ket, bang) va chen anh (chon file, dan, keo tha; doi kich thuoc, can le).",
+  "version": "1.0.0-rc62",
+  "summary": "Sua giao dien: tieu de khung Binh luan trong trinh soan kich ban thang hang voi thanh tren, khong con bi lech.",
   "changes": [
-    "Thanh cong cu moi: hoan tac/lam lai, kieu doan, phong chu, co chu (- / +), dam/nghieng/gach chan/gach ngang, mau chu va to nen nhieu mau (doc ro ca giao dien toi), can trai/giua/phai/deu, gian dong, danh sach cham/danh so/checklist, tang/giam thut le.",
-    "Lien ket: nut lien ket hoac Ctrl/Cmd K khi dang go trong kich ban (o cho khac Ctrl/Cmd K van mo bang lenh); co mo link va go lien ket.",
-    "Bang: chon kich thuoc tren luoi; chen/xoa hang va cot, gop/tach o, hang tieu de, xoa bang.",
-    "Muc ...: chi so tren x2, chi so duoi, ma noi dong, duong ke ngang; nut Xoa dinh dang (Ctrl/Cmd \\) giu nguyen binh luan tren doan van.",
-    "Chen anh: nut anh, dan anh chup man hinh/anh da copy, hoac keo tha file anh vao kich ban. Anh duoc thu nho toi da 1600 px va luu tren NAS canh kich ban (xoa cung kich ban).",
-    "Bam vao anh: chon do rong 25/50/75/100%, can trai/giua/phai, mo ta, mo anh goc, xoa; keo mep anh de doi kich thuoc, keo ca anh de di chuyen.",
-    "Thanh cong cu tu xuong hai dong khi man hinh hep; tren dien thoai vuot ngang. Moi menu (mau, co chu, bang...) dung duoc bang phim mui ten."
+    "Kich ban: phan tieu de Binh luan (Mo / Tat ca) cao bang thanh tren ben canh, duong ke va chu nam cung mot hang.",
+    "Review video: tieu de Ghi chu can giua theo thanh tren nhu nut Chia se."
   ],
-  "publishedAt": "2026-10-09T02:33:51.000Z"
+  "publishedAt": "2026-10-09T09:35:26.000Z"
 }
