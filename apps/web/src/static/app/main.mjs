@@ -16,16 +16,17 @@ import { Review } from "./screens/review.mjs";
 import { Calendar } from "./screens/calendar.mjs";
 import { Scripts } from "./screens/scripts.mjs";
 import { Script } from "./screens/script.mjs";
+import { Prompter } from "./screens/prompter.mjs";
 import { Settings } from "./screens/settings.mjs";
 
-const SCREENS = { hub: Hub, project: Project, review: Review, calendar: Calendar, scripts: Scripts, script: Script, settings: Settings };
+const SCREENS = { hub: Hub, project: Project, review: Review, calendar: Calendar, scripts: Scripts, script: Script, prompter: Prompter, settings: Settings };
 
 function Rail() {
   const r = S.route.name;
   const nav = [
     ["hub", "Dự án", ["hub", "project", "review"]],
     ["calendar", "Lịch", ["calendar"]],
-    S.caps.scripts && ["scripts", "Kịch bản", ["scripts", "script"]],
+    S.caps.scripts && ["scripts", "Kịch bản", ["scripts", "script", "prompter"]],
   ].filter(Boolean);
   const unseen = Object.values(S.notif).reduce((a, b) => a + b, 0);
   const pendingReview = S.queue.length;

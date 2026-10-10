@@ -13,7 +13,7 @@ export function currentFocus() {
   const r = S.route;
   if (r.name === "review") return { kind: "source", id: r.aid, projectId: r.pid };
   if (r.name === "project") return { kind: "project", id: r.pid };
-  if (r.name === "script") return { kind: "script", id: r.sid };
+  if (r.name === "script" || r.name === "prompter") return { kind: "script", id: r.sid };
   return { kind: "workspace" };
 }
 

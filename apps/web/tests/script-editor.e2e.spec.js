@@ -82,6 +82,52 @@ test.describe("script editor", () => {
     expect((await bodyHtml(page)).startsWith("<p>Cảnh bếp buổi sáng.</p>")).toBe(true);
   });
 
+  test("Nhắc chữ: words only, size from the screen, runs, pauses on a tap, keeps its line on resize", async ({ page }) => {
+    await newScript(page);
+    await page.locator(".script-doc").click();
+    for (let i = 1; i <= 12; i++) {
+      await page.keyboard.type("Đoạn " + i + ": anh em thân mến, hôm nay mình kể chuyện mua linh kiện mùa bão giá.");
+      await page.keyboard.press("Enter");
+    }
+    await expect(page.locator(".sc-saved")).toHaveText(/Đã lưu/, { timeout: 6000 });
+    await page.locator(".sc-prompt").click();
+    await expect(page).toHaveURL(/\/nhac-chu$/);
+    const text = page.locator(".pr-text");
+    await expect(text).toContainText("Đoạn 12");
+    await expect(page.locator(".prompter [contenteditable]")).toHaveCount(0);
+
+    // size slider: range and starting size follow the column width
+    const size = page.locator('.pr-slider input[aria-label="Cỡ chữ"]');
+    const [min, val, max] = await size.evaluate((r) => [+r.min, +r.value, +r.max]);
+    expect(min).toBeLessThan(val);
+    expect(val).toBeLessThan(max);
+    expect(await text.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBe(val);
+
+    const scroller = page.locator(".pr-scroll");
+    await page.locator(".pr-play").click();
+    await expect(page.locator(".pr-count")).toBeVisible();
+    await expect.poll(() => scroller.evaluate((e) => e.scrollTop), { timeout: 8000 }).toBeGreaterThan(20);
+    await page.mouse.click(640, 400); // a tap on the words pauses
+    const at = await scroller.evaluate((e) => e.scrollTop);
+    await page.waitForTimeout(500);
+    expect(await scroller.evaluate((e) => e.scrollTop)).toBe(at);
+
+    // the same words stay on the reading line when the window changes
+    await scroller.evaluate((e) => { e.scrollTop = 900; });
+    const onLine = () => page.evaluate(() => {
+      const eye = document.querySelector(".pr-eye").getBoundingClientRect();
+      const r = document.querySelector(".pr-text").getBoundingClientRect();
+      const c = document.caretRangeFromPoint(r.left + 20, eye.top + eye.height / 2);
+      return c && c.startContainer.nodeValue ? c.startContainer.nodeValue.split(":")[0] : null;
+    });
+    const before = await onLine();
+    await page.setViewportSize({ width: 600, height: 800 });
+    await expect.poll(onLine).toBe(before);
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".script-doc")).toBeVisible();
+  });
+
   test("images: insert, paste, resize from the image bar, still there after reopening", async ({ page }) => {
     await newScript(page);
     await page.locator(".script-doc").click();

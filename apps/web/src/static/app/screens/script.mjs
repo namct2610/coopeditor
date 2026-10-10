@@ -194,6 +194,8 @@ export function Script() {
     saveNow(true);
   };
 
+  const openPrompter = () => { saveNow(); go({ name: "prompter", sid: s.id }); };
+
   // Image files dropped beside the text (the margins, the title) go in at the cursor.
   const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
   const onDragOver = (e) => { if (hasFiles(e)) e.preventDefault(); };
@@ -207,12 +209,15 @@ export function Script() {
     <style>${css}</style>
     <div style="flex:1;min-width:0;display:flex;flex-direction:column">
       <div class="sc-top">
-        <button type="button" class="rv-crumb" style="flex:0 0 auto;max-width:none" onClick=${() => { saveNow(); go({ name: "scripts" }); }}>← Kịch bản</button>
+        <button type="button" class="rv-crumb" style="flex:0 0 auto;max-width:none" aria-label="Về danh sách kịch bản" onClick=${() => { saveNow(); go({ name: "scripts" }); }}>←<span class="sc-back-t"> Kịch bản</span></button>
         <div class="sc-saved"><div><span class="dot dot6" style=${`background:${saveColor}`}></span>${saveLabel}</div></div>
         <${Seg} opts=${Object.keys(SST).map((k) => [k, SST[k].label, html`<span class="dot dot6" style=${`background:${SST[k].c}`}></span>`])} value=${s.status} onPick=${(k) => setScriptField("status", k)} />
-        ${project && html`<button type="button" class="btn btn-outline btn-sm" onClick=${() => openOverlay("share", { pid: project.id })}>Chia sẻ</button>`}
+        <button type="button" class="btn btn-outline btn-sm sc-prompt" title="Nhắc chữ — chỉ hiện chữ, cỡ lớn, tự chạy" onClick=${openPrompter}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H4zM8 20h8M12 16v4M10 8l4 2-4 2z"/></svg><span>Nhắc chữ</span>
+        </button>
+        ${project && html`<button type="button" class="btn btn-outline btn-sm sc-share" onClick=${() => openOverlay("share", { pid: project.id })}>Chia sẻ</button>`}
         <div style="position:relative;width:36px;height:36px;flex:0 0 auto"><${MoreMenu} cls="icon-btn flat" style="left:0;top:0"
-          items=${[{ label: "Xoá kịch bản", danger: true, onClick: () => { if (confirm("Xoá kịch bản \"" + s.title + "\"?")) guard(async () => { clearTimeout(saveTimer); await deleteScript(s.id); go({ name: "scripts" }); }); } }]} /></div>
+          items=${[{ label: "Nhắc chữ", onClick: openPrompter }, project && { label: "Chia sẻ dự án", onClick: () => openOverlay("share", { pid: project.id }) }, "-", { label: "Xoá kịch bản", danger: true, onClick: () => { if (confirm("Xoá kịch bản \"" + s.title + "\"?")) guard(async () => { clearTimeout(saveTimer); await deleteScript(s.id); go({ name: "scripts" }); }); } }]} /></div>
       </div>
       ${broken.length > 0 && html`<div class="row gap12" style="padding:10px 28px;background:color-mix(in oklch,var(--s-wait) 14%,transparent);font-size:13px">
         <span class="grow">${broken.length} chỗ chữ bị lỗi thành “\uFFFD” do lỗi lưu ở bản cũ. Không khôi phục tự động được — gõ lại các chữ này.</span>

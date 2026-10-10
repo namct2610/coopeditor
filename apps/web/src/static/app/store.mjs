@@ -84,7 +84,7 @@ export async function guard(fn, fallback) {
 // #/                      Hub
 // #/p/:pid                Chi tiết dự án
 // #/p/:pid/v/:aid?t=&c=   Review (t = ms, c = comment id)
-// #/calendar  #/scripts  #/scripts/:id  #/settings/:section
+// #/calendar  #/scripts  #/scripts/:id  #/scripts/:id/nhac-chu  #/settings/:section
 export function parseHash(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
   const [path, qs] = raw.split("?");
@@ -93,6 +93,7 @@ export function parseHash(hash) {
   if (seg[0] === "p" && seg[1] && seg[2] === "v" && seg[3]) return { name: "review", pid: seg[1], aid: seg[3], t: q.has("t") ? Number(q.get("t")) : null, c: q.get("c") || null };
   if (seg[0] === "p" && seg[1]) return { name: "project", pid: seg[1] };
   if (seg[0] === "calendar") return { name: "calendar" };
+  if (seg[0] === "scripts" && seg[1] && seg[2] === "nhac-chu") return { name: "prompter", sid: seg[1] };
   if (seg[0] === "scripts" && seg[1]) return { name: "script", sid: seg[1] };
   if (seg[0] === "scripts") return { name: "scripts" };
   if (seg[0] === "settings") return { name: "settings", sec: seg[1] || "profile" };
@@ -111,6 +112,7 @@ export function href(r) {
     case "calendar": return "#/calendar";
     case "scripts": return "#/scripts";
     case "script": return "#/scripts/" + enc(r.sid);
+    case "prompter": return "#/scripts/" + enc(r.sid) + "/nhac-chu";
     case "settings": return "#/settings/" + (r.sec || "profile");
     default: return "#/";
   }
@@ -130,7 +132,7 @@ export function onRoute() {
   if (route.name === "project") { loadSources(route.pid); loadMembers(route.pid); clearNotif(route.pid); }
   if (route.name === "review") { openReview(route.pid, route.aid); clearNotif(route.pid); }
   if (route.name === "scripts" || route.name === "project") loadScripts();
-  if (route.name === "script") openScript(route.sid);
+  if (route.name === "script" || route.name === "prompter") openScript(route.sid);
   if (route.name === "hub") { refreshQueue(); }
   if (routeHook) routeHook(route);
 }
