@@ -1,9 +1,12 @@
 {
-  "version": "1.0.0-rc63",
-  "summary": "Sua loi chu tieng Viet bi bien thanh dau hoi (�) sau khi luu kich ban dai; trinh soan chi ra cac cho da bi loi de go lai.",
+  "version": "1.0.0-rc64",
+  "summary": "Che do Nhac chu (teleprompter) cho kich ban: chi hien chu, co chu va toc do tu dieu chinh theo man hinh, chu chay hoac cuon tay; Package Center nhan ban moi nhanh hon.",
   "changes": [
-    "May chu giai ma du lieu gui len theo tung manh mang, nen chu co dau (2-3 byte) nam dung cho cat bi luu thanh �. Kich ban dai bi nhieu nhat; ghi chu, binh luan, ten du an cung co the bi. Nay du lieu duoc ghep du roi moi giai ma.",
-    "Chu da bi loi truoc day khong khoi phuc tu dong duoc: mo kich ban se thay thong bao so cho loi va nut Toi cho loi tiep theo de go lai."
+    "Nhac chu: nut Nhac chu tren kich ban (hoac duong dan .../nhac-chu de mo tren dien thoai). Chi hien chu cua kich ban, nen den chu lon, vach dong doc, phan da doc mo di.",
+    "Thanh keo co chu theo be rong man hinh (khoang 34 ky tu/dong tren may tinh, 20 tren dien thoai); toc do theo tu/phut nen doi co chu hay xoay may khong doi nhip doc; dong dang doc giu nguyen khi doi co hay xoay may.",
+    "Chay/Dung bang nut, phim cach hoac cham vao chu; dem nguoc 3-2-1; keo/vuot de cuon tu do bat ky luc nao; nhay toi tung canh; lat guong cho kinh nhac chu; toan man hinh; giu man hinh sang (khi mo qua https); thoi gian con lai.",
+    "Dien thoai: thanh tren cua trinh soan kich ban khong con bi cat nut (trang thai xuong hang rieng, Chia se nam trong menu).",
+    "Cap nhat: app kiem tra ban moi moi 5 phut va tai san goi ve NAS; chu workspace thay thong bao kem nut mo Package Center ngay khi goi san sang."
   ],
-  "publishedAt": "2026-10-10T15:06:14.000Z"
+  "publishedAt": "2026-10-10T16:02:01.000Z"
 }
