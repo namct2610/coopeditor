@@ -1,9 +1,9 @@
 {
-  "version": "1.0.0-rc62",
-  "summary": "Sua giao dien: tieu de khung Binh luan trong trinh soan kich ban thang hang voi thanh tren, khong con bi lech.",
+  "version": "1.0.0-rc63",
+  "summary": "Sua loi chu tieng Viet bi bien thanh dau hoi (�) sau khi luu kich ban dai; trinh soan chi ra cac cho da bi loi de go lai.",
   "changes": [
-    "Kich ban: phan tieu de Binh luan (Mo / Tat ca) cao bang thanh tren ben canh, duong ke va chu nam cung mot hang.",
-    "Review video: tieu de Ghi chu can giua theo thanh tren nhu nut Chia se."
+    "May chu giai ma du lieu gui len theo tung manh mang, nen chu co dau (2-3 byte) nam dung cho cat bi luu thanh �. Kich ban dai bi nhieu nhat; ghi chu, binh luan, ten du an cung co the bi. Nay du lieu duoc ghep du roi moi giai ma.",
+    "Chu da bi loi truoc day khong khoi phuc tu dong duoc: mo kich ban se thay thong bao so cho loi va nut Toi cho loi tiep theo de go lai."
   ],
-  "publishedAt": "2026-10-09T09:35:26.000Z"
+  "publishedAt": "2026-10-10T15:06:14.000Z"
 }
