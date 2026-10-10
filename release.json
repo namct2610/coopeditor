@@ -1,12 +1,10 @@
 {
-  "version": "1.0.0-rc64",
-  "summary": "Che do Nhac chu (teleprompter) cho kich ban: chi hien chu, co chu va toc do tu dieu chinh theo man hinh, chu chay hoac cuon tay; Package Center nhan ban moi nhanh hon.",
+  "version": "1.0.0-rc65",
+  "summary": "Package Center khong con mat muc Community khi dang co ban moi; NAS tai goi cap nhat tu GitHub nhanh va on dinh hon.",
   "changes": [
-    "Nhac chu: nut Nhac chu tren kich ban (hoac duong dan .../nhac-chu de mo tren dien thoai). Chi hien chu cua kich ban, nen den chu lon, vach dong doc, phan da doc mo di.",
-    "Thanh keo co chu theo be rong man hinh (khoang 34 ky tu/dong tren may tinh, 20 tren dien thoai); toc do theo tu/phut nen doi co chu hay xoay may khong doi nhip doc; dong dang doc giu nguyen khi doi co hay xoay may.",
-    "Chay/Dung bang nut, phim cach hoac cham vao chu; dem nguoc 3-2-1; keo/vuot de cuon tu do bat ky luc nao; nhay toi tung canh; lat guong cho kinh nhac chu; toan man hinh; giu man hinh sang (khi mo qua https); thoi gian con lai.",
-    "Dien thoai: thanh tren cua trinh soan kich ban khong con bi cat nut (trang thai xuong hang rieng, Chia se nam trong menu).",
-    "Cap nhat: app kiem tra ban moi moi 5 phut va tai san goi ve NAS; chu workspace thay thong bao kem nut mo Package Center ngay khi goi san sang."
+    "Nguon /spkserver luon liet ke Coopeditor: trong luc NAS dang tai ban moi hoac khong goi duoc GitHub, Package Center van thay ban dang cai (truoc day danh sach rong lam DSM an ca muc Community). Nut Update hien khi goi moi da tai xong ve NAS.",
+    "Tai goi .spk tu GitHub bang 4 ket noi song song, moi doan 8 MB; doan nao dut thi tai lai rieng doan do thay vi tai lai tu dau; kiem tra md5 khi xong.",
+    "Kem cac thay doi cua rc64: che do Nhac chu cho kich ban, kiem tra ban moi moi 5 phut, thong bao cho chu workspace khi goi moi san sang."
   ],
-  "publishedAt": "2026-10-10T16:02:01.000Z"
+  "publishedAt": "2026-10-10T16:09:20.000Z"
 }
