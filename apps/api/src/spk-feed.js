@@ -11,8 +11,8 @@
 // (md5 + size, which DSM verifies after download).
 
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -179,28 +179,112 @@ export async function mirrorPath(dir, name) {
   return (await stat(path).catch(() => null)) ? path : null; // present ⇒ verified (renamed only after the check)
 }
 
-export async function downloadSpk({ dir, name, url, md5, size, idleMs = MIRROR_IDLE_MS, onProgress }) {
-  if (!SPK_NAME_RE.test(name)) throw new Error("bad spk name");
-  await mkdir(dir, { recursive: true });
-  const part = join(dir, name + ".part");
+// A single connection to GitHub's asset CDN is slow from here (and a drop
+// meant starting the 80 MB over), so the file is fetched as 8 MB ranges over
+// a few connections at once; a range that fails is fetched again on its own.
+// Servers that ignore Range get the plain one-stream download.
+const PARALLEL = 4;
+const CHUNK_BYTES = 8 * 1024 * 1024;
+const CHUNK_TRIES = 4;
+const MIRROR_UA = { "user-agent": "coopeditor-spk-mirror" };
+const stalled = () => new Error("spk download stalled");
+
+async function streamDownload(url, part, { idleMs, onProgress }) {
   const idle = new AbortController();
-  let idleTimer = setTimeout(() => idle.abort(new Error("spk download stalled")), idleMs);
-  const kick = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => idle.abort(new Error("spk download stalled")), idleMs); };
+  let idleTimer = setTimeout(() => idle.abort(stalled()), idleMs);
+  const kick = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => idle.abort(stalled()), idleMs); };
   const hash = createHash("md5");
   let bytes = 0;
   const tap = new Transform({ transform(chunk, _e, cb) { kick(); hash.update(chunk); bytes += chunk.length; if (onProgress) onProgress(bytes); cb(null, chunk); } });
   try {
-    const res = await fetch(url, { headers: { "user-agent": "coopeditor-spk-mirror" }, signal: AbortSignal.any([idle.signal, AbortSignal.timeout(30 * 60_000)]) });
+    const res = await fetch(url, { headers: MIRROR_UA, signal: AbortSignal.any([idle.signal, AbortSignal.timeout(30 * 60_000)]) });
     if (!res.ok || !res.body) throw new Error("spk download http " + res.status);
     await pipeline(Readable.fromWeb(res.body), tap, createWriteStream(part));
-    if (size && bytes !== Number(size)) throw new Error(`spk size mismatch: ${bytes} != ${size}`);
-    if (md5 && hash.digest("hex") !== String(md5).toLowerCase()) throw new Error("spk md5 mismatch");
-    await rename(part, join(dir, name));
+    return { bytes, md5: hash.digest("hex") };
   } catch (err) {
-    await rm(part, { force: true });
     throw idle.signal.aborted ? idle.signal.reason : err;
   } finally {
     clearTimeout(idleTimer);
+  }
+}
+
+async function rangedDownload(url, part, size, { idleMs, onProgress, parallel, chunkBytes }) {
+  const chunks = [];
+  for (let a = 0; a < size; a += chunkBytes) chunks.push([a, Math.min(size, a + chunkBytes) - 1]);
+  const got = new Array(chunks.length).fill(0);
+  const report = () => { if (onProgress) onProgress(got.reduce((x, y) => x + y, 0)); };
+  const stop = new AbortController();
+  const fh = await open(part, "w");
+  try {
+    await fh.truncate(size);
+    const fetchChunk = async (i) => {
+      const [a, b] = chunks[i];
+      for (let attempt = 1; ; attempt++) {
+        const idle = new AbortController();
+        let t = setTimeout(() => idle.abort(stalled()), idleMs);
+        const kick = () => { clearTimeout(t); t = setTimeout(() => idle.abort(stalled()), idleMs); };
+        let pos = a;
+        got[i] = 0;
+        try {
+          const res = await fetch(url, { headers: { ...MIRROR_UA, range: "bytes=" + a + "-" + b }, signal: AbortSignal.any([idle.signal, stop.signal]) });
+          if (res.status === 200) {
+            if (res.body) res.body.cancel().catch(() => {});
+            throw Object.assign(new Error("no range support"), { noRange: true });
+          }
+          if (res.status !== 206 || !res.body) throw new Error("spk download http " + res.status);
+          for await (const data of res.body) {
+            kick();
+            if (pos + data.length > b + 1) throw new Error("spk range overflow");
+            await fh.write(data, 0, data.length, pos);
+            pos += data.length;
+            got[i] = pos - a;
+            report();
+          }
+          if (pos !== b + 1) throw new Error("spk range cut short");
+          return;
+        } catch (err) {
+          const e = idle.signal.aborted ? idle.signal.reason : err;
+          if (e.noRange || stop.signal.aborted || attempt >= CHUNK_TRIES) throw e;
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+        } finally {
+          clearTimeout(t);
+        }
+      }
+    };
+    let next = 0, failure = null;
+    const worker = async () => {
+      while (!failure && next < chunks.length) {
+        const i = next++;
+        try { await fetchChunk(i); } catch (err) { if (!failure) { failure = err; stop.abort(err); } }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(parallel, chunks.length) }, worker));
+    if (failure) throw failure;
+  } finally {
+    await fh.close();
+  }
+  const hash = createHash("md5");
+  for await (const data of createReadStream(part)) hash.update(data);
+  return { bytes: (await stat(part)).size, md5: hash.digest("hex") };
+}
+
+export async function downloadSpk({ dir, name, url, md5, size, idleMs = MIRROR_IDLE_MS, onProgress, parallel = PARALLEL, chunkBytes = CHUNK_BYTES }) {
+  if (!SPK_NAME_RE.test(name)) throw new Error("bad spk name");
+  await mkdir(dir, { recursive: true });
+  const part = join(dir, name + ".part");
+  try {
+    let got = null;
+    if (size && Number(size) > chunkBytes && parallel > 1) {
+      try { got = await rangedDownload(url, part, Number(size), { idleMs, onProgress, parallel, chunkBytes }); }
+      catch (err) { if (!err.noRange) throw err; await rm(part, { force: true }); }
+    }
+    if (!got) got = await streamDownload(url, part, { idleMs, onProgress });
+    if (size && got.bytes !== Number(size)) throw new Error(`spk size mismatch: ${got.bytes} != ${size}`);
+    if (md5 && got.md5 !== String(md5).toLowerCase()) throw new Error("spk md5 mismatch");
+    await rename(part, join(dir, name));
+  } catch (err) {
+    await rm(part, { force: true });
+    throw err;
   }
   // keep only the newest .spk per arch
   const arch = name.match(SPK_NAME_RE)[1];
@@ -223,38 +307,64 @@ function startMirror(dir, asset, sum) {
   return st;
 }
 
+// The version this NAS runs (release.json), as a catalog entry. Package
+// Center hides its whole Community tab when the sources list nothing, so the
+// feed falls back to this while a newer release is still on its way to the
+// mirror, or GitHub can't be reached: the package stays listed (as installed)
+// and Update appears once the new one is ready.
+export function currentCatalog(bucket, current) {
+  const label = String((current && current.version) || "").trim().replace(/^v/, "");
+  if (!bucket || !infoVersionFromTag(label)) return { packages: [] };
+  const tag = "v" + label.replace(/-(?:spk-)?rc(\d+)$/, "-spk-rc$1");
+  const name = "coopeditor-" + bucket + "-" + tag.slice(1) + ".spk";
+  const asset = { name, size: 0, browser_download_url: `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}` };
+  return catalogFromRelease({ tag_name: tag, body: "", assets: [asset] }, {}, bucket, current);
+}
+
+// This machine's own arch: the NAS asking is almost always the one serving
+// the feed, so an arch codename missing from the lists above still works.
+const OWN_BUCKET = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
+
 // opts.mirrorDir: enable the local mirror; opts.baseUrl: how DSM reached us
-// (scheme://host[/api]) so the link it gets back is one it can reach.
+// (scheme://host[/api]) so the link it gets back is one it can reach;
+// opts.current: the running release (release.json), listed while there's
+// nothing newer to offer yet.
 export async function buildSpkCatalog(archParam, opts = {}) {
-  const bucket = archBucket(archParam);
+  const bucket = archBucket(archParam) || OWN_BUCKET;
   if (!bucket) return { packages: [] };
-  const { release, checksums, notes } = await fetchLatestRelease({ force: opts.force });
+  const fallback = (extra) => ({ ...(opts.current ? currentCatalog(bucket, opts.current) : { packages: [] }), ...extra });
+  let latest;
+  try { latest = await fetchLatestRelease({ force: opts.force }); }
+  catch (err) {
+    if (opts.current) return fallback({ error: String(err && err.message || err) });
+    throw err;
+  }
+  const { release, checksums, notes } = latest;
   if (!opts.mirrorDir || !opts.baseUrl) return catalogFromRelease(release, checksums, bucket, notes);
   const asset = (release.assets || []).find((a) => a.name.includes("-" + bucket + "-") && a.name.endsWith(".spk"));
-  if (!asset) return { packages: [] };
+  if (!asset) return fallback();
   if (await mirrorPath(opts.mirrorDir, asset.name)) {
     return catalogFromRelease(release, checksums, bucket, notes, { link: (a) => opts.baseUrl + "/spkserver/spk/" + encodeURIComponent(a.name) });
   }
   const st = startMirror(opts.mirrorDir, asset, (checksums && checksums[asset.name]) || {});
   if (st.failures >= MAX_MIRROR_FAILURES) return catalogFromRelease(release, checksums, bucket, notes);
-  return { packages: [], preparing: asset.name };
+  return fallback({ preparing: asset.name });
 }
 
 // Warm the mirror for this machine's own arch so the update is usually ready
 // before anyone opens Package Center.
 export function warmSpkMirror(mirrorDir) {
-  const arch = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
-  if (!arch) return;
-  buildSpkCatalog(arch, { mirrorDir, baseUrl: "http://local" }).catch(() => {});
+  if (!OWN_BUCKET) return;
+  buildSpkCatalog(OWN_BUCKET, { mirrorDir, baseUrl: "http://local" }).catch(() => {});
 }
 
 // What Package Center would get for this machine's arch right now, and why —
 // shown in Cài đặt → Cập nhật so an empty catalog isn't a silent mystery.
-export async function packageFeedStatus(mirrorDir, { force = false } = {}) {
-  const arch = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x86_64" : null;
+export async function packageFeedStatus(mirrorDir, { force = false, current = null } = {}) {
+  const arch = OWN_BUCKET;
   const out = { arch, offered: null, tag: null, via: null, checkedAt: null, error: null, mirror: null };
   try {
-    const cat = await buildSpkCatalog(arch || "", { mirrorDir, baseUrl: "http://local", force });
+    const cat = await buildSpkCatalog(arch || "", { mirrorDir, baseUrl: "http://local", force, current });
     const pkg = (cat.packages || [])[0];
     out.offered = pkg ? pkg.version : null;
     if (cat.preparing) {

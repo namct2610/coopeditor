@@ -680,7 +680,7 @@ async function handle(req, res, url) {
     }
     // Link DSM back to this same origin (and /api prefix) it just reached.
     const baseUrl = (isSecureRequest(req) ? "https" : "http") + "://" + String(req.headers.host || "") + (url.pathname.startsWith("/api/") ? "/api" : "");
-    try { return send(res, 200, await buildSpkCatalog(arch, { mirrorDir: SPK_MIRROR_DIR, baseUrl })); }
+    try { return send(res, 200, await buildSpkCatalog(arch, { mirrorDir: SPK_MIRROR_DIR, baseUrl, current: buildLocalReleaseMeta() })); }
     catch (err) { return send(res, 200, { packages: [], error: String(err && err.message || err) }); }
   }
   // The mirrored .spk (see spk-feed.js). Public like the GitHub asset it copies;
@@ -1754,7 +1754,7 @@ async function handle(req, res, url) {
   if (p === "/admin/update-status" && m === "GET") {
     if (!(await canManageUpdates(sess.userId))) return bad(res, "Forbidden", 403);
     const force = url.searchParams.get("refresh") === "1";
-    const [status, packageFeed] = await Promise.all([checkUpdateStatus({ force }), packageFeedStatus(SPK_MIRROR_DIR, { force })]);
+    const [status, packageFeed] = await Promise.all([checkUpdateStatus({ force }), packageFeedStatus(SPK_MIRROR_DIR, { force, current: buildLocalReleaseMeta() })]);
     return send(res, 200, { ...status, packageFeed });
   }
 
