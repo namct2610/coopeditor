@@ -2409,9 +2409,12 @@ const port = Number(process.env.PORT ?? 4000);
   });
   startWorker();
   startRetention();
+  // Look for a new release every 5 min (the feed's cache) and fetch its .spk
+  // to the NAS straight away, so Package Center can offer it the first time
+  // it asks instead of after the next half-hour check plus the download.
   if (SPK_MIRROR_DIR) {
     warmSpkMirror(SPK_MIRROR_DIR);
-    setInterval(() => warmSpkMirror(SPK_MIRROR_DIR), 30 * 60_000).unref();
+    setInterval(() => warmSpkMirror(SPK_MIRROR_DIR), 5 * 60_000).unref();
   }
   await startEventBus().catch((e) => logger.error({ err: e.message }, "event bus bootstrap failed"));
 })();

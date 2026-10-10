@@ -124,3 +124,13 @@ export function resLabel(a) {
 export function isAudio(a) { return /\.(wav|aif|aiff|mp3|m4a|flac)$/i.test((a && (a.nasPath || a.title)) || ""); }
 
 export function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+// Package versions: what the /spkserver feed offers ("1.0.0-64") against the
+// running build ("1.0.0-rc63").
+const pkgNums = (v) => (String(v || "").replace(/^(\d+\.\d+\.\d+)-(?:spk-)?rc(\d+)$/, "$1-$2").match(/\d+/g) || []).map(Number);
+export function newerPackage(offered, local) {
+  const x = pkgNums(offered), y = pkgNums(local);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+  return false;
+}
+export const pkgLabel = (v) => String(v || "").replace(/^(\d+\.\d+\.\d+)-(\d+)$/, "$1-rc$2");

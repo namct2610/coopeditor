@@ -4,8 +4,9 @@
 import { html, render, useState, useEffect, useRef } from "./lib.mjs";
 import {
   S, set, go, useStore, boot, retryBoot, login, onRoute, onWorkspaceReady, onLogout, onRouteChange,
-  applyTheme, setPrefs, effectiveTheme, toast, errMsg,
+  applyTheme, setPrefs, effectiveTheme, toast, errMsg, fetchUpdateStatus,
 } from "./store.mjs";
+import { newerPackage, pkgLabel } from "./format.mjs";
 import { get, post } from "./api.mjs";
 import { Avatar, Toasts, Spinner } from "./ui.mjs";
 import { Overlays, openOverlay } from "./overlays.mjs";
@@ -58,6 +59,33 @@ function Shell() {
     <${Overlays} />
     <${Toasts} />
     ${S.updateBanner && html`<div class="banner"><span class="dot" style="background:var(--acc)"></span>Có bản cập nhật mới — đang tải lại…</div>`}
+    ${S.caps.workspace && S.route.name !== "prompter" && html`<${PackageReady} />`}
+  </div>`;
+}
+
+// Owners hear as soon as a new package is on the NAS and Package Center can
+// install it, instead of waiting for DSM's own daily check.
+const PKG_SEEN = "coop.pkgDismissed";
+function PackageReady() {
+  const [feed, setFeed] = useState(null);
+  const [gone, setGone] = useState(() => { try { return localStorage.getItem(PKG_SEEN) || ""; } catch (_) { return ""; } });
+  useEffect(() => {
+    const check = () => fetchUpdateStatus(false).then((s) => setFeed({ f: s.packageFeed, local: s.local && s.local.version })).catch(() => {});
+    const first = setTimeout(check, 4000);
+    const every = setInterval(check, 10 * 60_000);
+    return () => { clearTimeout(first); clearInterval(every); };
+  }, []);
+  const f = feed && feed.f;
+  const ready = f && f.offered && f.mirror && (f.mirror.state === "ready" || f.mirror.state === "github");
+  if (!ready || !newerPackage(f.offered, feed.local) || gone === f.offered) return null;
+  const later = () => { setGone(f.offered); try { localStorage.setItem(PKG_SEEN, f.offered); } catch (_) {} };
+  // DSM itself answers on 5000 / 5001 of the same host in the usual setup.
+  const dsm = location.protocol + "//" + location.hostname + ":" + (location.protocol === "https:" ? "5001" : "5000") + "/?launchApp=SYNO.SDS.PkgManApp.Instance";
+  return html`<div class="banner pkg-ready" role="status">
+    <span class="dot" style="background:var(--acc)"></span>
+    <span class="grow">Bản <b>${pkgLabel(f.offered)}</b> đã sẵn sàng — mở Package Center, bấm Làm mới rồi Update.</span>
+    <a class="btn btn-primary btn-xs" href=${dsm} target="_blank" rel="noopener" onClick=${later}>Mở Package Center</a>
+    <button type="button" class="link" onClick=${later}>Để sau</button>
   </div>`;
 }
 
