@@ -10,17 +10,23 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// Pieces are joined as bytes and decoded once, so a letter split between
+// two pieces isn't turned into "�".
 function readJson(req) {
   return new Promise((resolve, reject) => {
-    let data = "";
+    const parts = [];
+    let size = 0;
     req.on("data", (chunk) => {
-      data += chunk;
-      if (data.length > 1_000_000) {
+      size += chunk.length;
+      if (size > 1_000_000) {
         req.destroy();
         reject(new Error("Body too large"));
+        return;
       }
+      parts.push(chunk);
     });
     req.on("end", () => {
+      const data = Buffer.concat(parts).toString("utf8");
       if (!data) return resolve({});
       try { resolve(JSON.parse(data)); } catch (err) { reject(err); }
     });

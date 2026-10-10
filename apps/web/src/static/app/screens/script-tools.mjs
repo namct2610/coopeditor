@@ -134,6 +134,21 @@ function clearFormat(ed) {
   return true;
 }
 
+// Letters an earlier server build garbled into "\uFFFD" while saving (its
+// request decoding split multi-byte letters). The bytes are gone, so the
+// editor points at each spot for the writer to retype.
+export function brokenSpots(doc) {
+  const out = [];
+  doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    const re = /\uFFFD+/g;
+    let m;
+    while ((m = re.exec(node.text))) out.push({ from: pos + m.index, to: pos + m.index + m[0].length });
+    return false;
+  });
+  return out;
+}
+
 // ---- images ----
 // The body only names the file (<img data-image-id data-script-id>); the
 // address is built when the page shows it, so a script works from the LAN

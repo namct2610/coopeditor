@@ -7,7 +7,7 @@ import { SST, fmtAgo, paletteOf, thumbBg, p2 } from "../format.mjs";
 import { Avatar, Seg, Menu, MenuItem, MoreMenu } from "../ui.mjs";
 import { api, enc } from "../api.mjs";
 import { openOverlay } from "../overlays.mjs";
-import { ensureTiptap, scriptExtensions, imageHandlers, insertImages, pickImages, Toolbar, ImageBar } from "./script-tools.mjs";
+import { ensureTiptap, scriptExtensions, imageHandlers, insertImages, pickImages, Toolbar, ImageBar, brokenSpots } from "./script-tools.mjs";
 
 // ---- autosave ----
 let saveTimer = null;
@@ -120,6 +120,13 @@ export function Script() {
   const threads = roots.filter((c) => filter === "all" || !c.resolved);
   const text = ed ? ed.state.doc.textBetween(0, ed.state.doc.content.size, " ") : "";
   const words = text.split(/\s+/).filter(Boolean).length;
+  const broken = text.includes("\uFFFD") ? brokenSpots(ed.state.doc) : [];
+  const nextBroken = () => {
+    const at = ed.state.selection.to;
+    const b = broken.find((x) => x.from >= at) || broken[0];
+    ed.chain().setTextSelection(b).scrollIntoView().run();
+    ed.view.focus(); // at once, so the first letter typed lands on the selection
+  };
   const saveLabel = { saved: "Đã lưu" + (S.savedAt ? " · " + p2(S.savedAt.getHours()) + ":" + p2(S.savedAt.getMinutes()) : ""), dirty: "Chưa lưu…", saving: "Đang lưu…", conflict: "Có bản mới hơn", error: "Lỗi lưu" }[S.scriptSave];
   const saveColor = { saved: "var(--s-ok)", dirty: "var(--tx-3)", saving: "var(--s-wait)", conflict: "var(--s-fix)", error: "var(--s-fix)" }[S.scriptSave];
 
@@ -207,6 +214,10 @@ export function Script() {
         <div style="position:relative;width:36px;height:36px;flex:0 0 auto"><${MoreMenu} cls="icon-btn flat" style="left:0;top:0"
           items=${[{ label: "Xoá kịch bản", danger: true, onClick: () => { if (confirm("Xoá kịch bản \"" + s.title + "\"?")) guard(async () => { clearTimeout(saveTimer); await deleteScript(s.id); go({ name: "scripts" }); }); } }]} /></div>
       </div>
+      ${broken.length > 0 && html`<div class="row gap12" style="padding:10px 28px;background:color-mix(in oklch,var(--s-wait) 14%,transparent);font-size:13px">
+        <span class="grow">${broken.length} chỗ chữ bị lỗi thành “\uFFFD” do lỗi lưu ở bản cũ. Không khôi phục tự động được — gõ lại các chữ này.</span>
+        <button type="button" class="btn btn-outline btn-xs" onMouseDown=${(e) => e.preventDefault()} onClick=${nextBroken}>Tới chỗ lỗi tiếp theo</button>
+      </div>`}
       ${S.scriptSave === "conflict" && html`<div class="row gap12" style="padding:10px 28px;background:color-mix(in oklch,var(--s-fix) 12%,transparent);font-size:13px">
         <span class="grow">Có người vừa lưu bản mới hơn của kịch bản này.</span>
         <button type="button" class="btn btn-outline btn-xs" onClick=${takeTheirs}>Tải bản mới</button>

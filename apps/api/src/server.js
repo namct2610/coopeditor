@@ -166,13 +166,27 @@ function setSecurityHeaders(res) {
   );
 }
 
-async function readJson(req, maxBytes = 1_000_000) {
+// The body arrives in network-sized pieces. They are joined as bytes and
+// decoded once: decoding each piece on its own turned a letter whose UTF-8
+// bytes straddled two pieces ("ệ" is 3 bytes) into "�" — it showed up in
+// long scripts saved from the editor.
+function readBody(req, maxBytes) {
   return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (c) => { data += c; if (data.length > maxBytes) { req.destroy(); reject(new Error("Body too large")); } });
-    req.on("end", () => { if (!data) return resolve({}); try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+    const parts = [];
+    let size = 0;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > maxBytes) { req.destroy(); reject(new Error("Body too large")); return; }
+      parts.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(parts).toString("utf8")));
     req.on("error", reject);
   });
+}
+
+async function readJson(req, maxBytes = 1_000_000) {
+  const data = await readBody(req, maxBytes);
+  return data ? JSON.parse(data) : {};
 }
 
 function mimeFromPath(path) {
@@ -661,12 +675,7 @@ async function handle(req, res, url) {
   if (p === "/spkserver" && (m === "GET" || m === "POST")) {
     let arch = url.searchParams.get("arch") || "";
     if (m === "POST") {
-      const raw = await new Promise((resolve) => {
-        let body = "";
-        req.on("data", (c) => { body += c; if (body.length > 65536) req.destroy(); });
-        req.on("end", () => resolve(body));
-        req.on("error", () => resolve(""));
-      });
+      const raw = await readBody(req, 65536).catch(() => "");
       arch = new URLSearchParams(raw).get("arch") || arch;
     }
     // Link DSM back to this same origin (and /api prefix) it just reached.

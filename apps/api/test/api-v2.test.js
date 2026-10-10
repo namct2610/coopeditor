@@ -125,6 +125,25 @@ test("scripts list carries plain-text preview lines for the page thumbnail", asy
   assert.equal(row.excerpt, undefined, "raw HTML stays server-side");
 });
 
+test("a body that arrives in pieces keeps letters whose bytes were split between them", async () => {
+  const s = (await http("/scripts", { method: "POST", body: { title: "Chunks" } })).json;
+  const text = "<p>" + "Kiệt tác nghệ thuật ".repeat(400) + "</p>";
+  const payload = Buffer.from(JSON.stringify({ baseVersion: s.version, body: text }), "utf8");
+  // cut inside a multi-byte letter: "ệ" is 3 bytes (e1 bb 87)
+  const cut = payload.indexOf(Buffer.from("ệ")) + 1;
+  const { request } = await import("node:http");
+  const status = await new Promise((resolve, reject) => {
+    const req = request(BASE + "/scripts/" + s.id, { method: "PATCH", headers: { "content-type": "application/json", "content-length": payload.length, cookie } }, (res) => { res.resume(); res.on("end", () => resolve(res.statusCode)); });
+    req.on("error", reject);
+    req.write(payload.subarray(0, cut));
+    setTimeout(() => req.end(payload.subarray(cut)), 60);
+  });
+  assert.equal(status, 200);
+  const saved = (await http("/scripts/" + s.id)).json.body;
+  assert.equal(saved.includes("�"), false, "no replacement characters");
+  assert.equal(saved, text);
+});
+
 test("scripts: images in the text upload + serve, go away with the script, clients can't read them", async () => {
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
   const s = (await http("/scripts", { method: "POST", body: { title: "Storyboard" } })).json;
