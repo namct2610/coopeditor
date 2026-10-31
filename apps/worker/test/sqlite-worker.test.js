@@ -46,7 +46,12 @@ test("sqlite worker claims queued jobs concurrently without transaction conflict
   await mkdir(mountRoot, { recursive: true });
   await mkdir(outputDir, { recursive: true });
   await writeFile(join(mountRoot, "clip.mp4"), "fake video");
+  // Answer the codec probe, else ffmpeg-runtime falls back to a system ffmpeg.
   await writeFile(ffmpegStub, `#!/bin/sh
+case "$2" in
+  -decoders) echo " V..... h264"; exit 0 ;;
+  -encoders) printf ' V..... libx264\\n A..... aac\\n'; exit 0 ;;
+esac
 last=""
 for arg in "$@"; do
   last="$arg"
@@ -115,7 +120,11 @@ exit 0
     while (Date.now() < deadline) {
       const startedBothJobs = targetRenditions.every((rendition) => logs.includes("rendition " + rendition.id + " mode ffmpeg-only"));
       const noSqliteConflict = !/cannot start a transaction within a transaction|cannot commit - no transaction is active/i.test(logs);
-      if (startedBothJobs && noSqliteConflict) {
+      // finishJob binds $1,$3,$2 — a mis-bound row stays 'running' and is
+      // re-encoded on every worker boot.
+      const jobs = (await dbMod.db().query("SELECT status FROM transcode_jobs")).rows;
+      const allDone = jobs.length === 2 && jobs.every((job) => job.status === "done");
+      if (startedBothJobs && noSqliteConflict && allDone) {
         assert.doesNotMatch(logs, /cannot start a transaction within a transaction|cannot commit - no transaction is active/i);
         return;
       }

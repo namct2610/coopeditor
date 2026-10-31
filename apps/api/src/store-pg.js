@@ -781,8 +781,6 @@ export async function createScript({ title, projectId = null, userId }) {
 // Status/project changes don't touch content, so they skip the check.
 export async function updateScript(id, patch, { baseVersion, userId }) {
   const content = "title" in patch || "body" in patch;
-  // Params are numbered in order of appearance: the SQLite adapter maps every
-  // $N to a positional "?" and ignores the number.
   const vals = [userId, new Date().toISOString()];
   const sets = ["updated_by = $1", "updated_at = $2"];
   for (const [key, col] of [["title", "title"], ["body", "body"], ["status", "status"], ["projectId", "project_id"]]) {

@@ -196,6 +196,18 @@ function logMountWait(status) {
 // the moment the worker starts. The user shouldn't have to learn psql.
 try {
   if (SQL_DRIVER === "sqlite") {
+    // Older builds' SQLite adapter mis-bound finishJob's params, so finished
+    // jobs stayed 'running' and got re-encoded on every boot. workOnce marks
+    // the rendition 'ready' only after ffmpeg succeeds, so those are done.
+    const healed = await pool.query(`
+      UPDATE transcode_jobs
+         SET status='done', finished_at=CURRENT_TIMESTAMP, error=NULL
+       WHERE status='running'
+         AND rendition_id IN (SELECT id FROM renditions WHERE status='ready')
+    `);
+    if (healed.rowCount > 0) {
+      console.log("[worker] closed", healed.rowCount, "finished jobs left 'running'");
+    }
     const rows = (await pool.query(`
       SELECT id, status, attempts, max_attempts, error
         FROM transcode_jobs
