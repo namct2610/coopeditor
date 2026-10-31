@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0-rc65",
-  "summary": "Package Center khong con mat muc Community khi dang co ban moi; NAS tai goi cap nhat tu GitHub nhanh va on dinh hon.",
+  "version": "1.0.0-rc66",
+  "summary": "Het canh NAS chay 100% CPU moi lan khoi dong: video da tao proxy xong khong con bi transcode lai tu dau.",
   "changes": [
-    "Nguon /spkserver luon liet ke Coopeditor: trong luc NAS dang tai ban moi hoac khong goi duoc GitHub, Package Center van thay ban dang cai (truoc day danh sach rong lam DSM an ca muc Community). Nut Update hien khi goi moi da tai xong ve NAS.",
-    "Tai goi .spk tu GitHub bang 4 ket noi song song, moi doan 8 MB; doan nao dut thi tai lai rieng doan do thay vi tai lai tu dau; kiem tra md5 khi xong.",
-    "Kem cac thay doi cua rc64: che do Nhac chu cho kich ban, kiem tra ban moi moi 5 phut, thong bao cho chu workspace khi goi moi san sang."
+    "Sua loi SQLite gan sai tham so cho cac cau lenh co $1, $3, $2 khong theo thu tu: job transcode da xong van bi ghi la 'dang chay', nen moi lan worker khoi dong (khoi dong lai NAS, lich bat/tat nguon) Coopeditor tao lai proxy cho ca thu vien bang CPU.",
+    "Lan khoi dong dau tien sau khi cap nhat, worker tu dong dong cac job da xong nhung con ket, khong transcode lai them lan nao.",
+    "Cung loi do cung da sua: job loi gio duoc thu lai dung lich (5 giay, 25 giay, ...) thay vi ket; doi vai tro thanh vien du an va cap nhat ten/email tai khoan DSM/OIDC gio luu dung."
   ],
-  "publishedAt": "2026-10-10T16:09:20.000Z"
+  "publishedAt": "2026-10-31T08:31:50.000Z"
 }
