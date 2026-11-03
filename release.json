@@ -1,10 +1,11 @@
 {
-  "version": "1.0.0-rc66",
-  "summary": "Het canh NAS chay 100% CPU moi lan khoi dong: video da tao proxy xong khong con bi transcode lai tu dau.",
+  "version": "1.0.0-rc67",
+  "summary": "Transcode proxy bang GPU Intel (QuickSync qua VAAPI) tren NAS Intel: nhanh hon va do ton CPU hon nhieu so voi libx264.",
   "changes": [
-    "Sua loi SQLite gan sai tham so cho cac cau lenh co $1, $3, $2 khong theo thu tu: job transcode da xong van bi ghi la 'dang chay', nen moi lan worker khoi dong (khoi dong lai NAS, lich bat/tat nguon) Coopeditor tao lai proxy cho ca thu vien bang CPU.",
-    "Lan khoi dong dau tien sau khi cap nhat, worker tu dong dong cac job da xong nhung con ket, khong transcode lai them lan nao.",
-    "Cung loi do cung da sua: job loi gio duoc thu lai dung lich (5 giay, 25 giay, ...) thay vi ket; doi vai tro thanh vien du an va cap nhat ten/email tai khoan DSM/OIDC gio luu dung."
+    "Neu NAS da cai goi FFmpeg 7 cua SynoCommunity (kem SynoCli Video Driver), Coopeditor tu dung ffmpeg do thay cho ban ffmpeg tinh di kem (ban nay chi chay CPU).",
+    "Goi khai bao video-driver giong Plex: DSM tu cho user coopeditor vao nhom videodriver de duoc dung /dev/dri/renderD128.",
+    "Bat GPU: dat \"hwaccel\": \"vaapi\" trong muc transcode cua var/conf/runtime-config.json. Worker tu kiem tra GPU luc khoi dong, loi thi quay ve CPU libx264; trang Cai dat hien worker dang dung vaapi hay CPU.",
+    "Gom luon ban sua cua rc66: khong con transcode lai ca thu vien moi lan khoi dong."
   ],
-  "publishedAt": "2026-10-31T08:31:50.000Z"
+  "publishedAt": "2026-11-03T09:51:06.000Z"
 }
