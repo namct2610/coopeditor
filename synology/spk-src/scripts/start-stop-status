@@ -43,10 +43,13 @@ export WEB_INLINE=1
 # SPK chạy SQLite + worker inline ngay trong cùng package lifecycle.
 # Worker tự đọc runtime-config, dùng ffmpeg local, và ghi HLS ra OUTPUT_DIR.
 export WORKER_INLINE=1
-# Default ffmpeg path: use DSM's CodecPack binary if installed, else the
-# bundled static binary the SPK shipped under lib/bin/.
+# Default ffmpeg path: SynoCommunity FFmpeg 7 if installed (VAAPI/QSV on Intel
+# iGPU via its SynoCli Video Driver dependency), else DSM's CodecPack binary,
+# else the bundled static binary the SPK shipped under lib/bin/ (CPU only).
 if [ -z "${FFMPEG_PATH:-}" ]; then
-  if [ -x /var/packages/CodecPack/target/bin/ffmpeg ]; then
+  if [ -x /var/packages/ffmpeg7/target/bin/ffmpeg ]; then
+    export FFMPEG_PATH=/var/packages/ffmpeg7/target/bin/ffmpeg
+  elif [ -x /var/packages/CodecPack/target/bin/ffmpeg ]; then
     export FFMPEG_PATH=/var/packages/CodecPack/target/bin/ffmpeg
   elif [ -x "${LIB_DIR}/bin/ffmpeg" ]; then
     export FFMPEG_PATH="${LIB_DIR}/bin/ffmpeg"

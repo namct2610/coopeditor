@@ -17,7 +17,7 @@ was replaced with.
 | Object storage | MinIO container | Filesystem at `var/proxy/` inside the SPK volume |
 | HTTP gateway | Caddy container | Express static + reverse-proxy inside the API process |
 | Worker | Separate worker container | Spawned child process inside the SPK |
-| ffmpeg | Bundled in worker image | DSM `CodecPack` ffmpeg or static binary in `lib/` |
+| ffmpeg | Bundled in worker image | SynoCommunity `ffmpeg7` (Intel GPU via VAAPI, set `hwaccel` = `vaapi`), else DSM `CodecPack` ffmpeg, else CPU-only static binary in `lib/` |
 | Auto-update | Watchtower polling GHCR | DSM Package Center built-in |
 | Process count | 8 containers | 2 processes (api + worker), 1 SQLite file |
 | RAM footprint | ~1.2 GB | ~250 MB target |
