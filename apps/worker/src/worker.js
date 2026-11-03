@@ -497,11 +497,16 @@ async function runFfmpeg(rendition) {
     videoArgs = ["-vf", "scale_qsv=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate, ...keyframes, "-forced_idr", "1"];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else if (HW === "vaapi") {
-    // VAAPI on Intel iGPU: software-decode the input, upload frames to GPU,
-    // scale + encode in hardware. -vaapi_device wires up /dev/dri/renderD128.
-    pre.push("-vaapi_device", "/dev/dri/renderD128");
+    // VAAPI on Intel iGPU: decode, scale and encode all on the GPU (4K H.264
+    // software decode was ~95% of the CPU cost). Streams the GPU can't decode
+    // (e.g. H.264 4:2:2 10-bit) fall back to CPU decode: format=nv12|vaapi +
+    // hwupload uploads those and passes GPU frames through untouched.
+    // scale_vaapi format=nv12 turns 10-bit GPU frames (HEVC Main 10) into
+    // 8-bit, which h264_vaapi requires.
+    pre.push("-init_hw_device", "vaapi=va:/dev/dri/renderD128", "-hwaccel", "vaapi", "-hwaccel_device", "va",
+      "-hwaccel_output_format", "vaapi", "-filter_hw_device", "va");
     const enc = codec === "h265" ? "hevc_vaapi" : "h264_vaapi";
-    videoArgs = ["-vf", "format=nv12,hwupload,scale_vaapi=-2:" + rendition.height, "-c:v", enc, "-b:v", effectiveBitrate, ...keyframes];
+    videoArgs = ["-vf", "format=nv12|vaapi,hwupload,scale_vaapi=w=-2:h=" + rendition.height + ":format=nv12", "-c:v", enc, "-b:v", effectiveBitrate, ...keyframes];
     if (codec === "h265") videoArgs.push("-tag:v", "hvc1");
   } else {
     const enc = codec === "h265" ? "libx265" : "libx264";
