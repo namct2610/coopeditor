@@ -1,11 +1,10 @@
 {
-  "version": "1.0.0-rc67",
-  "summary": "Transcode proxy bang GPU Intel (QuickSync qua VAAPI) tren NAS Intel: nhanh hon va do ton CPU hon nhieu so voi libx264.",
+  "version": "1.0.0-rc68",
+  "summary": "Khi bat hwaccel=vaapi, video goc cung duoc giai ma bang GPU Intel: proxy 4K H.264 ton CPU it hon khoang 38 lan va nhanh hon khoang 5 lan.",
   "changes": [
-    "Neu NAS da cai goi FFmpeg 7 cua SynoCommunity (kem SynoCli Video Driver), Coopeditor tu dung ffmpeg do thay cho ban ffmpeg tinh di kem (ban nay chi chay CPU).",
-    "Goi khai bao video-driver giong Plex: DSM tu cho user coopeditor vao nhom videodriver de duoc dung /dev/dri/renderD128.",
-    "Bat GPU: dat \"hwaccel\": \"vaapi\" trong muc transcode cua var/conf/runtime-config.json. Worker tu kiem tra GPU luc khoi dong, loi thi quay ve CPU libx264; trang Cai dat hien worker dang dung vaapi hay CPU.",
-    "Gom luon ban sua cua rc66: khong con transcode lai ca thu vien moi lan khoi dong."
+    "Che do vaapi gio giai ma, thu nho va ma hoa deu tren GPU. Truoc day video goc 4K H.264 van giai ma bang CPU, chiem gan het tai CPU.",
+    "Video GPU khong giai ma duoc (vi du H.264 4:2:2 10-bit) tu dong giai ma bang CPU nhu cu, roi ma hoa bang GPU.",
+    "Video HEVC 10-bit duoc chuyen sang 8-bit ngay tren GPU truoc khi ma hoa H.264."
   ],
-  "publishedAt": "2026-11-03T09:51:06.000Z"
+  "publishedAt": "2026-11-03T10:30:00.000Z"
 }
